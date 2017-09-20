@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <AssemblyName>GalleryServer.Business.Interfaces</AssemblyName>
+    <RootNamespace>GalleryServer.Business.Interfaces</RootNamespace>
+  </PropertyGroup>
+
+</Project>
