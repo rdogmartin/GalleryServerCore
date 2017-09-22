@@ -7,6 +7,10 @@ namespace GalleryServer.Data
     /// <inheritdoc />
     public class GalleryDb : IdentityDbContext<ApplicationUser>
     {
+        public GalleryDb()
+        {
+        }
+
         public GalleryDb(DbContextOptions<GalleryDb> options) : base(options)
         {
         }

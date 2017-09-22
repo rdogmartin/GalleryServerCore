@@ -2,6 +2,8 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <UserSecretsId>aspnet-Gs.Web-9C7B34C1-AB4F-4BA5-A3E8-C38578D3CBB6</UserSecretsId>
+    <AssemblyName>GalleryServer.Web</AssemblyName>
+    <RootNamespace>GalleryServer.Web</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.0" />
@@ -14,6 +16,8 @@
     <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Gs.Data\Gs.Data.csproj" />
+    <ProjectReference Include="..\Gs.Business.Interfaces\Gs.Business.Interfaces.csproj" />
+    <ProjectReference Include="..\Gs.Business\Gs.Business.csproj" />
+    <ProjectReference Include="..\Gs.Events\Gs.Events.csproj" />
   </ItemGroup>
 </Project>
