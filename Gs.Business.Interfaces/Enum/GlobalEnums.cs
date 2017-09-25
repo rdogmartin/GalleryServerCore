@@ -147,36 +147,36 @@ namespace GalleryServer.Business
     }
 
     /// <summary>
-    /// Contains functionality to support the <see cref="System.Drawing.ContentAlignment" /> enumeration.
+    /// Contains functionality to support the <see cref="ContentAlignment" /> enumeration.
     /// </summary>
     public static class ContentAlignmentEnumHelper
     {
-        ///// <summary>
-        ///// Determines if the <paramref name="contentAlignment" /> parameter is one of the defined enumerations. This method is 
-        ///// more efficient than using <see cref="Enum.IsDefined" />, since <see cref="Enum.IsDefined" /> uses reflection.
-        ///// </summary>
-        ///// <param name="contentAlignment">A of <see cref="System.Drawing.ContentAlignment" /> to test.</param>
-        ///// <returns>Returns true if contentAlignment is one of the defined items in the enumeration; otherwise returns false.</returns>
-        //public static bool IsValidContentAlignment(System.Drawing.ContentAlignment contentAlignment)
-        //{
-        //  switch (contentAlignment)
-        //  {
-        //    case System.Drawing.ContentAlignment.BottomCenter:
-        //    case System.Drawing.ContentAlignment.BottomLeft:
-        //    case System.Drawing.ContentAlignment.BottomRight:
-        //    case System.Drawing.ContentAlignment.MiddleCenter:
-        //    case System.Drawing.ContentAlignment.MiddleLeft:
-        //    case System.Drawing.ContentAlignment.MiddleRight:
-        //    case System.Drawing.ContentAlignment.TopCenter:
-        //    case System.Drawing.ContentAlignment.TopLeft:
-        //    case System.Drawing.ContentAlignment.TopRight:
-        //      break;
+        /// <summary>
+        /// Determines if the <paramref name="contentAlignment" /> parameter is one of the defined enumerations. This method is 
+        /// more efficient than using <see cref="Enum.IsDefined" />, since <see cref="Enum.IsDefined" /> uses reflection.
+        /// </summary>
+        /// <param name="contentAlignment">A of <see cref="ContentAlignment" /> to test.</param>
+        /// <returns>Returns true if contentAlignment is one of the defined items in the enumeration; otherwise returns false.</returns>
+        public static bool IsValidContentAlignment(ContentAlignment contentAlignment)
+        {
+            switch (contentAlignment)
+            {
+                case ContentAlignment.BottomCenter:
+                case ContentAlignment.BottomLeft:
+                case ContentAlignment.BottomRight:
+                case ContentAlignment.MiddleCenter:
+                case ContentAlignment.MiddleLeft:
+                case ContentAlignment.MiddleRight:
+                case ContentAlignment.TopCenter:
+                case ContentAlignment.TopLeft:
+                case ContentAlignment.TopRight:
+                    break;
 
-        //    default:
-        //      return false;
-        //  }
-        //  return true;
-        //}
+                default:
+                    return false;
+            }
+            return true;
+        }
     }
 
     /// <summary>

@@ -1,5 +1,4 @@
-﻿using System.Data.Entity;
-using System.Globalization;
+﻿using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +6,7 @@ using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.Metadata;
 using GalleryServer.Business.Properties;
 using GalleryServer.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace GalleryServer.Business
 {
@@ -456,7 +456,7 @@ namespace GalleryServer.Business
         rootAlbum = Factory.CreateEmptyAlbumInstance(SearchOptions.GalleryId);
         rootAlbum.IsVirtualAlbum = true;
         rootAlbum.VirtualAlbumType = VirtualAlbumType.Root;
-        rootAlbum.Title = Resources.Virtual_Album_Title;
+        rootAlbum.Title = "ALL ALBUMS";
         rootAlbum.Caption = String.Empty;
         rootAlbum.IsInflated = true;
         foreach (var album in rootAlbums)

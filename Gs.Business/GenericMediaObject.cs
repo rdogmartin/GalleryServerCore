@@ -203,7 +203,7 @@ namespace GalleryServer.Business
 				Factory.LoadGenericMediaObjectInstance(this);
 
 				if ((!this.IsInflated) || (this.HasChanges))
-					throw new System.InvalidOperationException(String.Format(CultureInfo.CurrentCulture, Resources.GenericMediaObject_Inflate_Ex_Msg, this.IsInflated, this.HasChanges));
+					throw new System.InvalidOperationException($"The Factory.LoadGenericMediaObjectInstance(IGalleryObject) method should have set IsInflated=true and HasChanges=false. Instead it currently has these values: IsInflated={this.IsInflated}; HasChanges={this.HasChanges}.");
 			}
 		}
 

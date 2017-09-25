@@ -109,14 +109,14 @@ namespace GalleryServer.Business.Metadata
 		{
 			var width = FFmpeg.ParseSourceVideoWidth(FfmpegOutput);
 
-			return (width > int.MinValue ? new MetaValue(String.Concat(width, " ", Resources.Metadata_Width_Units), width.ToString(CultureInfo.InvariantCulture)) : null);
+			return (width > int.MinValue ? new MetaValue( $"{width} px", width.ToString(CultureInfo.InvariantCulture)) : null);
 		}
 
 		private IMetaValue GetHeight()
 		{
 			var height = FFmpeg.ParseSourceVideoHeight(FfmpegOutput);
 
-			return (height > int.MinValue ? new MetaValue(String.Concat(height, " ", Resources.Metadata_Height_Units), height.ToString(CultureInfo.InvariantCulture)) : null);
+			return (height > int.MinValue ? new MetaValue($"{height} px", height.ToString(CultureInfo.InvariantCulture)) : null);
 		}
 
 		private IMetaValue GetRotation()

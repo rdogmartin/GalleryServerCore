@@ -52,7 +52,7 @@ namespace GalleryServer.Business.Metadata
 
 					int fileSize = (int)(fi.Length / 1024);
 					fileSize = (fileSize < 1 ? 1 : fileSize); // Very small files should be 1, not 0.
-					return new MetaValue(String.Concat(fileSize.ToString("N0", CultureInfo.CurrentCulture), " ", Resources.Metadata_KB), fileSize.ToString(CultureInfo.InvariantCulture));
+					return new MetaValue(String.Concat(fileSize.ToString("N0", CultureInfo.CurrentCulture), " KB"), fileSize.ToString(CultureInfo.InvariantCulture));
 
 				case MetadataItemName.DateFileCreated:
 					return (fi != null ? new MetaValue(fi.CreationTime.ToString(DateTimeFormatString, CultureInfo.InvariantCulture), fi.CreationTime.ToString("O", CultureInfo.InvariantCulture)) : null);

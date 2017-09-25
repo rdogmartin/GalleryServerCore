@@ -417,7 +417,7 @@ namespace GalleryServer.Business
       int slashLocation = fullMimeType.IndexOf("/", StringComparison.Ordinal);
       if (slashLocation < 0)
       {
-        throw new ArgumentException(String.Format(CultureInfo.CurrentCulture, Resources.MimeType_Ctor_Ex_Msg, fullMimeType), nameof(fullMimeType));
+        throw new ArgumentException($"Invalid MIME type: \"{fullMimeType}\". The MIME type must be valid (e.g. \"image/jpg\", \"video/quicktime\".", nameof(fullMimeType));
       }
 
       majorType = fullMimeType.Substring(0, slashLocation);
@@ -425,7 +425,7 @@ namespace GalleryServer.Business
 
       if ((String.IsNullOrEmpty(majorType)) || (String.IsNullOrEmpty(subType)))
       {
-        throw new ArgumentException(String.Format(CultureInfo.CurrentCulture, Resources.MimeType_Ctor_Ex_Msg, fullMimeType), nameof(fullMimeType));
+        throw new ArgumentException($"Invalid MIME type: \"{fullMimeType}\". The MIME type must be valid (e.g. \"image/jpg\", \"video/quicktime\".", nameof(fullMimeType));
       }
     }
 

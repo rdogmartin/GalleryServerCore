@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.NullObjects;
-using GalleryServer.Business.Properties;
 using GalleryServer.Events;
 using GalleryServer.Events.CustomExceptions;
 
@@ -81,7 +80,7 @@ namespace GalleryServer.Business
 			{
 				// User album doesn't exist. Record the error and then return because there is no problem with deleting the current album.
 				string galleryDescription = Factory.LoadGallery(gallerySetting.GalleryId).Description;
-				string msg = String.Format(CultureInfo.CurrentCulture, Resources.Error_User_Album_Parent_Invalid_Ex_Msg, galleryDescription, _albumToDelete.Id);
+				string msg = $"User Album Parent Invalid: The gallery '{galleryDescription}' has an album ID specified ({_albumToDelete.Id}) as the user album container and it does not match an existing album. Review this setting in the administration area.";
 				EventController.RecordError(new WebException(msg, ex), AppSetting.Instance, _albumToDelete.GalleryId, Factory.LoadGallerySettings());
 				return;
 			}
@@ -225,7 +224,7 @@ namespace GalleryServer.Business
 				// Media object doesn't exist. This won't prevent us from deleting the album but we should note the issue, since
 				// it can cause problems to specify a media object that doesn't exist for the default gallery object.
 				string galleryDescription = Factory.LoadGallery(_albumToDelete.GalleryId).Description;
-				string msg = String.Format(CultureInfo.CurrentCulture, Resources.Error_Default_Gallery_Object_MediaObject_Invalid_Ex_Msg, galleryDescription, _albumToDelete.Id);
+				string msg = $"Default Gallery Asset Media Asset Invalid: The gallery '{galleryDescription}' has a media asset ID specified ({_albumToDelete.Id}) as the default gallery asset and it does not match an existing media asset. Review this setting in the administration area.";
 				EventController.RecordError(new BusinessException(msg, ex), AppSetting.Instance, _albumToDelete.GalleryId, Factory.LoadGallerySettings());
 			}
 
@@ -249,7 +248,7 @@ namespace GalleryServer.Business
 				// Album doesn't exist. This won't prevent us from deleting the album but we should note the issue, since
 				// it can cause problems to specify an album that doesn't exist for the default gallery object.
 				string galleryDescription = Factory.LoadGallery(_albumToDelete.GalleryId).Description;
-				string msg = String.Format(CultureInfo.CurrentCulture, Resources.Error_Default_Gallery_Object_Album_Invalid_Ex_Msg, galleryDescription, _albumToDelete.Id);
+				string msg = $"Default Gallery Asset Album Invalid: The gallery '{galleryDescription}' has an album ID specified ({_albumToDelete.Id}) as the default gallery asset and it does not match an existing album. Review this setting in the administration area.";
 				EventController.RecordError(new BusinessException(msg, ex), AppSetting.Instance, _albumToDelete.GalleryId, Factory.LoadGallerySettings());
 			}
 

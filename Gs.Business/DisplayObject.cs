@@ -1,10 +1,11 @@
 using System;
+using System.Drawing;
 using System.Globalization;
 using System.Windows;
-using System.Windows.Media.Imaging;
+//using System.Windows.Media.Imaging;
 using GalleryServer.Business.Interfaces;
-using GalleryServer.Business.Properties;
 using GalleryServer.Events.CustomExceptions;
+using Microsoft.ApplicationInsights.AspNetCore;
 
 namespace GalleryServer.Business
 {
@@ -286,7 +287,7 @@ namespace GalleryServer.Business
 							|| (String.Equals(newDirPath, albumOptimizedPath, StringComparison.OrdinalIgnoreCase))
 							|| (String.Equals(newDirPath, albumThumbnailPath, StringComparison.OrdinalIgnoreCase))))
 						{
-							throw new InvalidMediaObjectException(String.Format(CultureInfo.CurrentCulture, Resources.DisplayObject_FileInfo_Ex_Msg, value.Name, parentAlbum.Id, albumOriginalPath, albumOptimizedPath, albumThumbnailPath));
+							throw new InvalidMediaObjectException($"Invalid media asset file location: The media asset {value.Name} is not located in the following directories that are valid for album {parentAlbum.Id}: {albumOriginalPath}; {albumOptimizedPath}; {albumThumbnailPath}");
 						}
 					}
 				}
@@ -517,10 +518,10 @@ namespace GalleryServer.Business
 
 		/// <summary>
 		/// Gets the width and height of this display object. The value is calculated from the physical file. Returns an empty
-		/// <see cref="System.Windows.Size" /> instance if the value cannot be computed or is not applicable to the object
+		/// <see cref="Size" /> instance if the value cannot be computed or is not applicable to the object
 		/// (for example, for audio files and external media objects).
 		/// </summary>
-		/// <returns><see cref="System.Windows.Size" />.</returns>
+		/// <returns><see cref="Size" />.</returns>
 		public Size GetSize()
 		{
 			return DisplayObjectCreator.GetSize(this);

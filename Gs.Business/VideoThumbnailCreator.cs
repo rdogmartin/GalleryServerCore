@@ -67,7 +67,7 @@ namespace GalleryServer.Business
 				// FFmpeg successfully created a thumbnail image the same size as the video. Now resize it to the width and height we need.
 				using (Bitmap originalBitmap = new Bitmap(tmpVideoThumbnailPath))
 				{
-					var newSize = CalculateWidthAndHeight(new System.Windows.Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, false);
+					var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, false);
 
 					// Get JPEG quality value (0 - 100). This is ignored if imgFormat = GIF.
 					int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
@@ -106,20 +106,23 @@ namespace GalleryServer.Business
 			}
 			else
 			{
-				// FFmpeg didn't run or no thumbnail image was created by FFmpeg. Build a generic video thumbnail.
-				using (Bitmap originalBitmap = Resources.GenericThumbnailImage_Video)
-				{
-					var newSize = CalculateWidthAndHeight(new System.Windows.Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
+                // FFmpeg didn't run or no thumbnail image was created by FFmpeg. Build a generic video thumbnail.
+			    using (var ms = new MemoryStream(Resources.GenericThumbnailImage_Video))
+			    {
+                    using (var originalBitmap = new Bitmap(ms))
+				    {
+					    var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
 
-					// Get JPEG quality value (0 - 100).
-					int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
+					    // Get JPEG quality value (0 - 100).
+					    int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
 
-					// Generate the new image and save to disk.
-					var size = ImageHelper.SaveImageFile(originalBitmap, newFilePath, ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
+					    // Generate the new image and save to disk.
+					    var size = ImageHelper.SaveImageFile(originalBitmap, newFilePath, ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
 
-					GalleryObject.Thumbnail.Width = (int)size.Width;
-					GalleryObject.Thumbnail.Height = (int)size.Height;
-				}
+					    GalleryObject.Thumbnail.Width = (int)size.Width;
+					    GalleryObject.Thumbnail.Height = (int)size.Height;
+				    }
+			    }
 			}
 
 			GalleryObject.Thumbnail.FileName = newFilename;

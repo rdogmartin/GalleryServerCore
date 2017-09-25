@@ -54,7 +54,7 @@ namespace GalleryServer.Business
 			// Get reference to the bitmap from which the thumbnail image will be generated.
 			using (Bitmap originalBitmap = GetGenericThumbnailBitmap(GalleryObject.MimeType))
 			{
-				var newSize = CalculateWidthAndHeight(new System.Windows.Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
+				var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
 
 				// Get JPEG quality value (0 - 100). This is ignored if imgFormat = GIF.
 				int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
@@ -80,10 +80,10 @@ namespace GalleryServer.Business
 
 			switch (mimeType.MajorType.ToUpperInvariant())
 			{
-				case "AUDIO": thumbnailBitmap = Resources.GenericThumbnailImage_Audio; break;
-				case "VIDEO": thumbnailBitmap = Resources.GenericThumbnailImage_Video; break;
-				case "IMAGE": thumbnailBitmap = Resources.GenericThumbnailImage_Image; break;
-				default: thumbnailBitmap = Resources.GenericThumbnailImage_Unknown; break;
+				case "AUDIO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Audio)); break;
+				case "VIDEO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Video)); break;
+				case "IMAGE": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Image)); break;
+				default: thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Unknown)); break;
 			}
 
 			return thumbnailBitmap;

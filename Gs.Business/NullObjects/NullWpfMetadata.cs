@@ -1,6 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Windows.Media.Imaging;
+//using System.Windows.Media.Imaging;
 using GalleryServer.Business.Interfaces;
 
 namespace GalleryServer.Business.NullObjects

@@ -301,7 +301,7 @@ namespace GalleryServer.Business
         {
           if (totalFileCount.Value < 0)
           {
-            throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, Resources.SynchronizationStatus_TotalFileCount_Ex_Msg, totalFileCount.Value));
+            throw new ArgumentOutOfRangeException($"TotalFileCount must be an integer greater than or equal to zero. Attempted to assign TotalFileCount = {totalFileCount.Value}.");
           }
 
           this._totalFileCount = totalFileCount.Value;
@@ -316,7 +316,7 @@ namespace GalleryServer.Business
         {
           if ((currentFileIndex.Value < 0) || ((currentFileIndex.Value > 0) && (currentFileIndex.Value >= this._totalFileCount)))
           {
-            throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, Resources.SynchronizationStatus_CurrentFileIndex_Ex_Msg, currentFileIndex.Value, this._totalFileCount));
+            throw new ArgumentOutOfRangeException($"CurrentFileIndex must be an integer between 0 and TotalFileCount - 1. Attempted to assign CurrentFileIndex = {currentFileIndex.Value}; TotalFileCount = {this._totalFileCount}.");
           }
 
           this._currentFileIndex = currentFileIndex.Value;

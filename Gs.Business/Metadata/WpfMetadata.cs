@@ -1,7 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Windows.Media.Imaging;
+//using System.Windows.Media.Imaging;
 using GalleryServer.Business.Interfaces;
 
 namespace GalleryServer.Business.Metadata
@@ -22,12 +22,12 @@ namespace GalleryServer.Business.Metadata
     {
       GalleryObject = galleryObject;
 
-      if (MetaExtractionMethod == MetadataExtractionMethod.BitmapDecoder || MetaExtractionMethod == MetadataExtractionMethod.Both)
-      {
-        Metadata = GetBitmapMetadataUsingBitmapDecoderTechnique();
-      }
+      //if (MetaExtractionMethod == MetadataExtractionMethod.BitmapDecoder || MetaExtractionMethod == MetadataExtractionMethod.Both)
+      //{
+      //  Metadata = GetBitmapMetadataUsingBitmapDecoderTechnique();
+      //}
 
-      ExtractMetadata();
+      //ExtractMetadata();
     }
 
     #endregion
@@ -54,13 +54,13 @@ namespace GalleryServer.Business.Metadata
     /// <value>The meta extraction method.</value>
     private static MetadataExtractionMethod MetaExtractionMethod => MetadataExtractionMethod.Both;
 
-    /// <summary>
-    /// Gets the metadata for the <see cref="GalleryObject" />. This property is initialized in the constructor and lasts for the lifetime of
-    /// the instance. Note that it will be null when <see cref="MetaExtractionMethod" /> is <see cref="MetadataExtractionMethod.BitmapDecoder" />
-    /// or when an unexpected error occurs while retrieving it.
-    /// </summary>
-    /// <value>An instance of <see cref="BitmapMetadata" /> or null.</value>
-    private BitmapMetadata Metadata { get; }
+    ///// <summary>
+    ///// Gets the metadata for the <see cref="GalleryObject" />. This property is initialized in the constructor and lasts for the lifetime of
+    ///// the instance. Note that it will be null when <see cref="MetaExtractionMethod" /> is <see cref="MetadataExtractionMethod.BitmapDecoder" />
+    ///// or when an unexpected error occurs while retrieving it.
+    ///// </summary>
+    ///// <value>An instance of <see cref="BitmapMetadata" /> or null.</value>
+    //private BitmapMetadata Metadata { get; }
 
     /// <summary>
     /// Gets the gallery object containing the metadata to retrieve.
@@ -173,18 +173,18 @@ namespace GalleryServer.Business.Metadata
     {
       object queryResult = null;
 
-      if (Metadata != null)
-      {
-        queryResult = Metadata.GetQuery(query);
-      }
+      //if (Metadata != null)
+      //{
+      //  queryResult = Metadata.GetQuery(query);
+      //}
 
-      if (queryResult == null && (MetaExtractionMethod == MetadataExtractionMethod.BitmapFrame || MetaExtractionMethod == MetadataExtractionMethod.Both))
-      {
-        using (var fs = GetImageFileStream())
-        {
-          return (fs != null ? GetBitmapMetadataUsingBitmapFrameTechnique(fs)?.GetQuery(query) : null);
-        }
-      }
+      //if (queryResult == null && (MetaExtractionMethod == MetadataExtractionMethod.BitmapFrame || MetaExtractionMethod == MetadataExtractionMethod.Both))
+      //{
+      //  using (var fs = GetImageFileStream())
+      //  {
+      //    return (fs != null ? GetBitmapMetadataUsingBitmapFrameTechnique(fs)?.GetQuery(query) : null);
+      //  }
+      //}
 
       return queryResult;
     }
@@ -193,163 +193,163 @@ namespace GalleryServer.Business.Metadata
 
     #region Functions
 
-    /// <summary>
-    /// Extracts the metadata in the <see cref="GalleryObject" /> and store in member properties.
-    /// </summary>
-    private void ExtractMetadata()
-    {
-      switch (MetaExtractionMethod)
-      {
-        case MetadataExtractionMethod.BitmapDecoder:
-          try
-          {
-            Author = Metadata?.Author;
-            CameraManufacturer = Metadata?.CameraManufacturer;
-            CameraModel = Metadata?.CameraModel;
-            Comment = Metadata?.Comment;
-            Copyright = Metadata?.Copyright;
-            DateTaken = Metadata?.DateTaken;
-            Keywords = Metadata?.Keywords;
-            Rating = Metadata?.Rating ?? 0;
-            Subject = Metadata?.Subject;
-            Title = Metadata?.Title;
-          }
-          catch (NotSupportedException) { } // Some image types, such as png, throw a NotSupportedException. Let's swallow them and move on.
-          catch (ArgumentException) { }
-          catch (InvalidOperationException) { }
+    ///// <summary>
+    ///// Extracts the metadata in the <see cref="GalleryObject" /> and store in member properties.
+    ///// </summary>
+    //private void ExtractMetadata()
+    //{
+    //  switch (MetaExtractionMethod)
+    //  {
+    //    case MetadataExtractionMethod.BitmapDecoder:
+    //      try
+    //      {
+    //        Author = Metadata?.Author;
+    //        CameraManufacturer = Metadata?.CameraManufacturer;
+    //        CameraModel = Metadata?.CameraModel;
+    //        Comment = Metadata?.Comment;
+    //        Copyright = Metadata?.Copyright;
+    //        DateTaken = Metadata?.DateTaken;
+    //        Keywords = Metadata?.Keywords;
+    //        Rating = Metadata?.Rating ?? 0;
+    //        Subject = Metadata?.Subject;
+    //        Title = Metadata?.Title;
+    //      }
+    //      catch (NotSupportedException) { } // Some image types, such as png, throw a NotSupportedException. Let's swallow them and move on.
+    //      catch (ArgumentException) { }
+    //      catch (InvalidOperationException) { }
 
-          break;
+    //      break;
 
-          case MetadataExtractionMethod.BitmapFrame: // When it's BitmapFrame, the Metadata property will be null so the following code correctly uses the BitmapFrame technique
-          case MetadataExtractionMethod.Both:
+    //      case MetadataExtractionMethod.BitmapFrame: // When it's BitmapFrame, the Metadata property will be null so the following code correctly uses the BitmapFrame technique
+    //      case MetadataExtractionMethod.Both:
 
-            using (var fs = GetImageFileStream())
-            {
-              var bmpMetadataAlt = GetBitmapMetadataUsingBitmapFrameTechnique(fs);
+    //        using (var fs = GetImageFileStream())
+    //        {
+    //          var bmpMetadataAlt = GetBitmapMetadataUsingBitmapFrameTechnique(fs);
 
-              try
-              {
-                Author = Metadata?.Author ?? bmpMetadataAlt?.Author;
-                CameraManufacturer = Metadata?.CameraManufacturer ?? bmpMetadataAlt?.CameraManufacturer;
-                CameraModel = Metadata?.CameraModel ?? bmpMetadataAlt?.CameraModel;
-                Comment = Metadata?.Comment ?? bmpMetadataAlt?.Comment;
-                Copyright = Metadata?.Copyright ?? bmpMetadataAlt?.Copyright;
-                DateTaken = Metadata?.DateTaken ?? bmpMetadataAlt?.DateTaken;
-                Keywords = Metadata?.Keywords ?? bmpMetadataAlt?.Keywords;
-                Rating = Metadata?.Rating ?? bmpMetadataAlt?.Rating ?? 0;
-                Subject = Metadata?.Subject ?? bmpMetadataAlt?.Subject;
-                Title = Metadata?.Title ?? bmpMetadataAlt?.Title;
-              }
-              catch (NotSupportedException) { } // Some image types, such as png, throw a NotSupportedException. Let's swallow them and move on.
-              catch (ArgumentException) { }
-              catch (InvalidOperationException) { }
-            }
+    //          try
+    //          {
+    //            Author = Metadata?.Author ?? bmpMetadataAlt?.Author;
+    //            CameraManufacturer = Metadata?.CameraManufacturer ?? bmpMetadataAlt?.CameraManufacturer;
+    //            CameraModel = Metadata?.CameraModel ?? bmpMetadataAlt?.CameraModel;
+    //            Comment = Metadata?.Comment ?? bmpMetadataAlt?.Comment;
+    //            Copyright = Metadata?.Copyright ?? bmpMetadataAlt?.Copyright;
+    //            DateTaken = Metadata?.DateTaken ?? bmpMetadataAlt?.DateTaken;
+    //            Keywords = Metadata?.Keywords ?? bmpMetadataAlt?.Keywords;
+    //            Rating = Metadata?.Rating ?? bmpMetadataAlt?.Rating ?? 0;
+    //            Subject = Metadata?.Subject ?? bmpMetadataAlt?.Subject;
+    //            Title = Metadata?.Title ?? bmpMetadataAlt?.Title;
+    //          }
+    //          catch (NotSupportedException) { } // Some image types, such as png, throw a NotSupportedException. Let's swallow them and move on.
+    //          catch (ArgumentException) { }
+    //          catch (InvalidOperationException) { }
+    //        }
 
-          break;
-      }
-    }
+    //      break;
+    //  }
+    //}
 
-    /// <summary>
-    /// Gets an instance of <see cref="BitmapMetadata" /> for the current <see cref="GalleryObject" /> using a technique that uses a
-    /// <see cref="BitmapDecoder" />. This method allows us to get a reference that lasts the lifetime of the instance without locking
-    /// the image file or hanging on to unnecessary memory. It's disadvantage is that it is unable to access metadata in some file
-    /// types such as NEF. Returns null if something unexpected happens (most common exceptions are silently swallowed).
-    /// </summary>
-    /// <returns>An instance of <see cref="BitmapMetadata" /> or null.</returns>
-    /// <remarks>This function is no longer used beginning with Gallery Server 4.0, but remains so that one can easily switch back to it if 
-    /// desired. <see cref="MetaExtractionMethod"/></remarks>
-    private BitmapMetadata GetBitmapMetadataUsingBitmapDecoderTechnique()
-    {
-      BitmapDecoder fileBitmapDecoder = GetBitmapDecoderReader();
+    ///// <summary>
+    ///// Gets an instance of <see cref="BitmapMetadata" /> for the current <see cref="GalleryObject" /> using a technique that uses a
+    ///// <see cref="BitmapDecoder" />. This method allows us to get a reference that lasts the lifetime of the instance without locking
+    ///// the image file or hanging on to unnecessary memory. It's disadvantage is that it is unable to access metadata in some file
+    ///// types such as NEF. Returns null if something unexpected happens (most common exceptions are silently swallowed).
+    ///// </summary>
+    ///// <returns>An instance of <see cref="BitmapMetadata" /> or null.</returns>
+    ///// <remarks>This function is no longer used beginning with Gallery Server 4.0, but remains so that one can easily switch back to it if 
+    ///// desired. <see cref="MetaExtractionMethod"/></remarks>
+    //private BitmapMetadata GetBitmapMetadataUsingBitmapDecoderTechnique()
+    //{
+    //  BitmapDecoder fileBitmapDecoder = GetBitmapDecoderReader();
 
-      if ((fileBitmapDecoder == null) || (fileBitmapDecoder.Frames.Count == 0))
-        return null;
+    //  if ((fileBitmapDecoder == null) || (fileBitmapDecoder.Frames.Count == 0))
+    //    return null;
 
-      BitmapFrame fileFirstFrame = fileBitmapDecoder.Frames[0];
+    //  BitmapFrame fileFirstFrame = fileBitmapDecoder.Frames[0];
 
-      BitmapDecoder firstFrameBitmapDecoder = fileFirstFrame?.Decoder;
+    //  BitmapDecoder firstFrameBitmapDecoder = fileFirstFrame?.Decoder;
 
-      if (firstFrameBitmapDecoder == null || (firstFrameBitmapDecoder.Frames.Count == 0))
-        return null;
+    //  if (firstFrameBitmapDecoder == null || (firstFrameBitmapDecoder.Frames.Count == 0))
+    //    return null;
 
-      BitmapFrame firstFrameInDecoderInFirstFrameOfFile = firstFrameBitmapDecoder.Frames[0];
+    //  BitmapFrame firstFrameInDecoderInFirstFrameOfFile = firstFrameBitmapDecoder.Frames[0];
 
-      // The Metadata property is of type ImageMetadata, so we must cast it to BitmapMetadata.
-      return firstFrameInDecoderInFirstFrameOfFile.Metadata as BitmapMetadata;
-    }
+    //  // The Metadata property is of type ImageMetadata, so we must cast it to BitmapMetadata.
+    //  return firstFrameInDecoderInFirstFrameOfFile.Metadata as BitmapMetadata;
+    //}
 
-    /// <summary>
-    /// Gets an instance of <see cref="BitmapDecoder" /> for the current <see cref="GalleryObject" />.
-    /// </summary>
-    /// <returns>An instance of <see cref="BitmapDecoder" />.</returns>
-    /// <remarks>This function is no longer used beginning with Gallery Server 4.0, but remains so that one can easily switch back to it if 
-    /// desired. <see cref="MetaExtractionMethod"/></remarks>
-    private BitmapDecoder GetBitmapDecoderReader()
-    {
-      var imageFilePath = GalleryObject.Original.FileNamePhysicalPath;
-      BitmapDecoder fileBitmapDecoder = null;
+    ///// <summary>
+    ///// Gets an instance of <see cref="BitmapDecoder" /> for the current <see cref="GalleryObject" />.
+    ///// </summary>
+    ///// <returns>An instance of <see cref="BitmapDecoder" />.</returns>
+    ///// <remarks>This function is no longer used beginning with Gallery Server 4.0, but remains so that one can easily switch back to it if 
+    ///// desired. <see cref="MetaExtractionMethod"/></remarks>
+    //private BitmapDecoder GetBitmapDecoderReader()
+    //{
+    //  var imageFilePath = GalleryObject.Original.FileNamePhysicalPath;
+    //  BitmapDecoder fileBitmapDecoder = null;
 
-      // Do not use the BitmapCacheOption.Default or None option, as it will hold a lock on the file until garbage collection. I discovered
-      // this problem and it has been submitted to MS as a bug. See thread in the managed newsgroup:
-      // http://www.microsoft.com/communities/newsgroups/en-us/default.aspx?dg=microsoft.public.dotnet.framework&tid=b694ada2-10c4-4999-81f8-97295eb024a9&cat=en_US_a4ab6128-1a11-4169-8005-1d640f3bd725&lang=en&cr=US&sloc=en-us&m=1&p=1
-      // Also do not use BitmapCacheOption.OnLoad as suggested in the thread, as it causes the memory to not be released until 
-      // eventually IIS crashes when you do things like synchronize 100 images.
-      // BitmapCacheOption.OnDemand seems to be the only option that doesn't lock the file or crash IIS.
-      // Update 2007-07-29: OnDemand seems to also lock the file. There is no good solution! Acckkk
-      // Update 2007-08-04: After installing VS 2008 beta 2, which also installs .NET 2.0 SP1, I discovered that OnLoad no longer crashes IIS.
-      // Update 2008-05-19: The Create method doesn't release the file lock when an exception occurs, such as when the file is a WMF. See:
-      // http://www.microsoft.com/communities/newsgroups/en-us/default.aspx?dg=microsoft.public.dotnet.framework&tid=fe3fb82f-0191-40a3-b789-0602cc4445d3&cat=&lang=&cr=&sloc=&p=1
-      // Bug submission: https://connect.microsoft.com/VisualStudio/feedback/ViewFeedback.aspx?FeedbackID=344914
-      // The workaround is to use a different overload of Create that takes a FileStream.
+    //  // Do not use the BitmapCacheOption.Default or None option, as it will hold a lock on the file until garbage collection. I discovered
+    //  // this problem and it has been submitted to MS as a bug. See thread in the managed newsgroup:
+    //  // http://www.microsoft.com/communities/newsgroups/en-us/default.aspx?dg=microsoft.public.dotnet.framework&tid=b694ada2-10c4-4999-81f8-97295eb024a9&cat=en_US_a4ab6128-1a11-4169-8005-1d640f3bd725&lang=en&cr=US&sloc=en-us&m=1&p=1
+    //  // Also do not use BitmapCacheOption.OnLoad as suggested in the thread, as it causes the memory to not be released until 
+    //  // eventually IIS crashes when you do things like synchronize 100 images.
+    //  // BitmapCacheOption.OnDemand seems to be the only option that doesn't lock the file or crash IIS.
+    //  // Update 2007-07-29: OnDemand seems to also lock the file. There is no good solution! Acckkk
+    //  // Update 2007-08-04: After installing VS 2008 beta 2, which also installs .NET 2.0 SP1, I discovered that OnLoad no longer crashes IIS.
+    //  // Update 2008-05-19: The Create method doesn't release the file lock when an exception occurs, such as when the file is a WMF. See:
+    //  // http://www.microsoft.com/communities/newsgroups/en-us/default.aspx?dg=microsoft.public.dotnet.framework&tid=fe3fb82f-0191-40a3-b789-0602cc4445d3&cat=&lang=&cr=&sloc=&p=1
+    //  // Bug submission: https://connect.microsoft.com/VisualStudio/feedback/ViewFeedback.aspx?FeedbackID=344914
+    //  // The workaround is to use a different overload of Create that takes a FileStream.
 
-      try
-      {
-        using (Stream stream = new FileStream(imageFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-        {
-          try
-          {
-            fileBitmapDecoder = BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-            // DO NOT USE: fileBitmapDecoder = BitmapDecoder.Create(new Uri(imageFilePath, UriKind.Absolute), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-          }
-          catch (NotSupportedException) { } // Thrown by some file types such as wmf
-          catch (InvalidOperationException) { } // Reported by some users
-          catch (ArgumentException) { } // Reported by some users
-          catch (FileFormatException) { } // Reported by some users
-          catch (IOException) { } // Reported by some users
-          catch (OverflowException) { } // Reported by some users
-          catch (OutOfMemoryException)
-          {
-            // The garbage collector will automatically run to try to clean up memory, so let's wait for it to finish and 
-            // try again. If it still doesn't work because the image is just too large and the system doesn't have enough
-            // memory, just give up.
-            GC.WaitForPendingFinalizers();
-            try
-            {
-              fileBitmapDecoder = BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-            }
-            catch (NotSupportedException) { }
-            catch (InvalidOperationException) { }
-            catch (ArgumentException) { }
-            catch (OutOfMemoryException) { }
-          }
-          catch (Exception ex)
-          {
-            if (!ex.Data.Contains("Note"))
-              ex.Data.Add("Note", "This error was silently handled by the application and did not cause user disruption.");
+    //  try
+    //  {
+    //    using (Stream stream = new FileStream(imageFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+    //    {
+    //      try
+    //      {
+    //        fileBitmapDecoder = BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+    //        // DO NOT USE: fileBitmapDecoder = BitmapDecoder.Create(new Uri(imageFilePath, UriKind.Absolute), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+    //      }
+    //      catch (NotSupportedException) { } // Thrown by some file types such as wmf
+    //      catch (InvalidOperationException) { } // Reported by some users
+    //      catch (ArgumentException) { } // Reported by some users
+    //      catch (FileFormatException) { } // Reported by some users
+    //      catch (IOException) { } // Reported by some users
+    //      catch (OverflowException) { } // Reported by some users
+    //      catch (OutOfMemoryException)
+    //      {
+    //        // The garbage collector will automatically run to try to clean up memory, so let's wait for it to finish and 
+    //        // try again. If it still doesn't work because the image is just too large and the system doesn't have enough
+    //        // memory, just give up.
+    //        GC.WaitForPendingFinalizers();
+    //        try
+    //        {
+    //          fileBitmapDecoder = BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+    //        }
+    //        catch (NotSupportedException) { }
+    //        catch (InvalidOperationException) { }
+    //        catch (ArgumentException) { }
+    //        catch (OutOfMemoryException) { }
+    //      }
+    //      catch (Exception ex)
+    //      {
+    //        if (!ex.Data.Contains("Note"))
+    //          ex.Data.Add("Note", "This error was silently handled by the application and did not cause user disruption.");
 
-            if (!ex.Data.Contains("Image File path"))
-              ex.Data.Add("Image File path", imageFilePath);
+    //        if (!ex.Data.Contains("Image File path"))
+    //          ex.Data.Add("Image File path", imageFilePath);
 
-            Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
-          }
-        }
-      }
-      catch (FileNotFoundException) { } // Return null if file not found
-      catch (DirectoryNotFoundException) { } // Return null if directory not found
-      catch (IOException) { } // Return null if IO problem occurs
+    //        Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
+    //      }
+    //    }
+    //  }
+    //  catch (FileNotFoundException) { } // Return null if file not found
+    //  catch (DirectoryNotFoundException) { } // Return null if directory not found
+    //  catch (IOException) { } // Return null if IO problem occurs
 
-      return fileBitmapDecoder;
-    }
+    //  return fileBitmapDecoder;
+    //}
 
     /// <summary>
     /// Gets a read-only <see cref="FileStream" /> for the current <see cref="GalleryObject" />. The caller must dispose the return
@@ -370,56 +370,56 @@ namespace GalleryServer.Business.Metadata
       return fs;
     }
 
-    /// <summary>
-    /// Gets an instance of <see cref="BitmapMetadata" /> from the specified <paramref name="stream" /> using a technique that uses the
-    /// <see cref="BitmapFrame" /> class. This technique allows one to access metadata that can't be retrieved through 
-    /// <see cref="GetBitmapMetadataUsingBitmapDecoderTechnique" />, such as NEF files. Returns null if something unexpected happens 
-    /// (most common exceptions are silently swallowed).
-    /// </summary>
-    /// <param name="stream">A read-only stream corresponding to the original image file of the <see cref="GalleryObject" />.</param>
-    /// <returns>An instance of <see cref="BitmapMetadata" /> or null.</returns>
-    private BitmapMetadata GetBitmapMetadataUsingBitmapFrameTechnique(Stream stream)
-    {
-      BitmapMetadata bmpMetadata = null;
-      try
-      {
-        // Tests showed that using BitmapCacheOption.OnLoad resulted in awful performance. BitmapCacheOption.Default took about 20% longer
-        bmpMetadata = BitmapFrame.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.None).Metadata as BitmapMetadata;
-      }
-      catch (NotSupportedException) { } // Thrown by some file types such as wmf
-      catch (InvalidOperationException) { } // Reported by some users
-      catch (ArgumentException) { } // Reported by some users
-      catch (FileFormatException) { } // Reported by some users
-      catch (IOException) { } // Reported by some users
-      catch (OverflowException) { } // Reported by some users
-      catch (OutOfMemoryException)
-      {
-        // The garbage collector will automatically run to try to clean up memory, so let's wait for it to finish and 
-        // try again. If it still doesn't work because the image is just too large and the system doesn't have enough
-        // memory, just give up.
-        GC.WaitForPendingFinalizers();
-        try
-        {
-          bmpMetadata = BitmapFrame.Create(stream).Metadata as BitmapMetadata;
-        }
-        catch (NotSupportedException) { }
-        catch (InvalidOperationException) { }
-        catch (ArgumentException) { }
-        catch (OutOfMemoryException) { }
-      }
-      catch (Exception ex)
-      {
-        if (!ex.Data.Contains("Note"))
-          ex.Data.Add("Note", "This error was silently handled by the application and did not cause user disruption.");
+    ///// <summary>
+    ///// Gets an instance of <see cref="BitmapMetadata" /> from the specified <paramref name="stream" /> using a technique that uses the
+    ///// <see cref="BitmapFrame" /> class. This technique allows one to access metadata that can't be retrieved through 
+    ///// <see cref="GetBitmapMetadataUsingBitmapDecoderTechnique" />, such as NEF files. Returns null if something unexpected happens 
+    ///// (most common exceptions are silently swallowed).
+    ///// </summary>
+    ///// <param name="stream">A read-only stream corresponding to the original image file of the <see cref="GalleryObject" />.</param>
+    ///// <returns>An instance of <see cref="BitmapMetadata" /> or null.</returns>
+    //private BitmapMetadata GetBitmapMetadataUsingBitmapFrameTechnique(Stream stream)
+    //{
+    //  BitmapMetadata bmpMetadata = null;
+    //  try
+    //  {
+    //    // Tests showed that using BitmapCacheOption.OnLoad resulted in awful performance. BitmapCacheOption.Default took about 20% longer
+    //    bmpMetadata = BitmapFrame.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.None).Metadata as BitmapMetadata;
+    //  }
+    //  catch (NotSupportedException) { } // Thrown by some file types such as wmf
+    //  catch (InvalidOperationException) { } // Reported by some users
+    //  catch (ArgumentException) { } // Reported by some users
+    //  catch (FileFormatException) { } // Reported by some users
+    //  catch (IOException) { } // Reported by some users
+    //  catch (OverflowException) { } // Reported by some users
+    //  catch (OutOfMemoryException)
+    //  {
+    //    // The garbage collector will automatically run to try to clean up memory, so let's wait for it to finish and 
+    //    // try again. If it still doesn't work because the image is just too large and the system doesn't have enough
+    //    // memory, just give up.
+    //    GC.WaitForPendingFinalizers();
+    //    try
+    //    {
+    //      bmpMetadata = BitmapFrame.Create(stream).Metadata as BitmapMetadata;
+    //    }
+    //    catch (NotSupportedException) { }
+    //    catch (InvalidOperationException) { }
+    //    catch (ArgumentException) { }
+    //    catch (OutOfMemoryException) { }
+    //  }
+    //  catch (Exception ex)
+    //  {
+    //    if (!ex.Data.Contains("Note"))
+    //      ex.Data.Add("Note", "This error was silently handled by the application and did not cause user disruption.");
 
-        if (!ex.Data.Contains("Image File path"))
-          ex.Data.Add("Image File path", GalleryObject.Original.FileNamePhysicalPath);
+    //    if (!ex.Data.Contains("Image File path"))
+    //      ex.Data.Add("Image File path", GalleryObject.Original.FileNamePhysicalPath);
 
-        Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
-      }
+    //    Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
+    //  }
 
-      return bmpMetadata;
-    }
+    //  return bmpMetadata;
+    //}
 
     #endregion
 

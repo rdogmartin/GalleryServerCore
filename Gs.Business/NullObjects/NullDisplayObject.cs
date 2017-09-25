@@ -1,5 +1,6 @@
 using System;
-using System.Windows.Media.Imaging;
+using System.Drawing;
+//using System.Windows.Media.Imaging;
 using GalleryServer.Business.Interfaces;
 
 namespace GalleryServer.Business.NullObjects
@@ -144,9 +145,9 @@ namespace GalleryServer.Business.NullObjects
 		{
 		}
 
-		public System.Windows.Size GetSize()
+		public Size GetSize()
 		{
-			return System.Windows.Size.Empty;
+			return Size.Empty;
 		}
 
 		public void Dispose()

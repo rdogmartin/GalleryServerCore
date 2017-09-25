@@ -1060,12 +1060,14 @@ namespace GalleryServer.Business
       }
     }
 
-    /// <summary>
-    /// Gets or sets the location for the watermark text on the recipient image. This value maps to the 
-    /// enumeration System.Drawing.ContentAlignment, and must be one of the following nine values:
-    /// TopLeft, TopCenter, TopRight, MiddleLeft, MiddleCenter, MiddleRight, BottomLeft, BottomCenter, BottomRight.
-    /// </summary>
-    public ContentAlignment WatermarkTextLocation
+        /// <summary>
+        /// Gets or sets the location for the watermark text on the recipient image. This value maps to the
+        /// enumeration System.Drawing.ContentAlignment, and must be one of the following nine values:
+        /// TopLeft, TopCenter, TopRight, MiddleLeft, MiddleCenter, MiddleRight, BottomLeft, BottomCenter, BottomRight.
+        /// </summary>
+        /// <value>The watermark text location.</value>
+        /// <exception cref="System.ComponentModel.InvalidEnumArgumentException"></exception>
+        public ContentAlignment WatermarkTextLocation
     {
       get { return _watermarkTextLocation; }
       set

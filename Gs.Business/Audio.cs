@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.Metadata;
-using GalleryServer.Business.Properties;
 using GalleryServer.Data;
 using GalleryServer.Events.CustomExceptions;
 
@@ -218,7 +217,7 @@ namespace GalleryServer.Business
 				Factory.LoadAudioInstance(this);
 
 				if ((!this.IsInflated) || (this.HasChanges))
-					throw new InvalidOperationException(String.Format(CultureInfo.CurrentCulture, Resources.Audio_Inflate_Ex_Msg, this.IsInflated, this.HasChanges));
+					throw new InvalidOperationException($"The Factory.LoadAudioInstance(IGalleryObject) method should have set IsInflated=true and HasChanges=false. Instead it currently has these values: IsInflated={this.IsInflated}; HasChanges={this.HasChanges}.");
 			}
 		}
 

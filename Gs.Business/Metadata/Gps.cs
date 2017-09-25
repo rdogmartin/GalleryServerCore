@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Globalization;
-using System.Windows.Media.Imaging;
+//using System.Windows.Media.Imaging;
 using GalleryServer.Business.Interfaces;
 
 namespace GalleryServer.Business.Metadata

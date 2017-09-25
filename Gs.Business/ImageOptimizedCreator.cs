@@ -67,7 +67,7 @@ namespace GalleryServer.Business
       {
         bool imageCreated = false;
 
-        var size = System.Windows.Size.Empty;
+        var size = System.Drawing.Size.Empty;
         if (Array.IndexOf<string>(gallerySetting.ImageMagickFileTypes, Path.GetExtension(GalleryObject.Original.FileName).ToLowerInvariant()) >= 0)
         {
           size = GenerateImageUsingImageMagick(newFilePath, gallerySetting.MaxOptimizedLength, gallerySetting.OptimizedImageJpegQuality);

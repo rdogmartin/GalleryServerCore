@@ -146,7 +146,7 @@ namespace GalleryServer.Business
       set
       {
         if (value == null)
-          throw new ArgumentNullException("value", Resources.GalleryObject_Parent_Ex_Msg);
+          throw new ArgumentNullException(nameof(value), "It is invalid to set the Parent property to null. If no valid object is available, set it to a NullGalleryObject instead.");
 
         var changingParent = (!(this._parent is NullObjects.NullGalleryObject) && this._parent.Id != value.Id);
         this._hasChanges = (this._parent == value ? this._hasChanges : true);
@@ -294,7 +294,7 @@ namespace GalleryServer.Business
       {
         if (this._isInflated)
         {
-          throw new System.InvalidOperationException(Resources.GalleryObject_IsInflated_Ex_Msg);
+          throw new System.InvalidOperationException("This gallery asset is already inflated. It cannot be inflated again.");
         }
 
         _isInflated = value;
@@ -1861,7 +1861,7 @@ namespace GalleryServer.Business
     {
       if ((!this.IsNew) && (!this.IsInflated))
       {
-        throw new System.InvalidOperationException(Resources.GalleryObject_ValidateSave_Ex_Msg);
+        throw new System.InvalidOperationException("Cannot save an existing object unless it has been fully inflated from the data store.");
       }
 
       VerifyInstanceIsUpdateable();
@@ -2069,7 +2069,8 @@ namespace GalleryServer.Business
           // all HTML would be preserved) and whether the setting for user-entered HTML/javascript is enabled (for all other
           // users). However, the clean method has no knowledge of the current user, so it'll strip HTML whenever HTML is disabled,
           // causing the HtmlSource value to lose data.
-          metaValue.FormattedValue = HtmlValidator.Clean(metaValue.FormattedValue, GalleryId);
+          throw new NotImplementedException("Cannot remove HTML/JavaScript from meta value because the HtmlValidator class has not been ported to .NET Core.");
+          //metaValue.FormattedValue = HtmlValidator.Clean(metaValue.FormattedValue, GalleryId);
         }
 
         metaValue = (!String.IsNullOrWhiteSpace(metaValue.FormattedValue) ? metaValue : TryGetFromExisting(metadataName));

@@ -55,19 +55,19 @@ namespace GalleryServer.Business.Interfaces
 		/// <value>An instance of <see cref="ProviderDataStore" />.</value>
 		ProviderDataStore GalleryDataStore { get; }
 
-		///// <summary>
-		///// Gets the connection string for the data store containing the gallery data.
-		///// </summary>
-		///// <value>The connection string.</value>
-		//string ConnectionString { get; }
+        /// <summary>
+        /// Gets the connection string for the data store containing the gallery data.
+        /// </summary>
+        /// <value>The connection string.</value>
+        string ConnectionString { get; }
 
-		/// <summary>
-		/// Gets a collection of names of membership tables whose data is to be imported or exported into or from a data store.
-		/// They are returned in the order in which they must be populated during a restoration. Reverse the collection if 
-		/// you wish to delete the table contents.
-		/// </summary>
-		/// <value>The membership table names.</value>
-		string[] MembershipTables { get; }
+        /// <summary>
+        /// Gets a collection of names of membership tables whose data is to be imported or exported into or from a data store.
+        /// They are returned in the order in which they must be populated during a restoration. Reverse the collection if 
+        /// you wish to delete the table contents.
+        /// </summary>
+        /// <value>The membership table names.</value>
+        string[] MembershipTables { get; }
 
 		/// <summary>
 		/// Gets a collection of names of gallery tables whose data is to be imported or exported into or from a data store.

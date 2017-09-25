@@ -273,7 +273,7 @@ namespace GalleryServer.Business
         foreach (var gsTmpl in repo.Where(g => g.Gallery.IsTemplate))
         {
           foundTmplGallerySettings = true;
-          if (!repo.Local.Any(gs => gs.SettingName == gsTmpl.SettingName && gs.FKGalleryId == GalleryId))
+          if (!repo.All.Any(gs => gs.SettingName == gsTmpl.SettingName && gs.FKGalleryId == GalleryId))
           {
             // This gallery is missing an entry for a gallery setting. Create one by copying it from the template gallery.
             repo.Add(new GallerySettingDto()
@@ -360,8 +360,8 @@ namespace GalleryServer.Business
             IsPrivate = false,
             Metadata = new Collection<MetadataDto>
             {
-              new MetadataDto {MetaName = MetadataItemName.Caption, Value = Resources.Root_Album_Default_Summary},
-              new MetadataDto {MetaName = MetadataItemName.Title, Value = Resources.Root_Album_Default_Title}
+              new MetadataDto {MetaName = MetadataItemName.Caption, Value = "Welcome to Gallery Server"},
+              new MetadataDto {MetaName = MetadataItemName.Title, Value = "ALL ALBUMS"}
             }
           };
 
@@ -454,7 +454,7 @@ namespace GalleryServer.Business
         // For each UI template, make sure one exists in the gallery
         foreach (var uiTmpl in tmplForTmplGallery)
         {
-          if (!repoUiTmpl.Local.Any(ui => ui.TemplateType == uiTmpl.TemplateType && ui.FKGalleryId == GalleryId && ui.Name == uiTmpl.Name))
+          if (!repoUiTmpl.All.Any(ui => ui.TemplateType == uiTmpl.TemplateType && ui.FKGalleryId == GalleryId && ui.Name == uiTmpl.Name))
           {
             // We need to add a UI template
             repoUiTmpl.Add(new UiTemplateDto()

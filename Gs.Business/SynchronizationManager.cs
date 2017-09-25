@@ -354,7 +354,7 @@ namespace GalleryServer.Business
       {
         if ((subdirectory.Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)
         {
-          _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(subdirectory.FullName.Remove(0, _fullMediaObjectPathLength + 1), Resources.SynchronizationStatus_Hidden_Directory_Msg));
+          _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(subdirectory.FullName.Remove(0, _fullMediaObjectPathLength + 1), "Hidden directory"));
           continue;
         }
 
@@ -411,7 +411,7 @@ namespace GalleryServer.Business
       }
       catch (UnauthorizedAccessException)
       {
-        _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(directory.Name, Resources.SynchronizationStatus_Restricted_Directory_Msg));
+        _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(directory.Name, "Cannot access directory"));
         throw;
       }
 
@@ -422,7 +422,7 @@ namespace GalleryServer.Business
       {
         if ((file.Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)
         {
-          _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(file.FullName.Remove(0, _fullMediaObjectPathLength + 1), Resources.SynchronizationStatus_Hidden_File_Msg));
+          _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(file.FullName.Remove(0, _fullMediaObjectPathLength + 1), "Hidden file"));
           continue;
         }
 
@@ -528,7 +528,7 @@ namespace GalleryServer.Business
       }
       catch (UnsupportedMediaObjectTypeException)
       {
-        _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(file.FullName.Remove(0, _fullMediaObjectPathLength + 1), Resources.SynchronizationStatus_Disabled_File_Type_Msg));
+        _synchStatus.SkippedMediaObjects.Add(new KeyValuePair<string, string>(file.FullName.Remove(0, _fullMediaObjectPathLength + 1), "Disabled file type"));
       }
     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.IO;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Events.CustomExceptions;
@@ -54,7 +55,7 @@ namespace GalleryServer.Business
       {
         var imageCreated = false;
 
-        var size = System.Windows.Size.Empty;
+        var size = Size.Empty;
         if (Array.IndexOf<string>(gallerySetting.ImageMagickFileTypes, Path.GetExtension(GalleryObject.Original.FileName).ToLowerInvariant()) >= 0)
         {
           size = GenerateImageUsingImageMagick(newFilePath, gallerySetting.MaxThumbnailLength, gallerySetting.ThumbnailImageJpegQuality);

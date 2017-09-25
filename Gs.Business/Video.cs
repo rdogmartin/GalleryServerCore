@@ -224,7 +224,7 @@ namespace GalleryServer.Business
 				Factory.LoadVideoInstance(this);
 
 				if ((!this.IsInflated) || (this.HasChanges))
-					throw new System.InvalidOperationException(String.Format(CultureInfo.CurrentCulture, Resources.Video_Inflate_Ex_Msg, this.IsInflated, this.HasChanges));
+					throw new System.InvalidOperationException($"The Factory.LoadVideoInstance(IGalleryObject) method should have set IsInflated=true and HasChanges=false. Instead it currently has these values: IsInflated={this.IsInflated}; HasChanges={this.HasChanges}.");
 			}
 		}
 

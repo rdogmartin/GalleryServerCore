@@ -83,7 +83,7 @@ namespace GalleryServer.Business
 					// ImageMagick successfully created a thumbnail image. Now resize it to the width and height we need.
 					using (var originalBitmap = new Bitmap(tmpImageThumbnailPath))
 					{
-						var newSize = CalculateWidthAndHeight(new System.Windows.Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, false);
+						var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, false);
 
 						// Get JPEG quality value (0 - 100). This is ignored if imgFormat = GIF.
 						int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
@@ -138,7 +138,7 @@ namespace GalleryServer.Business
 			// Build a generic thumbnail.
 			using (Bitmap originalBitmap = GetGenericThumbnailBitmap(GalleryObject.MimeType))
 			{
-				var newSize = CalculateWidthAndHeight(new System.Windows.Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
+				var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
 
 				// Get JPEG quality value (0 - 100).
 				int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
@@ -157,11 +157,11 @@ namespace GalleryServer.Business
 
 			switch (mimeType.MajorType.ToUpperInvariant())
 			{
-				case "AUDIO": thumbnailBitmap = Resources.GenericThumbnailImage_Audio; break;
-				case "VIDEO": thumbnailBitmap = Resources.GenericThumbnailImage_Video; break;
-				case "IMAGE": thumbnailBitmap = Resources.GenericThumbnailImage_Image; break;
+				case "AUDIO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Audio)); break;
+				case "VIDEO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Video)); break;
+				case "IMAGE": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Image)); break;
 				case "APPLICATION": thumbnailBitmap = GetGenericThumbnailBitmapByFileExtension(mimeType.Extension); break;
-				default: thumbnailBitmap = Resources.GenericThumbnailImage_Unknown; break;
+				default: thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Unknown)); break;
 			}
 
 			return thumbnailBitmap;
@@ -178,22 +178,22 @@ namespace GalleryServer.Business
 				case ".docm":
 				case ".dotm":
 				case ".dotx":
-				case ".docx": thumbnailBitmap = Resources.GenericThumbnailImage_Doc; break;
+				case ".docx": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Doc)); break;
 				case ".xls":
 				case ".xlam":
 				case ".xlsb":
 				case ".xlsm":
 				case ".xltm":
 				case ".xltx":
-				case ".xlsx": thumbnailBitmap = Resources.GenericThumbnailImage_Excel; break;
+				case ".xlsx": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Excel)); break;
 				case ".ppt":
 				case ".pps":
 				case ".pptx":
 				case ".potm":
 				case ".ppam":
-				case ".ppsm": thumbnailBitmap = Resources.GenericThumbnailImage_PowerPoint; break;
-				case ".pdf": thumbnailBitmap = Resources.GenericThumbnailImage_PDF; break;
-				default: thumbnailBitmap = Resources.GenericThumbnailImage_Unknown; break;
+				case ".ppsm": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_PowerPoint)); break;
+				case ".pdf": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_PDF)); break;
+				default: thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Unknown)); break;
 			}
 			return thumbnailBitmap;
 		}

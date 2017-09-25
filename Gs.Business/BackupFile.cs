@@ -79,22 +79,26 @@ namespace GalleryServer.Business
 			}
 		}
 
-		///// <summary>
-		///// Gets the connection string for the data store containing the gallery data.
-		///// </summary>
-		///// <value>The connection string.</value>
-		//public string ConnectionString
-		//{
-		//	get { return Factory.GetConnectionStringSettings().ConnectionString; }
-		//}
+        /// <summary>
+        /// Gets the connection string for the data store containing the gallery data.
+        /// </summary>
+        /// <value>The connection string.</value>
+        public string ConnectionString
+        {
+            get
+            {
+                throw new NotImplementedException();
+                //return Factory.GetConnectionStringSettings().ConnectionString;
+            }
+        }
 
-		/// <summary>
-		/// Gets a collection of names of membership tables whose data is to be imported or exported into or from a data store.
-		/// They are returned in the order in which they must be populated during a restoration. Reverse the collection if 
-		/// you wish to delete the table contents.
-		/// </summary>
-		/// <value>The membership table names.</value>
-		public string[] MembershipTables
+        /// <summary>
+        /// Gets a collection of names of membership tables whose data is to be imported or exported into or from a data store.
+        /// They are returned in the order in which they must be populated during a restoration. Reverse the collection if 
+        /// you wish to delete the table contents.
+        /// </summary>
+        /// <value>The membership table names.</value>
+        public string[] MembershipTables
 		{
 			get
 			{
