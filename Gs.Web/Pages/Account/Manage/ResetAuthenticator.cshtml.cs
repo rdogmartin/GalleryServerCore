@@ -12,11 +12,11 @@ namespace Gs.Web.Pages.Account.Manage
 {
     public class ResetAuthenticatorModel : PageModel
     {
-        UserManager<ApplicationUser> _userManager;
+        UserManager<GalleryUser> _userManager;
         ILogger<ResetAuthenticatorModel> _logger;
 
         public ResetAuthenticatorModel(
-            UserManager<ApplicationUser> userManager,
+            UserManager<GalleryUser> userManager,
             ILogger<ResetAuthenticatorModel> logger)
         {
             _userManager = userManager;

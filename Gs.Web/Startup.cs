@@ -31,7 +31,10 @@ namespace Gs.Web
         {
             services.AddDbContext<GalleryDb>(options => options.UseSqlServer(Configuration.GetConnectionString("GalleryCore")));
 
-            services.AddIdentity<ApplicationUser, IdentityRole>().AddEntityFrameworkStores<GalleryDb>().AddDefaultTokenProviders();
+            services.AddIdentity<GalleryUser, GalleryRole>()
+                .AddRoleManager<GalleryRoleManager>()
+                .AddEntityFrameworkStores<GalleryDb>()
+                .AddDefaultTokenProviders();
 
             services.AddMemoryCache();
 
@@ -89,8 +92,8 @@ namespace Gs.Web
                 context.Response.ContentType = "text/html";
                 await context.Response.SendFileAsync(System.IO.Path.Combine(env.WebRootPath, "index.html"));
             });
-
-            WebHelper.Configure(app.ApplicationServices.GetRequiredService<IHttpContextAccessor>(), app.ApplicationServices.GetRequiredService<IMemoryCache>());
+            
+            WebHelper.Configure(app.ApplicationServices.GetRequiredService<IHttpContextAccessor>(), app.ApplicationServices.GetRequiredService<IMemoryCache>(), app.ApplicationServices.GetRequiredService<SignInManager<GalleryUser>>(), app.ApplicationServices.GetRequiredService<GalleryRoleManager>());
 
             GalleryServer.Web.Controller.GalleryController.InitializeGspApplication();
         }

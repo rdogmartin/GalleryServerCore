@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
 //using System.Web.Configuration;
 using GalleryServer.Business;
@@ -15,7 +16,9 @@ using GalleryServer.Data;
 using GalleryServer.Events.CustomExceptions;
 using GalleryServer.Web.Entity;
 using Microsoft.ApplicationInsights.AspNetCore;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 
 namespace GalleryServer.Web.Controller
 {
@@ -63,33 +66,33 @@ namespace GalleryServer.Web.Controller
         {
             //try
             //{
-                InitializeApplication();
+            InitializeApplication();
 
-                lock (_sharedLock)
+            lock (_sharedLock)
+            {
+                if (IsInitialized)
+                    return;
+
+                if (WebHelper.HttpContext != null)
                 {
-                    if (IsInitialized)
-                        return;
+                    // Add a dummy value to session so that the session ID remains constant. (This is required by RoleController.GetRolesForUser())
+                    // Check for null session first. It will be null when this is triggered by a web method that does not have
+                    // session enabled (that is, the [WebMethod(EnableSession = true)] attribute). That's OK because the roles functionality
+                    // will still work (we might have to an extra data call, though), and we don't want the overhead of session for some web methods.
+                    if (WebHelper.HttpContext.Session != null)
+                        WebHelper.HttpContext.Session.SetInt32("1", 1);
 
-                    if (WebHelper.HttpContext != null)
-                    {
-                        // Add a dummy value to session so that the session ID remains constant. (This is required by RoleController.GetRolesForUser())
-                        // Check for null session first. It will be null when this is triggered by a web method that does not have
-                        // session enabled (that is, the [WebMethod(EnableSession = true)] attribute). That's OK because the roles functionality
-                        // will still work (we might have to an extra data call, though), and we don't want the overhead of session for some web methods.
-                        if (WebHelper.HttpContext.Session != null)
-                            WebHelper.HttpContext.Session.SetInt32("1", 1);
+                    // Update the user accounts in a few gallery settings. The DotNetNuke version requires this call to happen when there
+                    // is an HttpContext, so to reduce differences between the two branches we put it here.
+                    AddMembershipDataToGallerySettings();
 
-                        // Update the user accounts in a few gallery settings. The DotNetNuke version requires this call to happen when there
-                        // is an HttpContext, so to reduce differences between the two branches we put it here.
-                        AddMembershipDataToGallerySettings();
-
-                        _isInitialized = true;
-                    }
-
-                    AppEventController.LogEvent("Application has started.");
-
-                    //InsertSampleUsersAndRoles();
+                    _isInitialized = true;
                 }
+
+                AppEventController.LogEvent("Application has started.");
+
+                InsertSampleUsersAndRoles();
+            }
             //}
             //catch (ThreadAbortException)
             //{
@@ -117,9 +120,9 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <returns>Returns an <see cref="IGalleryCollection" /> containing the galleries the current user can administer.</returns>
         [DataObjectMethod(DataObjectMethodType.Select)]
-        public static IGalleryCollection GetGalleriesCurrentUserCanAdminister()
+        public static async Task<IGalleryCollection> GetGalleriesCurrentUserCanAdminister()
         {
-            return UserController.GetGalleriesCurrentUserCanAdminister();
+            return await UserController.GetGalleriesCurrentUserCanAdminister();
         }
 
         /// <summary>
@@ -376,15 +379,15 @@ namespace GalleryServer.Web.Controller
         /// <returns>Returns an instance of <see cref="GalleryData" />.</returns>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have
         /// permission to access the <paramref name="mediaObject" />.</exception>
-        public static GalleryData GetGalleryDataForMediaObject(IGalleryObject mediaObject, IAlbum mediaObjectContainer, GalleryDataLoadOptions options)
+        public static async Task<GalleryData> GetGalleryDataForMediaObject(IGalleryObject mediaObject, IAlbum mediaObjectContainer, GalleryDataLoadOptions options)
         {
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, RoleController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, Utils.IsAuthenticated, mediaObject.Parent.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, Utils.IsAuthenticated, mediaObject.Parent.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
 
             var data = new GalleryData
             {
                 App = GetAppEntity(),
                 Settings = null,
-                Album = AlbumController.ToAlbumEntity(mediaObjectContainer, options),
+                Album = await AlbumController.ToAlbumEntity(mediaObjectContainer, options),
                 ActiveMetaItems = null, // Assigned on client
                 ActiveGalleryItems = null, // Assigned on client
                                            //Resource = ResourceController.GetResourceEntity()
@@ -393,7 +396,7 @@ namespace GalleryServer.Web.Controller
             data.MediaItem = GetCurrentMediaItem(data, mediaObject);
 
             // Assign user, but only grab the required fields. We do this to prevent unnecessary user data from traveling the wire.
-            var user = UserController.GetUserEntity(Utils.UserName, mediaObject.GalleryId);
+            var user = await UserController.GetUserEntity(Utils.UserName, mediaObject.GalleryId);
             data.User = new User()
             {
                 UserName = user.UserName,
@@ -422,15 +425,15 @@ namespace GalleryServer.Web.Controller
         /// <returns>Returns an instance of <see cref="GalleryData" />.</returns>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have
         /// permission to access the <paramref name="album" />.</exception>
-        public static GalleryData GetGalleryDataForAlbum(IAlbum album, GalleryDataLoadOptions options)
+        public static async Task<GalleryData> GetGalleryDataForAlbum(IAlbum album, GalleryDataLoadOptions options)
         {
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
 
             var data = new GalleryData
             {
                 App = GetAppEntity(),
                 Settings = null,
-                Album = AlbumController.ToAlbumEntity(album, options),
+                Album = await AlbumController.ToAlbumEntity(album, options),
                 MediaItem = null,
                 ActiveMetaItems = null, // Assigned on client
                 ActiveGalleryItems = null, // Assigned on client
@@ -438,7 +441,7 @@ namespace GalleryServer.Web.Controller
             };
 
             // Assign user, but only grab the required fields. We do this to prevent unnecessary user data from traveling the wire.
-            var user = UserController.GetUserEntity(Utils.UserName, album.GalleryId);
+            var user = await UserController.GetUserEntity(Utils.UserName, album.GalleryId);
             data.User = new User()
             {
                 UserName = user.UserName,
@@ -729,7 +732,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        private static void GallerySettingsSaved(object sender, GallerySettingsEventArgs e)
+        private static async void GallerySettingsSaved(object sender, GallerySettingsEventArgs e)
         {
             // Finish populating those properties that weren't populated in the business layer.
             AddMembershipDataToGallerySettings();
@@ -737,36 +740,46 @@ namespace GalleryServer.Web.Controller
             // If the default roles setting has changed, add or remove users to/from roles on a background thread.
             if ((e.DefaultRolesForUserAdded != null && e.DefaultRolesForUserAdded.Length > 0) || (e.DefaultRolesForUserRemoved != null && e.DefaultRolesForUserRemoved.Length > 0))
             {
-                System.Threading.Tasks.Task.Factory.StartNew(() =>
-                 {
-                     try
-                     {
-                         // For each added role, find the users *NOT* in the role and add them to the role
-                         var allUsers = UserController.GetAllUsers();
-                         foreach (var roleName in e.DefaultRolesForUserAdded)
-                         {
-                             if (RoleController.RoleExists(roleName))
-                             {
-                                 RoleController.AddUsersToRole(allUsers.Select(u => u.UserName).Except(RoleController.GetUsersInRole(roleName)).ToArray(), roleName);
-                             }
-                         }
+                //System.Threading.Tasks.Task.Factory.StartNew(() =>
+                // {
+                //     try
+                //     {
+                // For each added role, find the users *NOT* in the role and add them to the role
+                var allUsers = UserController.GetAllUsers();
+                foreach (var roleName in e.DefaultRolesForUserAdded)
+                {
+                    if (await RoleController.RoleExists(roleName))
+                    {
+                        var usersInRole = (await RoleController.GetUsersInRole(roleName)).Select(u => u.UserName);
+                        foreach (var userName in allUsers.Select(u => u.UserName).Except(usersInRole))
+                        {
+                            RoleController.AddUserToRole(userName, roleName);
+                        }
 
-                         // For each removed role, find the users in the role and remove them from the role
-                         foreach (var roleName in e.DefaultRolesForUserRemoved)
-                         {
-                             if (RoleController.RoleExists(roleName))
-                             {
-                                 RoleController.RemoveUsersFromRole(RoleController.GetUsersInRole(roleName), roleName);
-                             }
-                         }
+                        //RoleController.AddUsersToRole(allUsers.Select(u => u.UserName).Except(RoleController.GetUsersInRole(roleName)).ToArray(), roleName);
+                    }
+                }
 
-                         CacheController.RemoveCache(CacheItem.GalleryServerRoles);
-                     }
-                     catch (Exception ex)
-                     {
-                         AppEventController.LogError(ex, e.GalleryId);
-                     }
-                 });
+                // For each removed role, find the users in the role and remove them from the role
+                foreach (var roleName in e.DefaultRolesForUserRemoved)
+                {
+                    if (await RoleController.RoleExists(roleName))
+                    {
+                        foreach (var user in await RoleController.GetUsersInRole(roleName))
+                        {
+                            RoleController.RemoveUserFromRole(user, roleName);
+                        }
+                        //RoleController.RemoveUsersFromRole(RoleController.GetUsersInRole(roleName), roleName);
+                    }
+                }
+
+                CacheController.RemoveCache(CacheItem.GalleryServerRoles);
+                //    }
+                //    catch (Exception ex)
+                //    {
+                //        AppEventController.LogError(ex, e.GalleryId);
+                //    }
+                //});
             }
         }
 
@@ -934,7 +947,7 @@ namespace GalleryServer.Web.Controller
             }
         }
 
-        private static IUserAccount CreateAdministrator(int galleryId)
+        private static Task<IUserAccount> CreateAdministrator(int galleryId)
         {
             var user = GetAdminUserFromInstallTextFile();
 
@@ -964,17 +977,17 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="System.ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
         /// <exception cref="InvalidUserException">Thrown when the <paramref name="user" />
         /// does not exist in Active Directory.</exception>
-        private static IUserAccount CreateActiveDirectoryAdministrator(User user)
+        private static async Task<IUserAccount> CreateActiveDirectoryAdministrator(User user)
         {
             if (user == null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException(nameof(user));
 
             if (UserController.MembershipGsp.GetType().ToString() != GlobalConstants.ActiveDirectoryMembershipProviderName)
             {
                 throw new InvalidOperationException($"The function CreateActiveDirectoryAdministrator should be called only when using ActiveDirectoryMembershipProvider. Instead, {UserController.MembershipGsp.GetType()} was detected.");
             }
 
-            var sysAdminRole = RoleController.ValidateSysAdminRole();
+            var sysAdminRole = await RoleController.ValidateSysAdminRole();
 
             IUserAccount userAccount = null;
             if (!String.IsNullOrEmpty(user.UserName))
@@ -986,14 +999,14 @@ namespace GalleryServer.Web.Controller
                     throw new InvalidUserException(string.Format("The Active Directory account {0} does not exist. Edit the text file at {1} to specify an existing AD account.", user.UserName, Utils.InstallFilePath));
                 }
 
-                if (!RoleController.IsUserInRole(user.UserName, sysAdminRole))
+                if (!await RoleController.IsUserInRole(user.UserName, sysAdminRole))
                 {
                     RoleController.AddUserToRole(user.UserName, sysAdminRole);
                 }
             }
 
             RoleController.CreateAuthUsersRole();
-            if (!RoleController.IsUserInRole(user.UserName, GlobalConstants.AuthenticatedUsersRoleName))
+            if (!await RoleController.IsUserInRole(user.UserName, GlobalConstants.AuthenticatedUsersRoleName))
             {
                 RoleController.AddUserToRole(user.UserName, GlobalConstants.AuthenticatedUsersRoleName);
             }
@@ -1012,7 +1025,7 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="System.ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
         /// <exception cref="InvalidUserException">Thrown when <paramref name="user" />
         /// does not specify a username and password.</exception>
-        private static IUserAccount CreateMembershipAdministrator(User user)
+        private static async Task<IUserAccount> CreateMembershipAdministrator(User user)
         {
             if (user == null)
                 throw new ArgumentNullException();
@@ -1044,13 +1057,13 @@ namespace GalleryServer.Web.Controller
                 }
 
                 RoleController.ValidateSysAdminRole();
-                if (!RoleController.IsUserInRole(user.UserName, GlobalConstants.SysAdminRoleName))
+                if (!await RoleController.IsUserInRole(user.UserName, GlobalConstants.SysAdminRoleName))
                 {
                     RoleController.AddUserToRole(user.UserName, GlobalConstants.SysAdminRoleName);
                 }
 
                 RoleController.CreateAuthUsersRole();
-                if (!RoleController.IsUserInRole(user.UserName, GlobalConstants.AuthenticatedUsersRoleName))
+                if (!await RoleController.IsUserInRole(user.UserName, GlobalConstants.AuthenticatedUsersRoleName))
                 {
                     RoleController.AddUserToRole(user.UserName, GlobalConstants.AuthenticatedUsersRoleName);
                 }
@@ -1058,7 +1071,7 @@ namespace GalleryServer.Web.Controller
             else
             {
                 // User account doesn't exist. Create it.
-                user.Roles = new[] { RoleController.ValidateSysAdminRole(), RoleController.CreateAuthUsersRole() };
+                user.Roles = new[] { await RoleController.ValidateSysAdminRole(), await RoleController.CreateAuthUsersRole() };
 
                 userAccount = UserController.CreateUser(user);
             }

@@ -14,13 +14,13 @@ namespace Gs.Web.Pages.Account.Manage
 {
     public partial class IndexModel : PageModel
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<GalleryUser> _userManager;
+        private readonly SignInManager<GalleryUser> _signInManager;
         private readonly IEmailSender _emailSender;
 
         public IndexModel(
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
+            UserManager<GalleryUser> userManager,
+            SignInManager<GalleryUser> signInManager,
             IEmailSender emailSender)
         {
             _userManager = userManager;

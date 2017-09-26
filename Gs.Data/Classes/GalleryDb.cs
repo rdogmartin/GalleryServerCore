@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 namespace GalleryServer.Data
 {
     /// <inheritdoc />
-    public class GalleryDb : IdentityDbContext<ApplicationUser>
+    public class GalleryDb : IdentityDbContext<GalleryUser>
     {
         public GalleryDb()
         {

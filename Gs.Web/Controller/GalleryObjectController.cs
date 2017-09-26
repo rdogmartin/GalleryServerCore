@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
 using GalleryServer.Business;
 using GalleryServer.Business.Interfaces;
@@ -140,11 +141,9 @@ namespace GalleryServer.Web.Controller
         /// <param name="settings">The settings that contain data and configuration options for the media file.</param>
         /// <returns>List&lt;ActionResult&gt;.</returns>
         /// <exception cref="Events.CustomExceptions.GallerySecurityException">Thrown when user is not authorized to add a media object to the album.</exception>
-        public static List<ActionResult> AddMediaObject(AddMediaObjectSettings settings)
+        public static Task<List<ActionResult>> AddMediaObject(AddMediaObjectSettings settings)
         {
-            List<ActionResult> results = CreateMediaObjectFromFile(settings);
-
-            return results;
+            return CreateMediaObjectFromFile(settings);
         }
 
         /// <summary>
@@ -158,7 +157,7 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="InvalidMediaObjectException">Thrown when a media asset is not found in the data store having ID <paramref name="mediaAssetId" />.</exception>
         /// <exception cref="GallerySecurityException">Thrown when user is not authorized to edit the media asset and when the current
         /// license does not support this functionality.</exception>
-        public static ActionResult ReplaceWithEditedImage(int mediaAssetId, string editedFilePath)
+        public static async Task<ActionResult> ReplaceWithEditedImage(int mediaAssetId, string editedFilePath)
         {
             var mediaAsset = Factory.LoadMediaObjectInstance(new MediaLoadOptions(mediaAssetId) { IsWritable = true });
 
@@ -172,7 +171,7 @@ namespace GalleryServer.Web.Controller
                 };
             }
 
-            if (ShouldApplyWatermark(mediaAsset))
+            if (await ShouldApplyWatermark(mediaAsset))
             {
                 return new ActionResult
                 {
@@ -182,7 +181,7 @@ namespace GalleryServer.Web.Controller
                 };
             }
 
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, RoleController.GetGalleryServerRolesForUser(), mediaAsset.Parent.Id, mediaAsset.GalleryId, Utils.IsAuthenticated, mediaAsset.Parent.IsPrivate, ((IAlbum)mediaAsset.Parent).IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, await RoleController.GetGalleryServerRolesForUser(), mediaAsset.Parent.Id, mediaAsset.GalleryId, Utils.IsAuthenticated, mediaAsset.Parent.IsPrivate, ((IAlbum)mediaAsset.Parent).IsVirtualAlbum);
 
             if (Factory.LoadGallerySetting(mediaAsset.GalleryId).MediaObjectPathIsReadOnly)
             {
@@ -239,7 +238,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>An instance of <see cref="ActionResult" />.</returns>
         /// <exception cref="InvalidMediaObjectException">Thrown when a media asset is not found in the data store having ID <paramref name="mediaAssetId" />.</exception>
         /// <exception cref="GallerySecurityException">Thrown when user does not have edit media asset permission.</exception>
-        public static ActionResult ReplaceMediaAssetFile(int mediaAssetId, string fileNameOnServer, string fileName)
+        public static async Task<ActionResult> ReplaceMediaAssetFile(int mediaAssetId, string fileNameOnServer, string fileName)
         {
             var mediaAsset = Factory.LoadMediaObjectInstance(new MediaLoadOptions(mediaAssetId) { IsWritable = true });
 
@@ -264,7 +263,7 @@ namespace GalleryServer.Web.Controller
                 };
             }
 
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, RoleController.GetGalleryServerRolesForUser(), mediaAsset.Parent.Id, mediaAsset.GalleryId, Utils.IsAuthenticated, mediaAsset.Parent.IsPrivate, ((IAlbum)mediaAsset.Parent).IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, await RoleController.GetGalleryServerRolesForUser(), mediaAsset.Parent.Id, mediaAsset.GalleryId, Utils.IsAuthenticated, mediaAsset.Parent.IsPrivate, ((IAlbum)mediaAsset.Parent).IsVirtualAlbum);
 
             if (Factory.LoadGallerySetting(mediaAsset.GalleryId).MediaObjectPathIsReadOnly)
             {
@@ -329,7 +328,7 @@ namespace GalleryServer.Web.Controller
         /// is looking at.</param>
         /// <returns>An instance of <see cref="ActionResult" />.</returns>
         /// <exception cref="System.ArgumentNullException">Thrown when <paramref name="galleryItems" /> is null.</exception>
-        public static ActionResult RotateFlip(GalleryItem[] galleryItems, MediaAssetRotateFlip rotateFlip, DisplayObjectType viewSize)
+        public static async Task<ActionResult> RotateFlip(GalleryItem[] galleryItems, MediaAssetRotateFlip rotateFlip, DisplayObjectType viewSize)
         {
             if (galleryItems == null)
                 throw new ArgumentNullException(nameof(galleryItems));
@@ -362,7 +361,7 @@ namespace GalleryServer.Web.Controller
                         {
                             mo = Factory.LoadMediaObjectInstance(new MediaLoadOptions(galleryItem.Id) { IsWritable = true });
 
-                            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, RoleController.GetGalleryServerRolesForUser(), mo.Parent.Id, mo.GalleryId, Utils.IsAuthenticated, mo.Parent.IsPrivate, ((IAlbum)mo.Parent).IsVirtualAlbum);
+                            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, await RoleController.GetGalleryServerRolesForUser(), mo.Parent.Id, mo.GalleryId, Utils.IsAuthenticated, mo.Parent.IsPrivate, ((IAlbum)mo.Parent).IsVirtualAlbum);
 
                             if (!supportedRotateFlipTypes.Contains(mo.GalleryObjectType))
                             {
@@ -454,11 +453,11 @@ namespace GalleryServer.Web.Controller
         /// <paramref name="albumId" /> is not found in the data store.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the user does not have at least one of the requested permissions to the
         /// specified album.</exception>
-        public static IQueryable<GalleryItem> GetGalleryItemsInAlbum(int albumId, MetadataItemName sortByMetaName, bool sortAscending)
+        public static async Task<IQueryable<GalleryItem>> GetGalleryItemsInAlbum(int albumId, MetadataItemName sortByMetaName, bool sortAscending)
         {
             IAlbum album = Factory.LoadAlbumInstance(new AlbumLoadOptions(albumId) { InflateChildObjects = true });
 
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
 
             IList<IGalleryObject> galleryObjects;
 
@@ -505,7 +504,7 @@ namespace GalleryServer.Web.Controller
         /// Returns an <see cref="IAlbum" /> containing the matching items. This may include albums and media
         /// objects from different albums.
         /// </returns>
-        public static IAlbum GetGalleryObjectsHavingTitleOrCaption(string[] searchStrings, GalleryObjectType filter, int galleryId)
+        public static async Task<IAlbum> GetGalleryObjectsHavingTitleOrCaption(string[] searchStrings, GalleryObjectType filter, int galleryId)
         {
             if (searchStrings == null)
                 throw new ArgumentNullException();
@@ -523,7 +522,7 @@ namespace GalleryServer.Web.Controller
                 SearchType = GalleryObjectSearchType.SearchByTitleOrCaption,
                 SearchTerms = searchStrings,
                 IsUserAuthenticated = Utils.IsAuthenticated,
-                Roles = RoleController.GetGalleryServerRolesForUser(),
+                Roles = await RoleController.GetGalleryServerRolesForUser(),
                 Filter = filter
             };
 
@@ -550,7 +549,7 @@ namespace GalleryServer.Web.Controller
         /// Returns an <see cref="IAlbum" /> containing the matching items. This may include albums and media
         /// objects from different albums.
         /// </returns>
-        public static IAlbum GetGalleryObjectsHavingSearchString(string[] searchStrings, GalleryObjectType filter, int galleryId)
+        public static async Task<IAlbum> GetGalleryObjectsHavingSearchString(string[] searchStrings, GalleryObjectType filter, int galleryId)
         {
             if (searchStrings == null)
                 throw new ArgumentNullException();
@@ -568,7 +567,7 @@ namespace GalleryServer.Web.Controller
                 SearchType = GalleryObjectSearchType.SearchByKeyword,
                 SearchTerms = searchStrings,
                 IsUserAuthenticated = Utils.IsAuthenticated,
-                Roles = RoleController.GetGalleryServerRolesForUser(),
+                Roles = await RoleController.GetGalleryServerRolesForUser(),
                 Filter = filter
             };
 
@@ -597,7 +596,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>An instance of <see cref="IAlbum" />.</returns>
         /// <exception cref="System.ArgumentException">Throw when the tags and people parameters are both null or empty, or both
         /// have values.</exception>
-        public static IAlbum GetGalleryObjectsHavingTags(string[] tags, string[] people, GalleryObjectType filter, int galleryId)
+        public static async Task<IAlbum> GetGalleryObjectsHavingTags(string[] tags, string[] people, GalleryObjectType filter, int galleryId)
         {
             if (((tags == null) || (tags.Length == 0)) && ((people == null) || (people.Length == 0)))
                 throw new ArgumentException("GalleryObjectController.GetGalleryObjectsHavingTags() requires the tags or people parameters to be specified, but they were both null or empty.");
@@ -620,7 +619,7 @@ namespace GalleryServer.Web.Controller
                 SearchType = searchType,
                 Tags = searchTags,
                 GalleryId = galleryId,
-                Roles = RoleController.GetGalleryServerRolesForUser(),
+                Roles = await RoleController.GetGalleryServerRolesForUser(),
                 IsUserAuthenticated = Utils.IsAuthenticated,
                 Filter = filter
             });
@@ -641,7 +640,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="filter">A filter that limits the types of gallery objects that are returned.</param>
         /// <returns>An instance of <see cref="IAlbum" />.</returns>
         /// <exception cref="ArgumentException">Thrown when <paramref name="top" /> is less than or equal to zero.</exception>
-        public static IAlbum GetMostRecentlyAddedGalleryObjects(int top, int galleryId, GalleryObjectType filter)
+        public static async Task<IAlbum> GetMostRecentlyAddedGalleryObjects(int top, int galleryId, GalleryObjectType filter)
         {
             if (top <= 0)
                 throw new ArgumentException("The top parameter must contain a number greater than zero.", "top");
@@ -660,7 +659,7 @@ namespace GalleryServer.Web.Controller
             {
                 SearchType = GalleryObjectSearchType.MostRecentlyAdded,
                 GalleryId = galleryId,
-                Roles = RoleController.GetGalleryServerRolesForUser(),
+                Roles = await RoleController.GetGalleryServerRolesForUser(),
                 IsUserAuthenticated = Utils.IsAuthenticated,
                 MaxNumberResults = top,
                 Filter = filter
@@ -685,7 +684,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="filter">A filter that limits the types of gallery objects that are returned.</param>
         /// <returns>An instance of <see cref="IAlbum" />.</returns>
         /// <exception cref="ArgumentException">Thrown when <paramref name="top" /> is less than or equal to zero.</exception>
-        public static IAlbum GetRatedMediaObjects(string rating, int top, int galleryId, GalleryObjectType filter)
+        public static async Task<IAlbum> GetRatedMediaObjects(string rating, int top, int galleryId, GalleryObjectType filter)
         {
             if (top <= 0)
                 throw new ArgumentException("The top parameter must contain a number greater than zero.", "top");
@@ -711,7 +710,7 @@ namespace GalleryServer.Web.Controller
                 SearchType = GalleryObjectSearchType.SearchByRating,
                 SearchTerms = new[] { rating },
                 GalleryId = galleryId,
-                Roles = RoleController.GetGalleryServerRolesForUser(),
+                Roles = await RoleController.GetGalleryServerRolesForUser(),
                 IsUserAuthenticated = Utils.IsAuthenticated,
                 MaxNumberResults = top,
                 Filter = filter
@@ -740,7 +739,7 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="GallerySecurityException">Thrown when the user does not have view permission to the specified album.
         /// <exception cref="InvalidAlbumException">Thrown when the requested album does not exist in the data store.</exception>
         /// the user does not have view permission to the specified album.</exception>
-        public static IQueryable<Entity.GalleryItem> SortGalleryItems(Entity.Album albumEntity)
+        public static async Task<IQueryable<GalleryItem>> SortGalleryItems(Entity.Album albumEntity)
         {
             // If album.ID > int.minValue then load physical album, sort & save user preference;
             // Otherwise sort the album.GalleryItems
@@ -750,9 +749,9 @@ namespace GalleryServer.Web.Controller
             {
                 album = Factory.LoadAlbumInstance(new AlbumLoadOptions(albumEntity.Id) { InflateChildObjects = true });
 
-                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
 
-                if (!SecurityManager.IsUserAuthorized(SecurityActions.EditAlbum, RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum))
+                if (!SecurityManager.IsUserAuthorized(SecurityActions.EditAlbum, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum))
                 {
                     // Save to user profile only when user doesn't have edit access to the album. A user with edit album permission
                     // will get to this method when copying an item to its own album, in which case the javascript copy routine
@@ -766,7 +765,7 @@ namespace GalleryServer.Web.Controller
                 album.IsVirtualAlbum = (albumEntity.VirtualType != VirtualAlbumType.NotVirtual);
                 album.VirtualAlbumType = albumEntity.VirtualType;
 
-                var roles = RoleController.GetGalleryServerRolesForUser();
+                var roles = await RoleController.GetGalleryServerRolesForUser();
 
                 foreach (var galleryItem in albumEntity.GalleryItems)
                 {
@@ -805,10 +804,10 @@ namespace GalleryServer.Web.Controller
         /// <paramref name = "albumId" /> is not found in the data store.</exception>
         /// <exception cref="GallerySecurityException">
         /// Throw when the user does not have view permission to the specified album.</exception>
-        public static IQueryable<MediaItem> GetMediaItemsInAlbum(int albumId, MetadataItemName sortByMetaName, bool sortAscending)
+        public static async Task<IQueryable<MediaItem>> GetMediaItemsInAlbum(int albumId, MetadataItemName sortByMetaName, bool sortAscending)
         {
             IAlbum album = Factory.LoadAlbumInstance(new AlbumLoadOptions(albumId) { InflateChildObjects = true });
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
 
             IList<IGalleryObject> galleryObjects;
 
@@ -831,10 +830,10 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="id">The ID of the media asset.</param>
         /// <returns>An array of <see cref="MetaItem" /> instances.</returns>
-        public static MetaItem[] GetMetaItemsForMediaObject(int id)
+        public static async Task<MetaItem[]> GetMetaItemsForMediaObject(int id)
         {
             IGalleryObject mo = Factory.LoadMediaObjectInstance(id);
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, RoleController.GetGalleryServerRolesForUser(), mo.Parent.Id, mo.GalleryId, Utils.IsAuthenticated, mo.Parent.IsPrivate, ((IAlbum)mo.Parent).IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), mo.Parent.Id, mo.GalleryId, Utils.IsAuthenticated, mo.Parent.IsPrivate, ((IAlbum)mo.Parent).IsVirtualAlbum);
 
             return ToMetaItems(mo.MetadataItems.GetVisibleItems(), mo);
         }
@@ -1180,7 +1179,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="galleryItems">The gallery items for which the original files are to be deleted.</param>
         /// <returns>An instance of <see cref="ActionResult" /> describing the result of the deletion.</returns>
         /// <exception cref="System.ArgumentNullException">Thrown when <paramref name="galleryItems" /> is null.</exception>
-        public static ActionResult DeleteOriginalFiles(GalleryItem[] galleryItems)
+        public static async Task<ActionResult> DeleteOriginalFiles(GalleryItem[] galleryItems)
         {
             if (galleryItems == null)
                 throw new ArgumentNullException(nameof(galleryItems));
@@ -1210,7 +1209,7 @@ namespace GalleryServer.Web.Controller
                             {
                                 var album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(galleryItem.Id) { IsWritable = true, InflateChildObjects = true });
 
-                                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, ((IAlbum)album.Parent).IsVirtualAlbum);
+                                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, ((IAlbum)album.Parent).IsVirtualAlbum);
 
                                 DeleteOriginalFilesFromAlbum(album);
                             }
@@ -1225,7 +1224,7 @@ namespace GalleryServer.Web.Controller
                             {
                                 var mediaObject = Factory.LoadMediaObjectInstance(new MediaLoadOptions(galleryItem.Id) { IsWritable = true });
 
-                                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, RoleController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, Utils.IsAuthenticated, mediaObject.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
+                                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditMediaObject, await RoleController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, Utils.IsAuthenticated, mediaObject.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
 
                                 mediaObject.DeleteOriginalFile();
 
@@ -1363,12 +1362,12 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="mediaObjectToDelete" /> is null.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to delete the media object or it is
         /// in a read-only gallery.</exception>
-        private static void ValidateBeforeMediaObjectDelete(IGalleryObject mediaObjectToDelete)
+        private static async Task ValidateBeforeMediaObjectDelete(IGalleryObject mediaObjectToDelete)
         {
             if (mediaObjectToDelete == null)
                 throw new ArgumentNullException(nameof(mediaObjectToDelete));
 
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.DeleteMediaObject, RoleController.GetGalleryServerRolesForUser(), mediaObjectToDelete.Parent.Id, mediaObjectToDelete.GalleryId, Utils.IsAuthenticated, mediaObjectToDelete.IsPrivate, ((IAlbum)mediaObjectToDelete.Parent).IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.DeleteMediaObject, await RoleController.GetGalleryServerRolesForUser(), mediaObjectToDelete.Parent.Id, mediaObjectToDelete.GalleryId, Utils.IsAuthenticated, mediaObjectToDelete.IsPrivate, ((IAlbum)mediaObjectToDelete.Parent).IsVirtualAlbum);
 
             if (Factory.LoadGallerySetting(mediaObjectToDelete.GalleryId).MediaObjectPathIsReadOnly)
             {
@@ -1385,7 +1384,7 @@ namespace GalleryServer.Web.Controller
         /// <remarks>This function can be invoked from a thread that does not have access to the current HTTP context (for example, when
         /// uploading ZIP files). Therefore, be sure nothing in this body (or the functions it calls) uses HttpContext.Current, or at 
         /// least check it for null first.</remarks>
-        private static List<ActionResult> CreateMediaObjectFromFile(AddMediaObjectSettings options)
+        private static async Task<List<ActionResult>> CreateMediaObjectFromFile(AddMediaObjectSettings options)
         {
             string sourceFilePath = Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.TempUploadDirectory, options.FileNameOnServer);
 
@@ -1394,13 +1393,13 @@ namespace GalleryServer.Web.Controller
                 IAlbum album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(options.AlbumId) { IsWritable = true, InflateChildObjects = true });
 
                 if (WebHelper.HttpContext != null)
-                    SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddMediaObject, RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+                    SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
                 else
                 {
                     // We are extracting files from a zip archive (we know this because this is the only scenario that happens on a background
                     // thread where HttpContext.Current is null). Tweak the security check slightly to ensure the HTTP context isn't used.
                     // The changes are still secure because options.CurrentUserName is assigned in the server's API method.
-                    SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddMediaObject, RoleController.GetGalleryServerRolesForUser(options.CurrentUserName), album.Id, album.GalleryId, !String.IsNullOrWhiteSpace(options.CurrentUserName), album.IsPrivate, album.IsVirtualAlbum);
+                    SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddMediaObject, await RoleController.GetGalleryServerRolesForUser(options.CurrentUserName), album.Id, album.GalleryId, !String.IsNullOrWhiteSpace(options.CurrentUserName), album.IsPrivate, album.IsVirtualAlbum);
                 }
 
                 var extension = Path.GetExtension(options.FileName);
@@ -1409,7 +1408,7 @@ namespace GalleryServer.Web.Controller
                     List<ActionResult> result;
 
                     // Extract the files from the zipped file.
-                    using (var zip = new ZipUtility(options.CurrentUserName, RoleController.GetGalleryServerRolesForUser(options.CurrentUserName)))
+                    using (var zip = new ZipUtility(options.CurrentUserName, await RoleController.GetGalleryServerRolesForUser(options.CurrentUserName)))
                     {
                         using (var fs = new FileStream(sourceFilePath, FileMode.Open, FileAccess.Read))
                         {
@@ -1923,7 +1922,7 @@ namespace GalleryServer.Web.Controller
         /// <returns><c>true</c> if the media asset requires a watermark, <c>false</c> otherwise.</returns>
         /// <remarks>This function is similar to <see cref="Handler.getmedia.ShouldApplyWatermark" />, so if you edit this
         /// function check the other one, too.</remarks>
-        private static bool ShouldApplyWatermark(IGalleryObject mediaAsset)
+        private static async Task<bool> ShouldApplyWatermark(IGalleryObject mediaAsset)
         {
             // Apply watermark to optimized and original images only when applyWatermark = true.
             if (mediaAsset.MimeType.TypeCategory == MimeTypeCategory.Image)
@@ -1939,7 +1938,7 @@ namespace GalleryServer.Web.Controller
                 else if (applyWatermark)
                 {
                     // If the user belongs to a role with watermarks set to visible, then show it; otherwise don't show the watermark.
-                    if (!Utils.IsUserAuthorized(SecurityActions.HideWatermark, RoleController.GetGalleryServerRolesForUser(), mediaAsset.Parent.Id, mediaAsset.GalleryId, mediaAsset.IsPrivate, ((IAlbum)mediaAsset.Parent).IsVirtualAlbum))
+                    if (!Utils.IsUserAuthorized(SecurityActions.HideWatermark, await RoleController.GetGalleryServerRolesForUser(), mediaAsset.Parent.Id, mediaAsset.GalleryId, mediaAsset.IsPrivate, ((IAlbum)mediaAsset.Parent).IsVirtualAlbum))
                     {
                         // Show the image without the watermark.
                         requiresWatermark = true;

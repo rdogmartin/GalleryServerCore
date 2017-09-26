@@ -12,12 +12,12 @@ namespace Gs.Web.Pages.Account.Manage
 {
     public class ExternalLoginsModel : PageModel
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<GalleryUser> _userManager;
+        private readonly SignInManager<GalleryUser> _signInManager;
 
         public ExternalLoginsModel(
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager)
+            UserManager<GalleryUser> userManager,
+            SignInManager<GalleryUser> signInManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;

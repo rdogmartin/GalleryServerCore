@@ -3,11 +3,16 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 //using System.Web;
 //using System.Web.Security;
 using GalleryServer.Business;
 using GalleryServer.Business.Interfaces;
+using GalleryServer.Data;
 using GalleryServer.Events.CustomExceptions;
+using GalleryServer.Web.Entity;
+using Microsoft.AspNetCore.Identity;
 
 namespace GalleryServer.Web.Controller
 {
@@ -18,35 +23,68 @@ namespace GalleryServer.Web.Controller
     {
         #region Private Fields
 
-        private static RoleProvider _roleProvider;
+        //private static RoleProvider _roleProvider;
+        private static GalleryRoleManager _roleManager;
+        private static UserManager<GalleryUser> _userManager;
         private static readonly object _sharedLock = new object();
+        private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1);
 
         // RegEx pattern to match "_{PortalId}" portion of GSP role name. Not used in stand-alone version of GSP.
         //private static readonly System.Text.RegularExpressions.Regex _gspRoleNameSuffixRegEx = new System.Text.RegularExpressions.Regex(@"_\d+$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
         // RegEx pattern to match the album owner role template name. The gallery ID is assigned the group name "galleryId".
         // Ex: Given "_Album Owner Template (Gallery ID 723: My gallery)", match will be a success and group name "galleryId" will contain "723"
-        private static readonly string _gspAlbumOwnerTemplateRoleNameRegExPattern = String.Concat(GlobalConstants.AlbumOwnerRoleTemplateName, @" \(Gallery ID (?<galleryId>\d+): .*\)$");
+        private static readonly string _gspAlbumOwnerTemplateRoleNameRegExPattern = string.Concat(GlobalConstants.AlbumOwnerRoleTemplateName, @" \(Gallery ID (?<galleryId>\d+): .*\)$");
         private static readonly System.Text.RegularExpressions.Regex _gspAlbumOwnerTemplateRoleNameRegEx = new System.Text.RegularExpressions.Regex(_gspAlbumOwnerTemplateRoleNameRegExPattern, System.Text.RegularExpressions.RegexOptions.Compiled);
 
         #endregion
 
         #region Properties
 
+        ///// <summary>
+        ///// Gets the role provider used by Gallery Server.
+        ///// </summary>
+        ///// <value>The role provider used by Gallery Server.</value>
+        //internal static RoleProvider RoleGsp
+        //{
+        //    get
+        //    {
+        //        if (_roleProvider == null)
+        //        {
+        //            _roleProvider = GetRoleProvider();
+        //        }
+
+        //        return _roleProvider;
+        //    }
+        //}
+
         /// <summary>
         /// Gets the role provider used by Gallery Server.
         /// </summary>
         /// <value>The role provider used by Gallery Server.</value>
-        internal static RoleProvider RoleGsp
+        internal static GalleryRoleManager RoleGsp
         {
             get
             {
-                if (_roleProvider == null)
+                if (_roleManager == null)
                 {
-                    _roleProvider = GetRoleProvider();
+                    _roleManager = GetRoleProvider();
                 }
 
-                return _roleProvider;
+                return _roleManager;
+            }
+        }
+
+        public static UserManager<GalleryUser> UserManager
+        {
+            get
+            {
+                if (_userManager == null)
+                {
+                    _userManager = WebHelper.GetUserManager();
+                }
+
+                return _userManager;
             }
         }
 
@@ -70,12 +108,12 @@ namespace GalleryServer.Web.Controller
         public static void Save(Entity.Role role)
         {
             if (role == null)
-                throw new ArgumentNullException("role");
+                throw new ArgumentNullException(nameof(role));
 
             var r = Factory.LoadGalleryServerRole(role.Name, true);
 
             if (r == null && !role.IsNew)
-                throw new InvalidGalleryServerRoleException(String.Format("A role with the name '{0}' does not exist.", role.Name));
+                throw new InvalidGalleryServerRoleException(string.Format("A role with the name '{0}' does not exist.", role.Name));
 
             if (role.IsNew)
             {
@@ -135,13 +173,28 @@ namespace GalleryServer.Web.Controller
         /// <summary>
         /// Add the specified user to the specified role.
         /// </summary>
+        /// <param name="user">The user name to add to the specified role.</param>
+        /// <param name="roleName">The role to add the specified user name to.</param>
+        public static async Task AddUserToRole(GalleryUser user, string roleName)
+        {
+            if (user != null && !string.IsNullOrWhiteSpace(roleName))
+            {
+                await UserManager.AddToRoleAsync(user, roleName);
+            }
+        }
+
+        /// <summary>
+        /// Add the specified user to the specified role.
+        /// </summary>
         /// <param name="userName">The user name to add to the specified role.</param>
         /// <param name="roleName">The role to add the specified user name to.</param>
-        public static void AddUserToRole(string userName, string roleName)
+        public static async Task AddUserToRole(string userName, string roleName)
         {
-            if (!String.IsNullOrWhiteSpace(userName) && !String.IsNullOrWhiteSpace(roleName))
+            if (!string.IsNullOrWhiteSpace(userName) && !string.IsNullOrWhiteSpace(roleName))
             {
-                AddUserToRoles(userName, new[] { roleName.Trim() });
+                var user = await GetUserByUserName(userName);
+                await UserManager.AddToRoleAsync(user, roleName);
+                //AddUserToRoles(userName, new[] { roleName.Trim() });
             }
         }
 
@@ -150,28 +203,43 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="userName">The user name to add to the specified role.</param>
         /// <param name="roleNames">The roles to add the specified user name to.</param>
-        public static void AddUserToRoles(string userName, string[] roleNames)
+        public static async Task AddUserToRoles(string userName, string[] roleNames)
         {
             if (!String.IsNullOrWhiteSpace(userName) && (roleNames != null) && (roleNames.Length > 0))
             {
-                RoleGsp.AddUsersToRoles(new[] { userName.Trim() }, roleNames);
+                var user = await GetUserByUserName(userName);
+                await UserManager.AddToRolesAsync(user, roleNames);
+                //RoleGsp.AddUsersToRoles(new[] { userName.Trim() }, roleNames);
 
                 CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
             }
         }
 
-        /// <summary>
-        /// Add the specified users to the specified role.
-        /// </summary>
-        /// <param name="userNames">The user names to add to the specified role.</param>
-        /// <param name="roleName">The role to add the specified user names to.</param>
-        public static void AddUsersToRole(string[] userNames, string roleName)
-        {
-            if ((userNames != null) && (userNames.Length > 0) && !String.IsNullOrWhiteSpace(roleName))
-            {
-                RoleGsp.AddUsersToRoles(userNames, new[] { roleName.Trim() });
+        ///// <summary>
+        ///// Add the specified users to the specified role.
+        ///// </summary>
+        ///// <param name="userNames">The user names to add to the specified role.</param>
+        ///// <param name="roleName">The role to add the specified user names to.</param>
+        //public static void AddUsersToRole(string[] userNames, string roleName)
+        //{
+        //    if ((userNames != null) && (userNames.Length > 0) && !String.IsNullOrWhiteSpace(roleName))
+        //    {
+        //        RoleGsp.AddUsersToRoles(userNames, new[] { roleName.Trim() });
 
-                CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
+        //        CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
+        //    }
+        //}
+
+        /// <summary>
+        /// Removes the specified user from the specified role.
+        /// </summary>
+        /// <param name="user">The user to remove from the specified role.</param>
+        /// <param name="roleName">The role to remove the specified user from.</param>
+        public static async Task RemoveUserFromRole(GalleryUser user, string roleName)
+        {
+            if (user != null && !string.IsNullOrEmpty(roleName))
+            {
+                await UserManager.RemoveFromRoleAsync(user, roleName);
             }
         }
 
@@ -182,7 +250,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="roleName">The role to remove the specified user from.</param>
         public static void RemoveUserFromRole(string userName, string roleName)
         {
-            if (!String.IsNullOrWhiteSpace(userName) && !String.IsNullOrEmpty(roleName))
+            if (!string.IsNullOrWhiteSpace(userName) && !string.IsNullOrEmpty(roleName))
             {
                 RemoveUserFromRoles(userName, new[] { roleName.Trim() });
             }
@@ -193,11 +261,14 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="userName">The user to remove from the specified role.</param>
         /// <param name="roleNames">The roles to remove the specified user from.</param>
-        public static void RemoveUserFromRoles(string userName, string[] roleNames)
+        public static async Task RemoveUserFromRoles(string userName, string[] roleNames)
         {
-            if (!String.IsNullOrWhiteSpace(userName) && (roleNames != null) && (roleNames.Length > 0))
+            if (!string.IsNullOrWhiteSpace(userName) && (roleNames != null) && (roleNames.Length > 0))
             {
-                RoleGsp.RemoveUsersFromRoles(new[] { userName.Trim() }, roleNames);
+                var user = await GetUserByUserName(userName);
+                await UserManager.RemoveFromRolesAsync(user, roleNames);
+
+                //RoleGsp.RemoveUsersFromRoles(new[] { userName.Trim() }, roleNames);
 
                 ValidateRemoveUserFromRole(userName, roleNames);
 
@@ -205,43 +276,43 @@ namespace GalleryServer.Web.Controller
             }
         }
 
-        /// <summary>
-        /// Removes the specified users from the specified role.
-        /// </summary>
-        /// <param name="userNames">The users to remove from the specified role.</param>
-        /// <param name="roleName">The role to remove the specified users from.</param>
-        public static void RemoveUsersFromRole(string[] userNames, string roleName)
-        {
-            if ((userNames != null) && (userNames.Length > 0) && !String.IsNullOrWhiteSpace(roleName))
-            {
-                RemoveUsersFromRoles(userNames, new[] { roleName.Trim() });
+        ///// <summary>
+        ///// Removes the specified users from the specified role.
+        ///// </summary>
+        ///// <param name="userNames">The users to remove from the specified role.</param>
+        ///// <param name="roleName">The role to remove the specified users from.</param>
+        //public static void RemoveUsersFromRole(string[] userNames, string roleName)
+        //{
+        //    if ((userNames != null) && (userNames.Length > 0) && !String.IsNullOrWhiteSpace(roleName))
+        //    {
+        //        RemoveUsersFromRoles(userNames, new[] { roleName.Trim() });
 
-                foreach (var userName in userNames)
-                {
-                    ValidateRemoveUserFromRole(userName, new[] { roleName.Trim() });
-                }
-            }
-        }
+        //        foreach (var userName in userNames)
+        //        {
+        //            ValidateRemoveUserFromRole(userName, new[] { roleName.Trim() });
+        //        }
+        //    }
+        //}
 
-        /// <summary>
-        /// Removes the specified users from the specified roles.
-        /// </summary>
-        /// <param name="userNames">The users to remove from the specified roles.</param>
-        /// <param name="roleNames">The roles to remove the specified users from.</param>
-        public static void RemoveUsersFromRoles(string[] userNames, string[] roleNames)
-        {
-            if ((userNames != null) && (userNames.Length > 0) && (roleNames != null) && (roleNames.Length > 0))
-            {
-                RoleGsp.RemoveUsersFromRoles(userNames, roleNames);
-            }
+        ///// <summary>
+        ///// Removes the specified users from the specified roles.
+        ///// </summary>
+        ///// <param name="userNames">The users to remove from the specified roles.</param>
+        ///// <param name="roleNames">The roles to remove the specified users from.</param>
+        //public static void RemoveUsersFromRoles(string[] userNames, string[] roleNames)
+        //{
+        //    if ((userNames != null) && (userNames.Length > 0) && (roleNames != null) && (roleNames.Length > 0))
+        //    {
+        //        RoleGsp.RemoveUsersFromRoles(userNames, roleNames);
+        //    }
 
-            foreach (var userName in userNames)
-            {
-                ValidateRemoveUserFromRole(userName, roleNames);
-            }
+        //    foreach (var userName in userNames)
+        //    {
+        //        ValidateRemoveUserFromRole(userName, roleNames);
+        //    }
 
-            CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
-        }
+        //    CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
+        //}
 
         /// <summary>
         /// Gets a role entity corresponding to <paramref name="roleName" />. If the role does not exist, an instance with 
@@ -252,13 +323,13 @@ namespace GalleryServer.Web.Controller
         /// <param name="roleName">Name of the role.</param>
         /// <returns>Returns an <see cref="Entity.Role" /> instance.</returns>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to view the role.</exception>
-        public static Entity.Role GetRoleEntity(string roleName)
+        public static async Task<Role> GetRoleEntity(string roleName)
         {
             var role = Factory.LoadGalleryServerRole(roleName, true);
 
             // Throw exception if user can't view role. Note that GSP doesn't differentiate between permission to view and permission to
             // edit, so we use the UserCanEditRole function, even though we are just getting a role, not editing it.
-            if (role != null && !UserCanViewRole(role))
+            if (role != null && !await UserCanViewRole(role))
                 throw new GallerySecurityException("Insufficient permission to view role.");
 
             Entity.Role r = new Entity.Role();
@@ -302,12 +373,12 @@ namespace GalleryServer.Web.Controller
                 IncludeAlbum = true
             };
 
-            Entity.TreeView tv = AlbumTreeViewBuilder.GetAlbumsAsTreeView(tvOptions);
+            Entity.TreeView tv = await AlbumTreeViewBuilder.GetAlbumsAsTreeView(tvOptions);
 
             r.AlbumTreeDataJson = tv.ToJson();
             r.SelectedRootAlbumIds = rootAlbumIds.ToArray();
 
-            r.Members = RoleController.GetUsersInRole(r.Name);
+            r.Members = await RoleController.GetUsersInRole(r.Name);
 
             return r;
         }
@@ -318,7 +389,8 @@ namespace GalleryServer.Web.Controller
         /// <returns>A list of all the ASP.NET roles for the current application.</returns>
         public static string[] GetAllRoles()
         {
-            return RoleGsp.GetAllRoles();
+            return RoleGsp.Roles.Select(r => r.Name).ToArray();
+            //return RoleGsp.GetAllRoles();
         }
 
         /// <summary>
@@ -326,12 +398,22 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="userName">The user name.</param>
         /// <returns>A list of the roles that a specified user is in for the current application.</returns>
-        public static string[] GetRolesForUser(string userName)
+        public static async Task<IList<string>> GetRolesForUser(string userName)
         {
-            if (String.IsNullOrEmpty(userName))
+            if (string.IsNullOrEmpty(userName))
                 return new string[] { };
 
-            return RoleGsp.GetRolesForUser(userName.Trim());
+            var user = await GetUserByUserName(userName);
+            return await UserManager.GetRolesAsync(user);
+            //return RoleGsp.GetRolesForUser(userName.Trim());
+        }
+
+        public static async Task<GalleryUser> GetUserByUserName(string userName)
+        {
+            if (userName == null)
+                throw new ArgumentNullException(nameof(userName));
+
+            return await UserManager.FindByNameAsync(userName.Trim());
         }
 
         /// <summary>
@@ -339,12 +421,13 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="roleName">The name of the role.</param>
         /// <returns>A list of users in the specified role for the current application.</returns>
-        public static string[] GetUsersInRole(string roleName)
+        public static async Task<IList<GalleryUser>> GetUsersInRole(string roleName)
         {
-            if (String.IsNullOrEmpty(roleName))
-                return new string[] { };
+            if (string.IsNullOrEmpty(roleName))
+                return new GalleryUser[] { };
 
-            return RoleGsp.GetUsersInRole(roleName.Trim());
+            return await UserManager.GetUsersInRoleAsync(roleName.Trim());
+            //return RoleGsp.GetUsersInRole(roleName.Trim());
         }
 
         /// <summary>
@@ -352,17 +435,26 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="roleName">Name of the role. Any leading or trailing spaces are removed.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="roleName" /> is null.</exception>
-        public static void CreateRole(string roleName)
+        public static async Task CreateRole(string roleName)
         {
-            if (String.IsNullOrEmpty(roleName))
-                throw new ArgumentNullException("roleName");
+            if (string.IsNullOrEmpty(roleName))
+                throw new ArgumentNullException(nameof(roleName));
 
-            lock (_sharedLock)
+            // GS 4.X used a lock around the following chunck, but that doesn't work in an async world. Instead, we use the technique from
+            // https://msdn.microsoft.com/en-us/magazine/jj991977.aspx?f=255&MSPPError=-2147217396
+            await _lock.WaitAsync().ConfigureAwait(false);
+            try
             {
-                if (!RoleExists(roleName))
+                if (!await RoleExists(roleName))
                 {
-                    RoleGsp.CreateRole(roleName.Trim());
+                    await RoleGsp.CreateAsync(new GalleryRole() { Name = roleName.Trim() });
+                    //RoleGsp.CreateRole(roleName.Trim());
                 }
+
+            }
+            finally
+            {
+                _lock.Release();
             }
         }
 
@@ -371,12 +463,15 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="roleName">Name of the role.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="roleName" /> is null.</exception>
-        private static void DeleteRole(string roleName)
+        private static async Task DeleteRole(string roleName)
         {
-            if (String.IsNullOrEmpty(roleName))
-                throw new ArgumentNullException("roleName");
+            if (string.IsNullOrEmpty(roleName))
+                throw new ArgumentNullException(nameof(roleName));
 
-            RoleGsp.DeleteRole(roleName.Trim(), false);
+            var role = await RoleGsp.FindByNameAsync(roleName.Trim());
+
+            await RoleGsp.DeleteAsync(role);
+            //RoleGsp.DeleteRole(roleName.Trim(), false);
         }
 
         /// <summary>
@@ -385,12 +480,13 @@ namespace GalleryServer.Web.Controller
         /// <param name="roleName">Name of the role.</param>
         /// <returns><c>true</c> if the role exists; otherwise <c>false</c>.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="roleName" /> is null.</exception>
-        public static bool RoleExists(string roleName)
+        public static async Task<bool> RoleExists(string roleName)
         {
-            if (String.IsNullOrEmpty(roleName))
-                throw new ArgumentNullException("roleName");
+            if (string.IsNullOrEmpty(roleName))
+                throw new ArgumentNullException(nameof(roleName));
 
-            return RoleGsp.RoleExists(roleName.Trim());
+            return await RoleGsp.RoleExistsAsync(roleName.Trim());
+            //return RoleGsp.RoleExists(roleName.Trim());
         }
 
         /// <summary>
@@ -403,15 +499,18 @@ namespace GalleryServer.Web.Controller
         /// </returns>
         /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="userName" /> or <paramref name="roleName" /> is null
         /// or an empty string.</exception>
-        public static bool IsUserInRole(string userName, string roleName)
+        public static async Task<bool> IsUserInRole(string userName, string roleName)
         {
-            if (String.IsNullOrEmpty(userName))
-                throw new ArgumentOutOfRangeException("userName", "The parameter 'userName' cannot be null or an empty string.");
+            if (string.IsNullOrEmpty(userName))
+                throw new ArgumentOutOfRangeException(nameof(userName), "The parameter 'userName' cannot be null or an empty string.");
 
-            if (String.IsNullOrEmpty(roleName))
-                throw new ArgumentOutOfRangeException("roleName", "The parameter 'roleName' cannot be null or an empty string.");
+            if (string.IsNullOrEmpty(roleName))
+                throw new ArgumentOutOfRangeException(nameof(roleName), "The parameter 'roleName' cannot be null or an empty string.");
 
-            return RoleGsp.IsUserInRole(userName.Trim(), roleName.Trim());
+            var user = await GetUserByUserName(userName);
+
+            return await UserManager.IsInRoleAsync(user, roleName);
+            //return RoleGsp.IsUserInRole(userName.Trim(), roleName.Trim());
         }
 
         /// <overloads>Retrieve Gallery Server roles.</overloads>
@@ -469,9 +568,9 @@ namespace GalleryServer.Web.Controller
         /// <returns>
         /// Returns an <see cref="IGalleryServerRoleCollection" /> representing the roles for the currently logged-on user.
         /// </returns>
-        public static IGalleryServerRoleCollection GetGalleryServerRolesForUser()
+        public static async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
         {
-            return GetGalleryServerRolesForUser(Utils.UserName);
+            return await GetGalleryServerRolesForUser(Utils.UserName);
         }
 
         /// <summary>
@@ -484,9 +583,9 @@ namespace GalleryServer.Web.Controller
         /// </returns>
         /// <remarks>This method may run on a background thread and is therefore tolerant of the inability to access HTTP context 
         /// or the current user's session.</remarks>
-        public static IGalleryServerRoleCollection GetGalleryServerRolesForUser(string userName)
+        public static async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser(string userName)
         {
-            if (String.IsNullOrEmpty(userName))
+            if (string.IsNullOrEmpty(userName))
                 return new GalleryServerRoleCollection();
 
             // Get cached dictionary entry matching logged on user. If not found, retrieve from business layer and add to cache.
@@ -501,7 +600,7 @@ namespace GalleryServer.Web.Controller
             // No roles in the cache, so get from business layer and add to cache.
             try
             {
-                roles = Factory.LoadGalleryServerRoles(GetRolesForUser(userName));
+                roles = Factory.LoadGalleryServerRoles(await GetRolesForUser(userName));
             }
             catch (InvalidGalleryServerRoleException)
             {
@@ -513,7 +612,7 @@ namespace GalleryServer.Web.Controller
 
                 ValidateRoles();
 
-                roles = Factory.LoadGalleryServerRoles(GetRolesForUser(userName));
+                roles = Factory.LoadGalleryServerRoles(await GetRolesForUser(userName));
             }
 
             if (rolesCache == null)
@@ -577,7 +676,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="userIsSiteAdmin">If set to <c>true</c>, the currently logged on user is a site administrator.</param>
         /// <param name="userIsGalleryAdmin">If set to <c>true</c>, the currently logged on user is a gallery administrator for the current gallery.</param>
         /// <returns>Returns an <see cref="List&lt;IGalleryServerRole&gt;" /> containing a list of roles the user has permission to view.</returns>
-        public static List<IGalleryServerRole> GetRolesCurrentUserCanView(bool userIsSiteAdmin, bool userIsGalleryAdmin)
+        public static async Task<List<IGalleryServerRole>> GetRolesCurrentUserCanView(bool userIsSiteAdmin, bool userIsGalleryAdmin)
         {
             if (userIsSiteAdmin || (userIsGalleryAdmin && AppSetting.Instance.AllowGalleryAdminToViewAllUsersAndRoles))
             {
@@ -595,7 +694,7 @@ namespace GalleryServer.Web.Controller
                 {
                     if (role.Galleries.Count > 0)
                     {
-                        if (IsUserGalleryAdminForRole(role))
+                        if (await IsUserGalleryAdminForRole(role))
                         {
                             // Current user has gallery admin permissions for at least one galley associated with the role.
                             filteredRoles.Add(role);
@@ -603,7 +702,7 @@ namespace GalleryServer.Web.Controller
                     }
                     else if (IsRoleAnAlbumOwnerTemplateRole(role.RoleName))
                     {
-                        if (IsUserGalleryAdminForAlbumOwnerTemplateRole(role))
+                        if (await IsUserGalleryAdminForAlbumOwnerTemplateRole(role))
                         {
                             // The role is an album owner template role and the current user is a gallery admin for it's associated gallery.
                             filteredRoles.Add(role);
@@ -731,7 +830,7 @@ namespace GalleryServer.Web.Controller
         /// Make sure the list of ASP.NET roles is synchronized with the Gallery Server roles. If any are missing from 
         /// either, add it. Also verify that users assigned to roles still exist (e.g. they might have been deleted in AD).
         /// </summary>
-        public static void ValidateRoles()
+        public static async Task ValidateRoles()
         {
             List<IGalleryServerRole> validatedRoles = new List<IGalleryServerRole>();
             IGalleryServerRoleCollection galleryRoles = Factory.LoadGalleryServerRoles();
@@ -753,15 +852,15 @@ namespace GalleryServer.Web.Controller
                 // Check that each user in this role still exists in the membership. The only known case where they might not is when
                 // using AD and a user is deleted outside of GS. But we run for all membership providers for extra robustness.
                 var verifiedUsers = new HashSet<string>();
-                foreach (var userName in GetUsersInRole(roleName))
+                foreach (var user in await GetUsersInRole(roleName))
                 {
-                    if (!verifiedUsers.Contains(userName) && UserController.GetUser(userName, false) == null)
+                    if (!verifiedUsers.Contains(user.UserName) && UserController.GetUser(user.UserName, false) == null)
                     {
-                        RemoveUserFromRole(userName, roleName);
+                        await RemoveUserFromRole(user, roleName);
                         needToPurgeCache = true;
                     }
 
-                    verifiedUsers.Add(userName);
+                    verifiedUsers.Add(user.UserName);
                 }
             }
 
@@ -786,12 +885,12 @@ namespace GalleryServer.Web.Controller
         /// Verify a role with AllowAdministerSite permission exists, creating it if necessary. Return the role name.
         /// </summary>
         /// <returns>A <see cref="System.String" />.</returns>
-        public static string ValidateSysAdminRole()
+        public static async Task<string> ValidateSysAdminRole()
         {
             // Create the Sys Admin role if needed. If it already exists, make sure it has AllowAdministerSite permission.
-            if (!RoleExists(GlobalConstants.SysAdminRoleName))
+            if (!await RoleExists(GlobalConstants.SysAdminRoleName))
             {
-                CreateRole(GlobalConstants.SysAdminRoleName);
+                await CreateRole(GlobalConstants.SysAdminRoleName);
             }
 
             var role = Factory.LoadGalleryServerRole(GlobalConstants.SysAdminRoleName);
@@ -824,11 +923,11 @@ namespace GalleryServer.Web.Controller
         /// in all galleries. Return the role name.
         /// </summary>
         /// <returns>A <see cref="System.String" />.</returns>
-        public static string CreateAuthUsersRole()
+        public static async Task<string> CreateAuthUsersRole()
         {
-            if (!RoleExists(GlobalConstants.AuthenticatedUsersRoleName))
+            if (!await RoleExists(GlobalConstants.AuthenticatedUsersRoleName))
             {
-                CreateRole(GlobalConstants.AuthenticatedUsersRoleName);
+                await CreateRole(GlobalConstants.AuthenticatedUsersRoleName);
             }
 
             var role = Factory.LoadGalleryServerRole(GlobalConstants.AuthenticatedUsersRoleName);
@@ -854,16 +953,24 @@ namespace GalleryServer.Web.Controller
         /// <summary>
         /// Verify the roles stored in the <see cref="IGallerySettings.DefaultRolesForUser" /> property of every gallery exists. If not, remove them from the setting.
         /// </summary>
-        public static void RemoveMissingRolesFromDefaultRolesForUsersSettings()
+        public static async Task RemoveMissingRolesFromDefaultRolesForUsersSettings()
         {
             // Loop through all galleries, including the template gallery.
             foreach (var galleryId in Factory.LoadGalleries().Select(g => g.GalleryId).Concat(new[] { Factory.GetTemplateGalleryId() }))
             {
                 var gallerySettings = Factory.LoadGallerySetting(galleryId, true);
 
-                var rolesToRemove = gallerySettings.DefaultRolesForUser.Where(roleName => !RoleExists(roleName)).ToArray();
+                // GS 4.X: var rolesToRemove = gallerySettings.DefaultRolesForUser.Where(roleName => !RoleExists(roleName)).ToArray();
+                var rolesToRemove = new List<string>();
+                foreach (var role in gallerySettings.DefaultRolesForUser)
+                {
+                    if (!await RoleExists(role))
+                    {
+                        rolesToRemove.Add(role);
+                    }
+                }
 
-                if (rolesToRemove.Length > 0)
+                if (rolesToRemove.Count > 0)
                 {
                     // The setting references at least one role that doesn't exist. Remove these from the setting.
                     gallerySettings.DefaultRolesForUser = gallerySettings.DefaultRolesForUser.Where(r => !rolesToRemove.Contains(r)).ToArray();
@@ -875,20 +982,58 @@ namespace GalleryServer.Web.Controller
         /// <summary>
         /// Verify that each default role in all non-template galleries is assigned to all users.
         /// </summary>
-        public static void ValidateUsersAreInDefaultRolesForUsers()
+        public static async Task ValidateUsersAreInDefaultRolesForUsers()
         {
             // For each added default role, find the users *NOT* in the role and add them.
             var allUserNames = UserController.GetAllUsers().Select(u => u.UserName).ToArray();
 
-            foreach (var roleName in GetDefaultRolesForUser().Where(RoleExists))
+            var tasks = GetDefaultRolesForUser().Select(async r => new { roleName = r, roleExists = await RoleExists(r) });
+            var results = await Task.WhenAll(tasks);
+
+            foreach (var roleName in results.Where(x => x.roleExists).Select(x => x.roleName))
             {
-                var userNames = allUserNames.Except(GetUsersInRole(roleName)).ToArray();
+                var userNamesInRole = (await GetUsersInRole(roleName)).Select(u => u.UserName);
+                var userNames = allUserNames.Except(userNamesInRole).ToArray();
 
                 if (userNames.Length > 0)
                 {
-                    RoleController.AddUsersToRole(userNames, roleName);
+                    foreach (var userName in userNames)
+                    {
+                        RoleController.AddUserToRole(userName, roleName);
+                        //RoleController.AddUsersToRole(userNames, roleName);
+                    }
                 }
             }
+
+            // GS 4.X code:
+            //var allUserNames = UserController.GetAllUsers().Select(u => u.UserName).ToArray();
+
+            //foreach (var roleName in GetDefaultRolesForUser().Where(RoleExists))
+            //{
+            //    var userNames = allUserNames.Except(GetUsersInRole(roleName)).ToArray();
+
+            //    if (userNames.Length > 0)
+            //    {
+            //        RoleController.AddUsersToRole(userNames, roleName);
+            //    }
+            //}
+        }
+
+        public static async Task GetLotsOfStuff()
+        {
+            int[] collection = { 1, 2, 3 };
+            var tasks = collection.Select(q => GetDetailAboutTheThing(q));
+            var things = await Task.WhenAll(tasks);
+
+            foreach (var thing in things)
+            {
+                Console.WriteLine(thing);
+            }
+        }
+
+        public static Task<int> GetDetailAboutTheThing(int i)
+        {
+            return Task.FromResult(i * 2);
         }
 
         /// <summary>
@@ -899,19 +1044,19 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="album">The album to validate for album ownership. If a null value is passed, the function
         /// returns without error or taking any action.</param>
-        public static void ValidateRoleExistsForAlbumOwner(IAlbum album)
+        public static async Task ValidateRoleExistsForAlbumOwner(IAlbum album)
         {
             // For albums, verify that any needed roles for album ownership are present. Create/update as needed.
             if (album == null)
                 return;
 
-            if (String.IsNullOrEmpty(album.OwnerUserName))
+            if (string.IsNullOrEmpty(album.OwnerUserName))
             {
                 // If owner role is specified, delete it.
-                if (!String.IsNullOrEmpty(album.OwnerRoleName))
+                if (!string.IsNullOrEmpty(album.OwnerRoleName))
                 {
                     DeleteGalleryServerProRole(album.OwnerRoleName);
-                    album.OwnerRoleName = String.Empty;
+                    album.OwnerRoleName = string.Empty;
                 }
             }
             else
@@ -926,7 +1071,7 @@ namespace GalleryServer.Web.Controller
                 if (role == null)
                 {
                     // No role exists. Create it.
-                    album.OwnerRoleName = CreateAlbumOwnerRole(album);
+                    album.OwnerRoleName = await CreateAlbumOwnerRole(album);
                 }
                 else
                 {
@@ -939,12 +1084,16 @@ namespace GalleryServer.Web.Controller
                         role.Save();
                     }
 
-                    string[] rolesForUser = GetRolesForUser(album.OwnerUserName);
-                    if (Array.IndexOf(rolesForUser, role.RoleName) < 0)
+                    if (!(await GetRolesForUser(album.OwnerUserName)).Contains(role.RoleName))
                     {
                         // Owner is not a member. Add.
                         AddUserToRole(album.OwnerUserName, role.RoleName);
                     }
+                    //if (Array.IndexOf(rolesForUser, role.RoleName) < 0)
+                    //{
+                    //    // Owner is not a member. Add.
+                    //    AddUserToRole(album.OwnerUserName, role.RoleName);
+                    //}
                 }
             }
         }
@@ -961,7 +1110,7 @@ namespace GalleryServer.Web.Controller
         /// </returns>
         public static bool IsRoleAnAlbumOwnerRole(string roleName)
         {
-            if (String.IsNullOrEmpty(roleName))
+            if (string.IsNullOrEmpty(roleName))
                 return false;
 
             return roleName.Trim().StartsWith(GlobalConstants.AlbumOwnerRoleNamePrefix, StringComparison.Ordinal);
@@ -1015,7 +1164,7 @@ namespace GalleryServer.Web.Controller
         public static string[] ParseRoleNameFromGspRoleNames(string[] roleNames)
         {
             if (roleNames == null)
-                throw new ArgumentNullException("roleNames");
+                throw new ArgumentNullException(nameof(roleNames));
 
             string[] roleNamesCopy = new string[roleNames.Length];
 
@@ -1071,9 +1220,9 @@ namespace GalleryServer.Web.Controller
             #region Parameter Validation
 
             if (roleToSave == null)
-                throw new ArgumentNullException("roleToSave");
+                throw new ArgumentNullException(nameof(roleToSave));
 
-            if (String.IsNullOrEmpty(roleToSave.RoleName))
+            if (string.IsNullOrEmpty(roleToSave.RoleName))
                 return; // Role name will be empty when adding a new one, so the validation below doesn't apply.
 
             IGalleryServerRole existingRole = Factory.LoadGalleryServerRole(roleToSave.RoleName) ?? roleToSave;
@@ -1096,11 +1245,11 @@ namespace GalleryServer.Web.Controller
         /// <param name="existingRole">The existing role, as it is stored in the database. It's role name must match the role name of
         /// <paramref name="roleToSave" />.</param>
         /// <exception cref="GallerySecurityException">Thrown when the role cannot be saved because doing so would violate a business rule.</exception>
-        private static void ValidateCanRemoveSiteAdminPermission(IGalleryServerRole roleToSave, IGalleryServerRole existingRole)
+        private static async Task ValidateCanRemoveSiteAdminPermission(IGalleryServerRole roleToSave, IGalleryServerRole existingRole)
         {
             if (!roleToSave.RoleName.Equals(existingRole.RoleName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The role name of the roleToSave and existingRole parameters must match, but they do not. roleToSave='{0}'; existingRole='{1}'", roleToSave, existingRole));
+                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.CurrentCulture, "The role name of the roleToSave and existingRole parameters must match, but they do not. roleToSave='{0}'; existingRole='{1}'", roleToSave, existingRole));
             }
 
             if (existingRole.AllowAdministerSite && !roleToSave.AllowAdministerSite)
@@ -1112,7 +1261,7 @@ namespace GalleryServer.Web.Controller
                 {
                     if ((!role.RoleName.Equals(existingRole.RoleName, StringComparison.OrdinalIgnoreCase) && role.AllowAdministerSite))
                     {
-                        if (GetUsersInRole(role.RoleName).Length > 0)
+                        if ((await GetUsersInRole(role.RoleName)).Any())
                         {
                             atLeastOneOtherRoleHasAdminSitePermission = true;
                             break;
@@ -1137,20 +1286,20 @@ namespace GalleryServer.Web.Controller
         /// <paramref name="roleToSave" />.</param>
         /// <exception cref="GallerySecurityException">Thrown when the role cannot be saved because doing so would violate a business rule.</exception>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="roleToSave" /> or <paramref name="existingRole" /> is null.</exception>
-        private static void ValidateUserHasPermissionToSaveRole(IGalleryServerRole roleToSave, IGalleryServerRole existingRole)
+        private static async Task ValidateUserHasPermissionToSaveRole(IGalleryServerRole roleToSave, IGalleryServerRole existingRole)
         {
             if (roleToSave == null)
-                throw new ArgumentNullException("roleToSave");
+                throw new ArgumentNullException(nameof(roleToSave));
 
             if (existingRole == null)
-                throw new ArgumentNullException("existingRole");
+                throw new ArgumentNullException(nameof(existingRole));
 
             if (!roleToSave.RoleName.Equals(existingRole.RoleName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The role name of the roleToSave and existingRole parameters must match, but they do not. roleToSave='{0}'; existingRole='{1}'", roleToSave, existingRole));
+                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.CurrentCulture, "The role name of the roleToSave and existingRole parameters must match, but they do not. roleToSave='{0}'; existingRole='{1}'", roleToSave, existingRole));
             }
 
-            var roles = GetGalleryServerRolesForUser();
+            var roles = await GetGalleryServerRolesForUser();
 
             ValidateUserCanEditRole(roleToSave, existingRole, roles);
 
@@ -1175,14 +1324,14 @@ namespace GalleryServer.Web.Controller
         /// <param name="existingRole">The existing role, as it is stored in the database. It's role name must match the role name of
         /// <paramref name="roleToSave" />.</param>
         /// <exception cref="GallerySecurityException">Thrown when the role cannot be saved because doing so would violate a business rule.</exception>
-        private static void ValidateUserDoesNotLoseAbilityToAdminCurrentGallery(IGalleryServerRole roleToSave, IGalleryServerRole existingRole)
+        private static async Task ValidateUserDoesNotLoseAbilityToAdminCurrentGallery(IGalleryServerRole roleToSave, IGalleryServerRole existingRole)
         {
             if (!roleToSave.RoleName.Equals(existingRole.RoleName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The role name of the roleToSave and existingRole parameters must match, but they do not. roleToSave='{0}'; existingRole='{1}'", roleToSave, existingRole));
+                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.CurrentCulture, "The role name of the roleToSave and existingRole parameters must match, but they do not. roleToSave='{0}'; existingRole='{1}'", roleToSave, existingRole));
             }
 
-            if (IsUserInRole(Utils.UserName, roleToSave.RoleName))
+            if (await IsUserInRole(Utils.UserName, roleToSave.RoleName))
             {
                 bool adminSitePermissionBeingRevoked = (!roleToSave.AllowAdministerSite && existingRole.AllowAdministerSite);
                 bool adminGalleryPermissionBeingRevoked = (!roleToSave.AllowAdministerGallery && existingRole.AllowAdministerGallery);
@@ -1190,7 +1339,7 @@ namespace GalleryServer.Web.Controller
                 bool userHasAdminSitePermissionThroughAtLeastOneOtherRole = false;
                 bool userHasAdminGalleryPermissionThroughAtLeastOneOtherRole = false;
 
-                foreach (IGalleryServerRole roleForUser in GetGalleryServerRolesForUser())
+                foreach (IGalleryServerRole roleForUser in await GetGalleryServerRolesForUser())
                 {
                     if (!roleForUser.RoleName.Equals(roleToSave.RoleName))
                     {
@@ -1222,9 +1371,9 @@ namespace GalleryServer.Web.Controller
         /// Gets the Role provider used by Gallery Server.
         /// </summary>
         /// <returns>The Role provider used by Gallery Server.</returns>
-        private static RoleProvider GetRoleProvider()
+        private static GalleryRoleManager GetRoleProvider()
         {
-            return new RoleProvider();
+            return WebHelper.GetRoleManager();
             //if (String.IsNullOrEmpty(AppSetting.Instance.RoleProviderName))
             //{
             //    return Roles.Provider;
@@ -1240,7 +1389,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="roleToDelete">The role to be deleted.</param>
         /// <exception cref="GallerySecurityException">Thrown when the role cannot be deleted because doing so violates one of the business rules.</exception>
-        private static void ValidatePreventLastSysAdminRoleDeletion(IGalleryServerRole roleToDelete)
+        private static async Task ValidatePreventLastSysAdminRoleDeletion(IGalleryServerRole roleToDelete)
         {
             if (roleToDelete.AllowAdministerSite)
             {
@@ -1251,7 +1400,7 @@ namespace GalleryServer.Web.Controller
                 {
                     if ((!role.RoleName.Equals(roleToDelete.RoleName, StringComparison.OrdinalIgnoreCase) && role.AllowAdministerSite))
                     {
-                        if (GetUsersInRole(role.RoleName).Length > 0)
+                        if ((await GetUsersInRole(role.RoleName)).Any())
                         {
                             atLeastOneOtherRoleHasAdminSitePermission = true;
                             break;
@@ -1272,14 +1421,14 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="roleToDelete">The role to be deleted.</param>
         /// <exception cref="GallerySecurityException">Thrown when the role cannot be deleted because doing so violates one of the business rules.</exception>
-        private static void ValidatePreventLoggedOnUserFromLosingAdminAccess(IGalleryServerRole roleToDelete)
+        private static async Task ValidatePreventLoggedOnUserFromLosingAdminAccess(IGalleryServerRole roleToDelete)
         {
             string roleName = roleToDelete.RoleName;
 
             if (roleToDelete.AllowAdministerSite || roleToDelete.AllowAdministerGallery)
             {
                 bool needToVerify = false;
-                IGalleryServerRoleCollection roles = GetGalleryServerRolesForUser(Utils.UserName);
+                IGalleryServerRoleCollection roles = await GetGalleryServerRolesForUser(Utils.UserName);
                 foreach (IGalleryServerRole role in roles)
                 {
                     if (role.RoleName.Equals(roleName, StringComparison.OrdinalIgnoreCase))
@@ -1332,17 +1481,17 @@ namespace GalleryServer.Web.Controller
         /// <param name="roleToDelete">The role to be deleted.</param>
         /// <exception cref="GallerySecurityException">Thrown when the role cannot be deleted because doing so violates one of the business rules.</exception>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="roleToDelete" /> is null.</exception>
-        private static void ValidatePreventRoleDeletionAffectingOtherGalleries(IGalleryServerRole roleToDelete)
+        private static async Task ValidatePreventRoleDeletionAffectingOtherGalleries(IGalleryServerRole roleToDelete)
         {
             if (roleToDelete == null)
-                throw new ArgumentNullException("roleToDelete");
+                throw new ArgumentNullException(nameof(roleToDelete));
 
             if (IsRoleAnAlbumOwnerRole(roleToDelete.RoleName))
             {
                 return;
             }
 
-            IGalleryCollection adminGalleries = UserController.GetGalleriesCurrentUserCanAdminister();
+            IGalleryCollection adminGalleries = await UserController.GetGalleriesCurrentUserCanAdminister();
 
             foreach (IGallery gallery in roleToDelete.Galleries)
             {
@@ -1353,13 +1502,13 @@ namespace GalleryServer.Web.Controller
             }
         }
 
-        private static void DeleteAspnetRole(string roleName)
+        private static async Task DeleteAspnetRole(string roleName)
         {
-            if (String.IsNullOrEmpty(roleName))
+            if (string.IsNullOrEmpty(roleName))
                 return;
 
-            if (RoleExists(roleName))
-                DeleteRole(roleName); // This also deletes any user/role relationships
+            if (await RoleExists(roleName))
+                await DeleteRole(roleName); // This also deletes any user/role relationships
         }
 
         private static void DeleteGalleryServerRole(string roleName)
@@ -1394,7 +1543,7 @@ namespace GalleryServer.Web.Controller
                 IAlbum album = Factory.LoadAlbumInstance(new AlbumLoadOptions(albumId) { AllowMetadataLoading = false, IsWritable = true });
                 if (album.OwnerRoleName == role.RoleName)
                 {
-                    album.OwnerUserName = String.Empty;
+                    album.OwnerUserName = string.Empty;
                     GalleryObjectController.SaveGalleryObject(album);
                 }
             }
@@ -1451,7 +1600,7 @@ namespace GalleryServer.Web.Controller
                     IAlbum album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(albumId) { IsWritable = true });
                     if (album.OwnerRoleName == roleName)
                     {
-                        album.OwnerUserName = String.Empty;
+                        album.OwnerUserName = string.Empty;
                         GalleryObjectController.SaveGalleryObject(album);
                     }
                 }
@@ -1468,22 +1617,22 @@ namespace GalleryServer.Web.Controller
         /// <returns>Returns the name of the role that is created.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="album" /> is null.</exception>
         /// <exception cref="ArgumentException">Thrown when <paramref name="album" /> is new and has not yet been persisted to the data store.</exception>
-        private static string CreateAlbumOwnerRole(IAlbum album)
+        private static async Task<string> CreateAlbumOwnerRole(IAlbum album)
         {
             // Create a role modeled after the template owner role, attach it to the album, then add the specified user as its member.
             // Role name: Album Owner - rdmartin - rdmartin's album (album 193)
             if (album == null)
-                throw new ArgumentNullException("album");
+                throw new ArgumentNullException(nameof(album));
 
             if (album.IsNew)
                 throw new ArgumentException("Album must be persisted to data store before calling RoleController.CreateAlbumOwnerRole.");
 
             string roleName = GenerateAlbumOwnerRoleName(album);
 
-            if (!RoleExists(roleName))
-                CreateRole(roleName);
+            if (!await RoleExists(roleName))
+                await CreateRole(roleName);
 
-            if (!IsUserInRole(album.OwnerUserName, roleName))
+            if (!await IsUserInRole(album.OwnerUserName, roleName))
                 AddUserToRole(album.OwnerUserName, roleName);
 
             // Remove the roles from the cache. We do this because may may have just created a user album (that is, 
@@ -1525,9 +1674,9 @@ namespace GalleryServer.Web.Controller
             const int minAlbumTitleLength = 10;
             const string ellipse = "...";
 
-            string roleNameTemplate = String.Format(CultureInfo.InvariantCulture, "{0} - {{UserName}} - {{AlbumTitle}} (album {1})", GlobalConstants.AlbumOwnerRoleNamePrefix, album.Id);
+            string roleNameTemplate = string.Format(CultureInfo.InvariantCulture, "{0} - {{UserName}} - {{AlbumTitle}} (album {1})", GlobalConstants.AlbumOwnerRoleNamePrefix, album.Id);
 
-            var albumTitle = album.Title.Replace(",", String.Empty); // Commas are not allowed in a role name
+            var albumTitle = album.Title.Replace(",", string.Empty); // Commas are not allowed in a role name
 
             string roleName = roleNameTemplate.Replace("{UserName}", album.OwnerUserName).Replace("{AlbumTitle}", albumTitle);
 
@@ -1542,7 +1691,7 @@ namespace GalleryServer.Web.Controller
                 if ((albumTitle.Length - numCharsToTrim) >= minAlbumTitleLength)
                 {
                     // We can do all the trimming we need by shortening the album title.
-                    newAlbumTitle = String.Concat(albumTitle.Substring(0, albumTitle.Length - numCharsToTrim - ellipse.Length), ellipse);
+                    newAlbumTitle = string.Concat(albumTitle.Substring(0, albumTitle.Length - numCharsToTrim - ellipse.Length), ellipse);
                     numCharsTrimmed = numCharsToTrim;
                 }
                 else
@@ -1551,7 +1700,7 @@ namespace GalleryServer.Web.Controller
                     // get as short as we need.
                     try
                     {
-                        newAlbumTitle = String.Concat(albumTitle.Substring(0, minAlbumTitleLength - ellipse.Length), ellipse);
+                        newAlbumTitle = string.Concat(albumTitle.Substring(0, minAlbumTitleLength - ellipse.Length), ellipse);
                         numCharsTrimmed = albumTitle.Length - newAlbumTitle.Length;
                     }
                     catch (ArgumentOutOfRangeException) { }
@@ -1563,12 +1712,12 @@ namespace GalleryServer.Web.Controller
                     numCharsToTrim = numCharsToTrim - numCharsTrimmed;
                     if (album.OwnerUserName.Length > numCharsToTrim)
                     {
-                        newUserName = String.Concat(album.OwnerUserName.Substring(0, album.OwnerUserName.Length - numCharsToTrim - ellipse.Length), ellipse);
+                        newUserName = string.Concat(album.OwnerUserName.Substring(0, album.OwnerUserName.Length - numCharsToTrim - ellipse.Length), ellipse);
                     }
                     else
                     {
                         // It is not expected we ever get to this path.
-                        throw new WebException(String.Format(CultureInfo.CurrentCulture, "Invalid role name length. Unable to shorten the album owner role name enough to satisfy maximum length restriction. Proposed name='{0}' (length={1}); Max length={2}", roleName, roleName.Length, maxRoleNameLength));
+                        throw new WebException(string.Format(CultureInfo.CurrentCulture, "Invalid role name length. Unable to shorten the album owner role name enough to satisfy maximum length restriction. Proposed name='{0}' (length={1}); Max length={2}", roleName, roleName.Length, maxRoleNameLength));
                     }
                 }
 
@@ -1577,7 +1726,7 @@ namespace GalleryServer.Web.Controller
                 // Perform one last final check to ensure we shortened things up correctly.
                 if (roleName.Length > maxRoleNameLength)
                 {
-                    throw new WebException(String.Format(CultureInfo.CurrentCulture, "Unable to shorten the album owner role name enough to satisfy maximum length restriction. Proposed name='{0}' (length={1}); Max length={2}", roleName, roleName.Length, maxRoleNameLength));
+                    throw new WebException(string.Format(CultureInfo.CurrentCulture, "Unable to shorten the album owner role name enough to satisfy maximum length restriction. Proposed name='{0}' (length={1}); Max length={2}", roleName, roleName.Length, maxRoleNameLength));
                 }
             }
 
@@ -1596,16 +1745,16 @@ namespace GalleryServer.Web.Controller
             if (galleryDescription.Length > 100)
             {
                 // Too long - shorten up... (role name can be only 256 chars)
-                galleryDescription = String.Concat(galleryDescription.Substring(0, 100), "...");
+                galleryDescription = string.Concat(galleryDescription.Substring(0, 100), "...");
             }
 
             // Note: If you change this, be sure to update _gspAlbumOwnerTemplateRoleNameRegExPattern to that it will match!
-            return String.Format(CultureInfo.InvariantCulture, "{0} (Gallery ID {1}: '{2}')", GlobalConstants.AlbumOwnerRoleTemplateName, galleryId, galleryDescription);
+            return string.Format(CultureInfo.InvariantCulture, "{0} (Gallery ID {1}: '{2}')", GlobalConstants.AlbumOwnerRoleTemplateName, galleryId, galleryDescription);
         }
 
         private static string GetCacheKeyNameForRoles(string userName)
         {
-            return String.Concat(userName, "_Roles");
+            return string.Concat(userName, "_Roles");
         }
 
         /// <summary>
@@ -1616,7 +1765,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="roleNames">The names of the roles the user were removed from.</param>
         private static void ValidateRemoveUserFromRole(string userName, IEnumerable<string> roleNames)
         {
-            if (String.IsNullOrEmpty(userName))
+            if (string.IsNullOrEmpty(userName))
                 return;
 
             if (roleNames == null)
@@ -1639,7 +1788,7 @@ namespace GalleryServer.Web.Controller
                         IAlbum album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(albumId) { IsWritable = true });
                         if (album.OwnerUserName.Equals(userName, StringComparison.OrdinalIgnoreCase))
                         {
-                            album.OwnerUserName = String.Empty;
+                            album.OwnerUserName = string.Empty;
                             GalleryObjectController.SaveGalleryObject(album);
                         }
                     }
@@ -1660,7 +1809,7 @@ namespace GalleryServer.Web.Controller
         private static void UpdateRoleAlbumRelationships(IGalleryServerRole role, IIntegerCollection topLevelCheckedAlbumIds)
         {
             if (role == null)
-                throw new ArgumentNullException("role");
+                throw new ArgumentNullException(nameof(role));
 
             if (topLevelCheckedAlbumIds == null)
                 topLevelCheckedAlbumIds = new IntegerCollection();
@@ -1716,12 +1865,12 @@ namespace GalleryServer.Web.Controller
         /// <param name="role">The role to evaluate.</param>
         /// <returns><c>true</c> if the user has permission to edit the specified role; otherwise <c>false</c>.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="role" /> is null.</exception>
-        private static bool UserCanViewRole(IGalleryServerRole role)
+        private static async Task<bool> UserCanViewRole(IGalleryServerRole role)
         {
             if (role == null)
-                throw new ArgumentNullException("role");
+                throw new ArgumentNullException(nameof(role));
 
-            if (Utils.IsCurrentUserSiteAdministrator())
+            if (await Utils.IsCurrentUserSiteAdministrator())
             {
                 return true;
             }
@@ -1730,11 +1879,11 @@ namespace GalleryServer.Web.Controller
             {
                 // The role isn't assigned to any albums, so let's make sure the user is a gallery admin to at
                 // least one gallery.
-                return (GalleryController.GetGalleriesCurrentUserCanAdminister().Count > 0);
+                return ((await GalleryController.GetGalleriesCurrentUserCanAdminister()).Any());
             }
             else
             {
-                return IsUserGalleryAdminForRole(role);
+                return await IsUserGalleryAdminForRole(role);
             }
         }
 
@@ -1749,9 +1898,9 @@ namespace GalleryServer.Web.Controller
         /// <paramref name="roleToSave" />.</param>
         /// <param name="rolesForCurrentUser">The roles for current user.</param>
         /// <exception cref="GallerySecurityException">Thrown when the role cannot be saved because doing so would violate a business rule.</exception>
-        private static void ValidateUserCanEditRole(IGalleryServerRole roleToSave, IGalleryServerRole existingRole, IGalleryServerRoleCollection rolesForCurrentUser)
+        private static async Task ValidateUserCanEditRole(IGalleryServerRole roleToSave, IGalleryServerRole existingRole, IGalleryServerRoleCollection rolesForCurrentUser)
         {
-            if (Utils.IsCurrentUserSiteAdministrator())
+            if (await Utils.IsCurrentUserSiteAdministrator())
             {
                 return;
             }
@@ -1760,7 +1909,7 @@ namespace GalleryServer.Web.Controller
             {
                 // The role isn't assigned to any albums, so let's make sure the user is a gallery admin to at
                 // least one gallery.
-                if (GalleryController.GetGalleriesCurrentUserCanAdminister().Count == 0)
+                if (!(await GalleryController.GetGalleriesCurrentUserCanAdminister()).Any())
                 {
                     throw new GallerySecurityException("Your account does not have permission to make changes to roles.");
                 }
@@ -1781,11 +1930,11 @@ namespace GalleryServer.Web.Controller
         /// 	<c>true</c> if the logged on user has gallery admin permissions for at least one galley associated with the
         /// <paramref name="role" />; otherwise, <c>false</c>.
         /// </returns>
-        private static bool IsUserGalleryAdminForRole(IGalleryServerRole role)
+        private static async Task<bool> IsUserGalleryAdminForRole(IGalleryServerRole role)
         {
             foreach (IGallery gallery in role.Galleries)
             {
-                if (Utils.IsCurrentUserGalleryAdministrator(gallery.GalleryId))
+                if (await Utils.IsCurrentUserGalleryAdministrator(gallery.GalleryId))
                 {
                     return true;
                 }
@@ -1806,7 +1955,7 @@ namespace GalleryServer.Web.Controller
         /// 	Returns <c>true</c> when the role is an album owner template role and the current user is a gallery admin for it's
         /// associated gallery; otherwise returns <c>false</c>.
         /// </returns>
-        private static bool IsUserGalleryAdminForAlbumOwnerTemplateRole(IGalleryServerRole role)
+        private static async Task<bool> IsUserGalleryAdminForAlbumOwnerTemplateRole(IGalleryServerRole role)
         {
             System.Text.RegularExpressions.Match match = _gspAlbumOwnerTemplateRoleNameRegEx.Match(role.RoleName);
             if (match.Success)
@@ -1821,7 +1970,7 @@ namespace GalleryServer.Web.Controller
                 }
                 catch (InvalidGalleryException) { }
 
-                if ((gallery != null) && GalleryController.GetGalleriesCurrentUserCanAdminister().Contains(gallery))
+                if ((gallery != null) && (await GalleryController.GetGalleriesCurrentUserCanAdminister()).Contains(gallery))
                 {
                     return true;
                 }

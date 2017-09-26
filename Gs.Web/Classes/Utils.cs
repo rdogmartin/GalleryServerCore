@@ -326,9 +326,9 @@ namespace GalleryServer.Web
         /// <overloads>
         /// Determine if the current user has permission to perform the requested action.
         ///   </overloads>
-        public static bool IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, bool isVirtualAlbum)
+        public static async Task<bool> IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, bool isVirtualAlbum)
         {
-            return IsUserAuthorized(securityActions, RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, isVirtualAlbum);
+            return IsUserAuthorized(securityActions, await RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, isVirtualAlbum);
         }
 
         /// <summary>
@@ -355,9 +355,9 @@ namespace GalleryServer.Web
         /// Returns true when the user is authorized to perform the specified security action against the specified album;
         /// otherwise returns false.
         /// </returns>
-        public static bool IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, SecurityActionsOption secActionsOption, bool isVirtualAlbum)
+        public static async Task<bool> IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, SecurityActionsOption secActionsOption, bool isVirtualAlbum)
         {
-            return IsUserAuthorized(securityActions, RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, secActionsOption, isVirtualAlbum);
+            return IsUserAuthorized(securityActions, await RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, secActionsOption, isVirtualAlbum);
         }
 
         /// <summary>
@@ -460,9 +460,9 @@ namespace GalleryServer.Web
         /// <returns>
         /// 	<c>true</c> if the user is a site administrator; otherwise, <c>false</c>.
         /// </returns>
-        public static bool IsCurrentUserSiteAdministrator()
+        public static async Task<bool> IsCurrentUserSiteAdministrator()
         {
-            return IsUserSiteAdministrator(RoleController.GetGalleryServerRolesForUser());
+            return IsUserSiteAdministrator(await RoleController.GetGalleryServerRolesForUser());
         }
 
         /// <summary>
@@ -473,9 +473,9 @@ namespace GalleryServer.Web
         /// <returns>
         /// 	<c>true</c> if the user is a gallery administrator; otherwise, <c>false</c>.
         /// </returns>
-        public static bool IsCurrentUserGalleryAdministrator(int galleryId)
+        public static async Task<bool> IsCurrentUserGalleryAdministrator(int galleryId)
         {
-            return SecurityManager.IsUserGalleryAdministrator(RoleController.GetGalleryServerRolesForUser(), galleryId);
+            return SecurityManager.IsUserGalleryAdministrator(await RoleController.GetGalleryServerRolesForUser(), galleryId);
         }
 
         ///// <summary>

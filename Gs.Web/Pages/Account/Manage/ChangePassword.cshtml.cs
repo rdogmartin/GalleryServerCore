@@ -13,13 +13,13 @@ namespace Gs.Web.Pages.Account.Manage
 {
     public class ChangePasswordModel : PageModel
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<GalleryUser> _userManager;
+        private readonly SignInManager<GalleryUser> _signInManager;
         private readonly ILogger<ChangePasswordModel> _logger;
 
         public ChangePasswordModel(
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
+            UserManager<GalleryUser> userManager,
+            SignInManager<GalleryUser> signInManager,
             ILogger<ChangePasswordModel> logger)
         {
             _userManager = userManager;

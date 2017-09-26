@@ -12,9 +12,9 @@ namespace Gs.Web.Pages.Account
 {
     public class ResetPasswordModel : PageModel
     {
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly UserManager<GalleryUser> _userManager;
 
-        public ResetPasswordModel(UserManager<ApplicationUser> userManager)
+        public ResetPasswordModel(UserManager<GalleryUser> userManager)
         {
             _userManager = userManager;
         }

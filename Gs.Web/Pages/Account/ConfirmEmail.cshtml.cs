@@ -11,9 +11,9 @@ namespace Gs.Web.Pages.Account
 {
     public class ConfirmEmailModel : PageModel
     {
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly UserManager<GalleryUser> _userManager;
 
-        public ConfirmEmailModel(UserManager<ApplicationUser> userManager)
+        public ConfirmEmailModel(UserManager<GalleryUser> userManager)
         {
             _userManager = userManager;
         }

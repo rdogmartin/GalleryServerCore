@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace GalleryServer.Web.Entity
@@ -52,6 +53,6 @@ namespace GalleryServer.Web.Entity
 		/// is being built). Clients using this class should degrade gracefully in this situation.
 		/// </summary>
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-		public String[] Members;
+		public IList<Data.GalleryUser> Members;
 	}
 }

@@ -12,11 +12,11 @@ namespace Gs.Web.Pages.Account.Manage
 {
     public class Disable2faModel : PageModel
     {
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly UserManager<GalleryUser> _userManager;
         private readonly ILogger<Disable2faModel> _logger;
 
         public Disable2faModel(
-            UserManager<ApplicationUser> userManager,
+            UserManager<GalleryUser> userManager,
             ILogger<Disable2faModel> logger)
         {
             _userManager = userManager;
