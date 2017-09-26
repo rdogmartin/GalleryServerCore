@@ -13,7 +13,7 @@ namespace GalleryServer.Data.Migrations
             // We may never have to worry about upgrades.
             EnsureIdentitySchema(migrationBuilder);
 
-            EnsureGallerySchema(migrationBuilder);
+            //EnsureGallerySchema(migrationBuilder);
         }
 
         private static void EnsureIdentitySchema(MigrationBuilder migrationBuilder)

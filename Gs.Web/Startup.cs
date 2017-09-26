@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Gs.Web.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Gs.Web
@@ -43,7 +44,8 @@ namespace Gs.Web
             // Register no-op EmailSender used by account confirmation and password reset during development
             // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=532713
             services.AddSingleton<IEmailSender, EmailSender>();
-            services.AddSingleton<CacheController>();
+            services.AddSingleton<IMemoryCache, MemoryCache>();
+            //services.AddSingleton<CacheController>();
 
             services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         }
@@ -88,7 +90,9 @@ namespace Gs.Web
                 await context.Response.SendFileAsync(System.IO.Path.Combine(env.WebRootPath, "index.html"));
             });
 
-            WebHelper.Configure(app.ApplicationServices.GetRequiredService<IHttpContextAccessor>());
+            WebHelper.Configure(app.ApplicationServices.GetRequiredService<IHttpContextAccessor>(), app.ApplicationServices.GetRequiredService<IMemoryCache>());
+
+            GalleryServer.Web.Controller.GalleryController.InitializeGspApplication();
         }
     }
 }

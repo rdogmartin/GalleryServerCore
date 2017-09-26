@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using GalleryServer.Business.Interfaces;
+using GalleryServer.Data;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace GalleryServer.Business
@@ -9,20 +10,20 @@ namespace GalleryServer.Business
     /// <summary>
     /// Provides functionality for interacting with the caching infrastructure.
     /// </summary>
-    public class CacheController
+    public static class CacheController
     {
         #region Fields
 
         //private static ObjectCache _cacheManager;
-        private static IMemoryCache _cache;
+        private static readonly IMemoryCache _cache;
 
         #endregion
 
         #region Constructors
 
-        public CacheController(IMemoryCache memoryCache)
+        static CacheController()
         {
-            _cache = memoryCache;
+            _cache = WebHelper.GetCache();
         }
 
         #endregion

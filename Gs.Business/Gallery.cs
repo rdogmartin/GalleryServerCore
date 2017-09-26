@@ -360,8 +360,8 @@ namespace GalleryServer.Business
             IsPrivate = false,
             Metadata = new Collection<MetadataDto>
             {
-              new MetadataDto {MetaName = MetadataItemName.Caption, Value = "Welcome to Gallery Server"},
-              new MetadataDto {MetaName = MetadataItemName.Title, Value = "ALL ALBUMS"}
+              new MetadataDto {MetaName = MetadataItemName.Caption, Value = GlobalConstants.RootAlbumCaption},
+              new MetadataDto {MetaName = MetadataItemName.Title, Value = GlobalConstants.RootAlbumTitle}
             }
           };
 

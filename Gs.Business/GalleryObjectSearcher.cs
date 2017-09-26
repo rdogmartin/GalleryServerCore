@@ -456,7 +456,7 @@ namespace GalleryServer.Business
         rootAlbum = Factory.CreateEmptyAlbumInstance(SearchOptions.GalleryId);
         rootAlbum.IsVirtualAlbum = true;
         rootAlbum.VirtualAlbumType = VirtualAlbumType.Root;
-        rootAlbum.Title = "ALL ALBUMS";
+        rootAlbum.Title = GlobalConstants.RootAlbumTitle;
         rootAlbum.Caption = String.Empty;
         rootAlbum.IsInflated = true;
         foreach (var album in rootAlbums)

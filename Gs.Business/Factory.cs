@@ -2889,9 +2889,9 @@ namespace GalleryServer.Business
             DateTime currentTimestamp = DateTime.UtcNow;
 
             album.Parent.Id = 0; // The parent ID of the root album is always zero.
-            album.Title = "ALL ALBUMS";
+            album.Title = GlobalConstants.RootAlbumTitle;
             album.DirectoryName = String.Empty; // The root album must have an empty directory name;
-            album.Caption = "Welcome to Gallery Server";
+            album.Caption = GlobalConstants.RootAlbumCaption;
             album.CreatedByUserName = GlobalConstants.SystemUserName;
             album.DateAdded = currentTimestamp;
             album.LastModifiedByUserName = GlobalConstants.SystemUserName;

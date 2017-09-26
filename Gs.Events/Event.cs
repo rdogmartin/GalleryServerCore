@@ -660,15 +660,18 @@ namespace GalleryServer.Events
                 return;
             }
 
-            var form = httpContext.Request.Form;
-            foreach (var key in form.Keys)
+            try
             {
-                if (key.IndexOf("password", StringComparison.OrdinalIgnoreCase) < 0) // Don't include any form variables containing the string password. This prevents sensitive data from being recorded.
+                var form = httpContext.Request.Form;
+                foreach (var key in form.Keys)
                 {
-                    _formVariables.Add(new KeyValuePair<string, string>(key, form[key]));
+                    if (key.IndexOf("password", StringComparison.OrdinalIgnoreCase) < 0) // Don't include any form variables containing the string password. This prevents sensitive data from being recorded.
+                    {
+                        _formVariables.Add(new KeyValuePair<string, string>(key, form[key]));
+                    }
                 }
-                
             }
+            catch (InvalidOperationException) { }
 
             var cookies = httpContext.Request.Cookies;
             foreach (var cookie in cookies)
@@ -676,14 +679,19 @@ namespace GalleryServer.Events
                 _cookies.Add(new KeyValuePair<string, string>(cookie.Key, cookie.Value));
             }
 
-            var session = httpContext.Session;
-            if (session != null)
+            try
             {
-                foreach (var key in session.Keys)
+                var session = httpContext.Session;
+                if (session != null)
                 {
-                    _sessionVariables.Add(new KeyValuePair<string, string>(key, session.Get(key).ToString()));
+                    foreach (var key in session.Keys)
+                    {
+                        _sessionVariables.Add(new KeyValuePair<string, string>(key, session.Get(key).ToString()));
+                    }
                 }
             }
+            catch (InvalidOperationException) { }
+
 
             // No ServerVariables in .NET Core 2.0
             //var serverVariables = _httpContextAccessor.HttpContext.Request.ServerVariables;
