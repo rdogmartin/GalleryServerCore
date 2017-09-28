@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 namespace GalleryServer.Data
 {
     /// <inheritdoc />
-    public class GalleryDb : IdentityDbContext<GalleryUser>
+    public class GalleryDb : IdentityDbContext<GalleryUser, GalleryRole, string>
     {
         public GalleryDb()
         {
@@ -35,6 +35,7 @@ namespace GalleryServer.Data
         public virtual DbSet<UiTemplateAlbumDto> UiTemplateAlbums { get; set; }
         public virtual DbSet<TagDto> Tags { get; set; }
         public virtual DbSet<MetadataTagDto> MetadataTags { get; set; }
+        public virtual DbSet<GalleryRole> GalleryAppRoles { get; set; }
 
         /// <summary>
         /// Gets the version of the current data schema.

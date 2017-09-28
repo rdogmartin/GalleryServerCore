@@ -73,14 +73,14 @@ namespace GalleryServer.Web.Controller
                 if (IsInitialized)
                     return;
 
-                if (WebHelper.HttpContext != null)
+                if (DiHelper.HttpContext != null)
                 {
                     // Add a dummy value to session so that the session ID remains constant. (This is required by RoleController.GetRolesForUser())
                     // Check for null session first. It will be null when this is triggered by a web method that does not have
                     // session enabled (that is, the [WebMethod(EnableSession = true)] attribute). That's OK because the roles functionality
                     // will still work (we might have to an extra data call, though), and we don't want the overhead of session for some web methods.
-                    if (WebHelper.HttpContext.Session != null)
-                        WebHelper.HttpContext.Session.SetInt32("1", 1);
+                    if (DiHelper.HttpContext.Session != null)
+                        DiHelper.HttpContext.Session.SetInt32("1", 1);
 
                     // Update the user accounts in a few gallery settings. The DotNetNuke version requires this call to happen when there
                     // is an HttpContext, so to reduce differences between the two branches we put it here.
@@ -91,7 +91,7 @@ namespace GalleryServer.Web.Controller
 
                 AppEventController.LogEvent("Application has started.");
 
-                InsertSampleUsersAndRoles();
+                //InsertSampleUsersAndRoles();
             }
             //}
             //catch (ThreadAbortException)

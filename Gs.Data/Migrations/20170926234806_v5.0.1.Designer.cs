@@ -15,9 +15,10 @@ using System;
 namespace GalleryServer.Data.Migrations
 {
     [DbContext(typeof(GalleryDb))]
-    partial class GalleryDbModelSnapshot : ModelSnapshot
+    [Migration("20170926234806_v5.0.1")]
+    partial class v501
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

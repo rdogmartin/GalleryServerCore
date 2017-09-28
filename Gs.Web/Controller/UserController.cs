@@ -42,7 +42,7 @@ namespace GalleryServer.Web.Controller
             {
                 if (_roleManager == null)
                 {
-                    _roleManager = WebHelper.GetRoleManager();
+                    _roleManager = DiHelper.GetRoleManager();
                 }
 
                 return _roleManager;
@@ -55,7 +55,7 @@ namespace GalleryServer.Web.Controller
             {
                 if (_userManager == null)
                 {
-                    _userManager = WebHelper.GetUserManager();
+                    _userManager = DiHelper.GetUserManager();
                 }
 
                 return _userManager;
@@ -274,7 +274,7 @@ namespace GalleryServer.Web.Controller
                 IUserAccountCollection users;
                 string cacheKeyName = String.Empty;
 
-                if (Data.WebHelper.HttpContext.Session != null)
+                if (Data.DiHelper.HttpContext.Session != null)
                 {
                     cacheKeyName = GetCacheKeyNameForUsersCurrentUserCanView(Utils.UserName);
 
@@ -294,7 +294,7 @@ namespace GalleryServer.Web.Controller
                 }
 
                 // Add to the cache, but only if we have access to the session ID.
-                if (Data.WebHelper.HttpContext.Session != null)
+                if (Data.DiHelper.HttpContext.Session != null)
                 {
                     lock (usersCache)
                     {
@@ -1784,7 +1784,7 @@ namespace GalleryServer.Web.Controller
 
         private static string GetCacheKeyNameForUsersCurrentUserCanView(string userName)
         {
-            return String.Concat(Data.WebHelper.HttpContext.Session.Id, "_", userName, "_Users");
+            return String.Concat(Data.DiHelper.HttpContext.Session.Id, "_", userName, "_Users");
         }
 
         /// <summary>

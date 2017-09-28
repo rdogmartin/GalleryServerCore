@@ -23,7 +23,7 @@ namespace GalleryServer.Business
 
         static CacheController()
         {
-            _cache = WebHelper.GetCache();
+            _cache = DiHelper.GetCache();
         }
 
         #endregion

@@ -191,17 +191,17 @@ namespace GalleryServer.Web.Controller
     {
       IUserProfile pc = null;
 
-      if (WebHelper.HttpContext.Session != null)
+      if (DiHelper.HttpContext.Session != null)
       {
         // First see if we already deserialized it earlier in this HTTP call.
-        var profile = WebHelper.HttpContext.Items["Profile"];
+        var profile = DiHelper.HttpContext.Items["Profile"];
         if (profile != null)
         {
           return (IUserProfile) profile;
         }
 
         // Must be first call to this function in this page life cycle or no profile has yet been saved. Look in session.
-        var pcString = WebHelper.HttpContext.Session.GetString("_Profile");
+        var pcString = DiHelper.HttpContext.Session.GetString("_Profile");
 
         if (!string.IsNullOrWhiteSpace(pcString))
         {
@@ -211,7 +211,7 @@ namespace GalleryServer.Web.Controller
             new AlbumProfileConverter(),
             new MediaObjectProfileConverter());
 
-            WebHelper.HttpContext.Items["Profile"] = pc;
+            DiHelper.HttpContext.Items["Profile"] = pc;
         }
       }
 
@@ -227,9 +227,9 @@ namespace GalleryServer.Web.Controller
     /// persist *that* to session.</remarks>
     private static void SaveProfileToSession(IUserProfile userProfile)
     {
-      if (WebHelper.HttpContext.Session != null)
+      if (DiHelper.HttpContext.Session != null)
       {
-          WebHelper.HttpContext.Session.SetString("_Profile", Newtonsoft.Json.JsonConvert.SerializeObject(userProfile));
+          DiHelper.HttpContext.Session.SetString("_Profile", Newtonsoft.Json.JsonConvert.SerializeObject(userProfile));
       }
     }
 

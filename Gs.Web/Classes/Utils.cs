@@ -58,22 +58,22 @@ namespace GalleryServer.Web
         {
             get
             {
-                if (WebHelper.HttpContext == null)
+                if (DiHelper.HttpContext == null)
                 {
                     return null;
                 }
 
-                object userName = WebHelper.HttpContext.Items["UserName"];
+                object userName = DiHelper.HttpContext.Items["UserName"];
                 if (userName != null)
                 {
                     return userName.ToString();
                 }
                 else
                 {
-                    return ParseUserName(WebHelper.HttpContext.User.Identity.Name ?? string.Empty);
+                    return ParseUserName(DiHelper.HttpContext.User.Identity.Name ?? string.Empty);
                 }
             }
-            set => WebHelper.HttpContext.Items["UserName"] = value;
+            set => DiHelper.HttpContext.Items["UserName"] = value;
         }
 
         /// <summary>
@@ -88,12 +88,12 @@ namespace GalleryServer.Web
         {
             get
             {
-                if (WebHelper.HttpContext == null)
+                if (DiHelper.HttpContext == null)
                 {
                     return false;
                 }
 
-                object objIsAuthenticated = WebHelper.HttpContext.Items["IsAuthenticated"];
+                object objIsAuthenticated = DiHelper.HttpContext.Items["IsAuthenticated"];
 
                 if ((objIsAuthenticated != null) && Boolean.TryParse(objIsAuthenticated.ToString(), out var isAuthenticated))
                 {
@@ -101,10 +101,10 @@ namespace GalleryServer.Web
                 }
                 else
                 {
-                    return WebHelper.HttpContext.User.Identity.IsAuthenticated;
+                    return DiHelper.HttpContext.User.Identity.IsAuthenticated;
                 }
             }
-            set => WebHelper.HttpContext.Items["IsAuthenticated"] = value;
+            set => DiHelper.HttpContext.Items["IsAuthenticated"] = value;
         }
 
         ///// <summary>
@@ -130,9 +130,9 @@ namespace GalleryServer.Web
         /// debug = "true" in web.config and returns <c>false</c> when debug = "false".
         /// </summary>
         /// <value><c>true</c> if the current request is in debug mode; otherwise, <c>false</c>.</value>
-        public static bool IsDebugEnabled(IHostingEnvironment env)
+        public static bool IsDebugEnabled()
         {
-            return env.IsDevelopment();
+            return DiHelper.GetHostingEnvironment().IsDevelopment();
         }
 
         /// <summary>
@@ -253,17 +253,17 @@ namespace GalleryServer.Web
         {
             get
             {
-                if (WebHelper.HttpContext.Session != null)
-                    return new Uri(WebHelper.HttpContext.Session.GetString("ReferringUrl"));
+                if (DiHelper.HttpContext.Session != null)
+                    return new Uri(DiHelper.HttpContext.Session.GetString("ReferringUrl"));
                 else
                     return null;
             }
             set
             {
-                if (WebHelper.HttpContext.Session == null)
+                if (DiHelper.HttpContext.Session == null)
                     return; // Session is disabled for this page.
 
-                WebHelper.HttpContext.Session.SetString("ReferringUrl", value.ToString());
+                DiHelper.HttpContext.Session.SetString("ReferringUrl", value.ToString());
             }
         }
 
@@ -1701,17 +1701,17 @@ namespace GalleryServer.Web
         /// <param name="results">The results to store in the user's session.</param>
         public static void AddResultToSession(IEnumerable<ActionResult> results)
         {
-            if (WebHelper.HttpContext == null || WebHelper.HttpContext.Session == null)
+            if (DiHelper.HttpContext == null || DiHelper.HttpContext.Session == null)
                 return;
 
-            var objResults = WebHelper.HttpContext.Session.GetString(GlobalConstants.SkippedFilesDuringUploadSessionKey);
+            var objResults = DiHelper.HttpContext.Session.GetString(GlobalConstants.SkippedFilesDuringUploadSessionKey);
 
             var uploadResults = (objResults == null ? new List<ActionResult>() : Newtonsoft.Json.JsonConvert.DeserializeObject<List<ActionResult>>(objResults));
 
             lock (uploadResults)
             {
                 uploadResults.AddRange(results);
-                WebHelper.HttpContext.Session.SetString(GlobalConstants.SkippedFilesDuringUploadSessionKey, Newtonsoft.Json.JsonConvert.SerializeObject(uploadResults));
+                DiHelper.HttpContext.Session.SetString(GlobalConstants.SkippedFilesDuringUploadSessionKey, Newtonsoft.Json.JsonConvert.SerializeObject(uploadResults));
             }
         }
 
@@ -1758,22 +1758,39 @@ namespace GalleryServer.Web
         //}
 
         /// <summary>
-        /// Gets a <see cref="StringContent" /> instance with details about the specified <paramref name="ex" />. Returns a generic
-        /// message when debug="false" in web.config; returns the exception message when debug="true".
+        /// Gets a <see cref="StringContent" /> instance with details about the specified <paramref name="ex" />. Returns a generic 
+        /// message when the hosting environment is anything other than "development"; otherwise returns the exception message.
         /// </summary>
         /// <param name="ex">The exception.</param>
-        /// <param name="env">The hosting environment.</param>
         /// <returns>An instance of <see cref="StringContent" />.</returns>
-        public static StringContent GetExStringContent(Exception ex, IHostingEnvironment env)
+        public static StringContent GetExStringContent(Exception ex)
         {
             var msg = "An error occurred on the server. Check the gallery's event log for details. ";
 
-            if (IsDebugEnabled(env))
+            if (IsDebugEnabled())
             {
-                msg += String.Concat(ex.GetType(), ": ", ex.Message);
+                msg += string.Concat(ex.GetType(), ": ", ex.Message);
             }
 
             return new StringContent(msg);
+        }
+
+        /// <summary>
+        /// Gets a string with details about the specified <paramref name="ex" />. Returns a generic message when the hosting 
+        /// environment is anything other than "development"; otherwise returns the exception message.
+        /// </summary>
+        /// <param name="ex">The exception.</param>
+        /// <returns>An instance of <see cref="string" />.</returns>
+        public static string GetExString(Exception ex)
+        {
+            var msg = "An error occurred on the server. Check the gallery's event log for details. ";
+
+            if (IsDebugEnabled())
+            {
+                msg += string.Concat(ex.GetType(), ": ", ex.Message);
+            }
+
+            return msg;
         }
 
         /// <summary>

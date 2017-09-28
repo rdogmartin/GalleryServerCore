@@ -157,5 +157,7 @@ namespace GalleryServer.Business
         public const string SysAdminRoleName = "System Administrator";
 
         public const string AuthenticatedUsersRoleName = "System Administrator";
+
+        public const string PolicyAdministrator = "Administrator";
     }
 }

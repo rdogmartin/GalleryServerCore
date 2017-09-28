@@ -641,7 +641,7 @@ namespace GalleryServer.Events
         /// </summary>
         private void ExtractHttpContextInfo()
         {
-            var httpContext = WebHelper.HttpContext;
+            var httpContext = DiHelper.HttpContext;
 
             if (httpContext == null)
             {

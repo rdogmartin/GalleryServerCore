@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using GalleryServer.Business;
 using GalleryServer.Data;
+using GalleryServer.Web.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Http;
@@ -12,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Gs.Web.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -44,13 +47,22 @@ namespace Gs.Web
                     options.Conventions.AuthorizePage("/Account/Logout");
                 });
 
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy(GlobalConstants.PolicyAdministrator, policy => policy.Requirements.Add(new AdminRequirement()));
+                //options.AddPolicy("Administrator", policy => policy.RequireClaim("EmployeeNumber", "1", "2", "3", "4", "5"));
+            });
+
             // Register no-op EmailSender used by account confirmation and password reset during development
             // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=532713
             services.AddSingleton<IEmailSender, EmailSender>();
-            services.AddSingleton<IMemoryCache, MemoryCache>();
+            //services.AddSingleton<IMemoryCache, MemoryCache>();
             //services.AddSingleton<CacheController>();
 
             services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+            services.AddSingleton<IAuthorizationHandler, SiteAdminHandler>();
+            services.AddSingleton<IAuthorizationHandler, GalleryAdminHandler>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -92,8 +104,21 @@ namespace Gs.Web
                 context.Response.ContentType = "text/html";
                 await context.Response.SendFileAsync(System.IO.Path.Combine(env.WebRootPath, "index.html"));
             });
-            
-            WebHelper.Configure(app.ApplicationServices.GetRequiredService<IHttpContextAccessor>(), app.ApplicationServices.GetRequiredService<IMemoryCache>(), app.ApplicationServices.GetRequiredService<SignInManager<GalleryUser>>(), app.ApplicationServices.GetRequiredService<GalleryRoleManager>());
+
+            //var scopeFactory = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>();
+
+            using (var scope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope())
+            {
+                //var signInManager = scope.ServiceProvider.GetRequiredService<SignInManager<GalleryUser>>();
+                //var roleManager = scope.ServiceProvider.GetRequiredService<GalleryRoleManager>();
+
+                DiHelper.Configure(app.ApplicationServices.GetRequiredService<IHttpContextAccessor>(),
+                    app.ApplicationServices.GetRequiredService<IMemoryCache>(),
+                    scope.ServiceProvider.GetRequiredService<SignInManager<GalleryUser>>(), // app.ApplicationServices.GetService<SignInManager<GalleryUser>>(),
+                    scope.ServiceProvider.GetRequiredService<GalleryRoleManager>(),
+                    env
+                    ); //app.ApplicationServices.GetRequiredService<GalleryRoleManager>());
+            }
 
             GalleryServer.Web.Controller.GalleryController.InitializeGspApplication();
         }

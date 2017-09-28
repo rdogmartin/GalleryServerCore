@@ -1,29 +1,32 @@
-﻿using System;
-using System.Net;
-using System.Net.Http;
-using GalleryServer.Data;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
-using GalleryServer.Business;
+﻿using GalleryServer.Business;
 using GalleryServer.Business.Interfaces;
+using GalleryServer.Data;
 using GalleryServer.Events.CustomExceptions;
 using GalleryServer.Web.Controller;
-using Microsoft.AspNetCore.Rewrite.Internal.UrlActions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using System;
 
 namespace GalleryServer.Web.Api
 {
     [Route("api/[controller]")]
+    [Authorize]
     public class EventsController : Microsoft.AspNetCore.Mvc.Controller
     {
-        private readonly GalleryDb _ctx;
-        private IMemoryCache _cache;
+        private SignInManager<GalleryUser> _signInMgr;
+        private GalleryRoleManager _roleManager;
 
-        public EventsController(GalleryDb ctx, IMemoryCache memoryCache)
+        //private readonly GalleryDb _ctx;
+        //private IMemoryCache _cache;
+
+        public EventsController(GalleryDb ctx, IMemoryCache memoryCache, SignInManager<GalleryUser> signInManager, GalleryRoleManager roleManager)
         {
-            _ctx = ctx;
-            _cache = memoryCache;
+            //_ctx = ctx;
+            //_cache = memoryCache;
+            _signInMgr = signInManager;
+            _roleManager = roleManager;
         }
 
         //[HttpGet("{id:int}")]
@@ -38,6 +41,7 @@ namespace GalleryServer.Web.Api
         /// <param name="id">The event ID.</param>
         /// <returns>A string.</returns>
         [HttpGet("{id:int}")]
+        [Authorize(Policy = GlobalConstants.PolicyAdministrator)]
         public IActionResult Get(int id)
         {
             IEvent appEvent = null;
@@ -48,12 +52,7 @@ namespace GalleryServer.Web.Api
                 if (appEvent == null)
                 {
 
-                    return NotFound();
-                    //throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.NotFound)
-                    //{
-                    //    Content = new StringContent(String.Format("Could not find event with ID = {0}", id)),
-                    //    ReasonPhrase = "Event Not Found"
-                    //});
+                    return NotFound($"Event {id} does not exist.");
                 }
 
                 //// If the event has a non-template gallery ID (not all do), then check the user's permission. For those errors without a gallery ID,
@@ -79,7 +78,8 @@ namespace GalleryServer.Web.Api
                 else
                     AppEventController.LogError(ex);
 
-                return StatusCode(500, ex.Message);
+                return StatusCode(500, Utils.GetExString(ex));
+                //return StatusCode(500, ex.Message);
                 //throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 //{
                 //    Content = Utils.GetExStringContent(ex),

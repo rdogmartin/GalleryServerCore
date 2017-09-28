@@ -1392,7 +1392,7 @@ namespace GalleryServer.Web.Controller
             {
                 IAlbum album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(options.AlbumId) { IsWritable = true, InflateChildObjects = true });
 
-                if (WebHelper.HttpContext != null)
+                if (DiHelper.HttpContext != null)
                     SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
                 else
                 {

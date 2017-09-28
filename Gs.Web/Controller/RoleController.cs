@@ -81,7 +81,7 @@ namespace GalleryServer.Web.Controller
             {
                 if (_userManager == null)
                 {
-                    _userManager = WebHelper.GetUserManager();
+                    _userManager = DiHelper.GetUserManager();
                 }
 
                 return _userManager;
@@ -610,7 +610,7 @@ namespace GalleryServer.Web.Controller
                 // let it bubble up - there isn't anything more we can do.
                 CacheController.RemoveCache(CacheItem.GalleryServerRoles);
 
-                ValidateRoles();
+                await ValidateRoles();
 
                 roles = Factory.LoadGalleryServerRoles(await GetRolesForUser(userName));
             }
@@ -631,7 +631,7 @@ namespace GalleryServer.Web.Controller
             }
 
             // Add to the cache, but only if we have access to the session ID.
-            if (GalleryServer.Data.WebHelper.HttpContext != null && GalleryServer.Data.WebHelper.HttpContext.Session != null)
+            if (GalleryServer.Data.DiHelper.HttpContext != null && GalleryServer.Data.DiHelper.HttpContext.Session != null)
             {
                 lock (rolesCache)
                 {
@@ -1373,7 +1373,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>The Role provider used by Gallery Server.</returns>
         private static GalleryRoleManager GetRoleProvider()
         {
-            return WebHelper.GetRoleManager();
+            return DiHelper.GetRoleManager();
             //if (String.IsNullOrEmpty(AppSetting.Instance.RoleProviderName))
             //{
             //    return Roles.Provider;
