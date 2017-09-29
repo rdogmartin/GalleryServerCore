@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using GalleryServer.Business;
 using GalleryServer.Data;
@@ -14,9 +15,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Gs.Web.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Gs.Web
 {
@@ -41,10 +44,22 @@ namespace Gs.Web
 
             services.AddMemoryCache();
 
-            services.AddMvc().AddRazorPagesOptions(options =>
+            services.AddAuthentication(option =>
                 {
-                    options.Conventions.AuthorizeFolder("/Account/Manage");
-                    options.Conventions.AuthorizePage("/Account/Logout");
+                    option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                })
+                .AddCookie(cfg => cfg.SlidingExpiration = true)
+                .AddJwtBearer(cfg =>
+                {
+                    cfg.RequireHttpsMetadata = false;
+                    cfg.SaveToken = true;
+
+                    cfg.TokenValidationParameters = new TokenValidationParameters()
+                    {
+                        ValidIssuer = Configuration["Tokens:Issuer"],
+                        ValidAudience = Configuration["Tokens:Issuer"],
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Tokens:Key"]))
+                    };
                 });
 
             services.AddAuthorization(options =>
@@ -63,6 +78,15 @@ namespace Gs.Web
 
             services.AddSingleton<IAuthorizationHandler, SiteAdminHandler>();
             services.AddSingleton<IAuthorizationHandler, GalleryAdminHandler>();
+
+            //services.AddCors();
+
+            //services.AddMvc();
+            services.AddMvc().AddRazorPagesOptions(options =>
+                {
+                    options.Conventions.AuthorizeFolder("/Account/Manage");
+                    options.Conventions.AuthorizePage("/Account/Logout");
+                });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -119,6 +143,8 @@ namespace Gs.Web
                     env
                     ); //app.ApplicationServices.GetRequiredService<GalleryRoleManager>());
             }
+
+            //app.UseCors(builder => builder.AllowAnyOrigin()); // https://docs.microsoft.com/en-us/aspnet/core/security/cors
 
             GalleryServer.Web.Controller.GalleryController.InitializeGspApplication();
         }

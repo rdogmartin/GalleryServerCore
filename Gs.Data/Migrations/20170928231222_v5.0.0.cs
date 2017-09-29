@@ -11,7 +11,7 @@ namespace GalleryServer.Data.Migrations
         {
             // We want to create everything for new DB's but only a subset when we're upgrading from 4.X. For now let's focus on brand new installations.
             // We may never have to worry about upgrades.
-            EnsureIdentitySchema(migrationBuilder);
+            //EnsureIdentitySchema(migrationBuilder);
 
             //EnsureGallerySchema(migrationBuilder);
         }
@@ -25,7 +25,9 @@ namespace GalleryServer.Data.Migrations
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
-                    NormalizedName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true)
+                    NormalizedName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Discriminator = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "")
                 },
                 constraints: table => { table.PrimaryKey("PK_AspNetRoles", x => x.Id); });
 
@@ -104,7 +106,7 @@ namespace GalleryServer.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUserLogins", x => new {x.LoginProvider, x.ProviderKey});
+                    table.PrimaryKey("PK_AspNetUserLogins", x => new { x.LoginProvider, x.ProviderKey });
                     table.ForeignKey(
                         name: "FK_AspNetUserLogins_AspNetUsers_UserId",
                         column: x => x.UserId,
@@ -122,7 +124,7 @@ namespace GalleryServer.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUserRoles", x => new {x.UserId, x.RoleId});
+                    table.PrimaryKey("PK_AspNetUserRoles", x => new { x.UserId, x.RoleId });
                     table.ForeignKey(
                         name: "FK_AspNetUserRoles_AspNetRoles_RoleId",
                         column: x => x.RoleId,
@@ -148,7 +150,7 @@ namespace GalleryServer.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUserTokens", x => new {x.UserId, x.LoginProvider, x.Name});
+                    table.PrimaryKey("PK_AspNetUserTokens", x => new { x.UserId, x.LoginProvider, x.Name });
                     table.ForeignKey(
                         name: "FK_AspNetUserTokens_AspNetUsers_UserId",
                         column: x => x.UserId,
@@ -535,8 +537,8 @@ namespace GalleryServer.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_RoleAlbum", x => new {x.FKRoleName, x.FKAlbumId});
-                    table.UniqueConstraint("AK_RoleAlbum_FKAlbumId_FKRoleName", x => new {x.FKAlbumId, x.FKRoleName});
+                    table.PrimaryKey("PK_RoleAlbum", x => new { x.FKRoleName, x.FKAlbumId });
+                    table.UniqueConstraint("AK_RoleAlbum_FKAlbumId_FKRoleName", x => new { x.FKAlbumId, x.FKRoleName });
                     table.ForeignKey(
                         name: "FK_RoleAlbum_Album_FKAlbumId",
                         column: x => x.FKAlbumId,
@@ -563,8 +565,8 @@ namespace GalleryServer.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UiTemplateAlbum", x => new {x.FKUiTemplateId, x.FKAlbumId});
-                    table.UniqueConstraint("AK_UiTemplateAlbum_FKAlbumId_FKUiTemplateId", x => new {x.FKAlbumId, x.FKUiTemplateId});
+                    table.PrimaryKey("PK_UiTemplateAlbum", x => new { x.FKUiTemplateId, x.FKAlbumId });
+                    table.UniqueConstraint("AK_UiTemplateAlbum_FKAlbumId_FKUiTemplateId", x => new { x.FKAlbumId, x.FKUiTemplateId });
                     table.ForeignKey(
                         name: "FK_UiTemplateAlbum_Album_FKAlbumId",
                         column: x => x.FKAlbumId,
@@ -652,7 +654,7 @@ namespace GalleryServer.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MetadataTag", x => new {x.FKMetadataId, x.FKTagName});
+                    table.PrimaryKey("PK_MetadataTag", x => new { x.FKMetadataId, x.FKTagName });
                     table.ForeignKey(
                         name: "FK_MetadataTag_Metadata_FKMetadataId",
                         column: x => x.FKMetadataId,
@@ -691,7 +693,7 @@ namespace GalleryServer.Data.Migrations
                 name: "UC_GalleryControlSetting_ControlId_SettingName",
                 schema: "gsp",
                 table: "GalleryControlSetting",
-                columns: new[] {"ControlId", "SettingName"},
+                columns: new[] { "ControlId", "SettingName" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -704,7 +706,7 @@ namespace GalleryServer.Data.Migrations
                 name: "UC_GallerySetting_FKGalleryId_SettingName",
                 schema: "gsp",
                 table: "GallerySetting",
-                columns: new[] {"FKGalleryId", "SettingName"},
+                columns: new[] { "FKGalleryId", "SettingName" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -723,7 +725,7 @@ namespace GalleryServer.Data.Migrations
                 name: "UC_MediaTemplate_MimeType_BrowserId",
                 schema: "gsp",
                 table: "MediaTemplate",
-                columns: new[] {"MimeType", "BrowserId"},
+                columns: new[] { "MimeType", "BrowserId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -742,7 +744,7 @@ namespace GalleryServer.Data.Migrations
                 name: "UC_Metadata_MetaName_MetadataId",
                 schema: "gsp",
                 table: "Metadata",
-                columns: new[] {"MetaName", "MetadataId"},
+                columns: new[] { "MetaName", "MetadataId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -780,7 +782,7 @@ namespace GalleryServer.Data.Migrations
                 name: "UC_MimeTypeGallery_FKGalleryId_FKMimeTypeId",
                 schema: "gsp",
                 table: "MimeTypeGallery",
-                columns: new[] {"FKGalleryId", "FKMimeTypeId"},
+                columns: new[] { "FKGalleryId", "FKMimeTypeId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -799,7 +801,7 @@ namespace GalleryServer.Data.Migrations
                 name: "UC_UiTemplate_TemplateType_Name",
                 schema: "gsp",
                 table: "UiTemplate",
-                columns: new[] {"TemplateType", "FKGalleryId", "Name"},
+                columns: new[] { "TemplateType", "FKGalleryId", "Name" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -824,7 +826,7 @@ namespace GalleryServer.Data.Migrations
                 name: "UC_UserGalleryProfile_UserName_FKGalleryId_SettingName",
                 schema: "gsp",
                 table: "UserGalleryProfile",
-                columns: new[] {"UserName", "FKGalleryId", "SettingName"},
+                columns: new[] { "UserName", "FKGalleryId", "SettingName" },
                 unique: true);
         }
 

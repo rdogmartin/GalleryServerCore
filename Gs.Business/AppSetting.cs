@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Principal;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Data;
-using GalleryServer.Data.Migrations;
+//using GalleryServer.Data.Migrations;
 using GalleryServer.Events;
 using GalleryServer.Events.CustomExceptions;
 
