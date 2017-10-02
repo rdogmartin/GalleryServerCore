@@ -7,7 +7,7 @@ namespace GalleryServer.Web.Security
     {
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, AdminRequirement requirement)
         {
-            context.Succeed(requirement);
+            //context.Succeed(requirement);
 
             return Task.CompletedTask;
         }

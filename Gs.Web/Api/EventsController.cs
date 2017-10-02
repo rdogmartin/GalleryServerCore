@@ -1,34 +1,31 @@
 ﻿using GalleryServer.Business;
 using GalleryServer.Business.Interfaces;
-using GalleryServer.Data;
 using GalleryServer.Web.Controller;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
-using System;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System;
 
 namespace GalleryServer.Web.Api
 {
     [Route("api/[controller]")]
-    [Authorize] // (AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + "," + CookieAuthenticationDefaults.AuthenticationScheme)
+    //[Authorize(AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme + "," + JwtBearerDefaults.AuthenticationScheme)] // 
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] // (AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)
     public class EventsController : Microsoft.AspNetCore.Mvc.Controller
     {
-        private SignInManager<GalleryUser> _signInMgr;
-        private GalleryRoleManager _roleManager;
+        //private SignInManager<GalleryUser> _signInMgr;
+        //private GalleryRoleManager _roleManager;
 
         //private readonly GalleryDb _ctx;
         //private IMemoryCache _cache;
 
-        public EventsController(GalleryDb ctx, IMemoryCache memoryCache, SignInManager<GalleryUser> signInManager, GalleryRoleManager roleManager)
-        {
-            //_ctx = ctx;
-            //_cache = memoryCache;
-            _signInMgr = signInManager;
-            _roleManager = roleManager;
-        }
+        //public EventsController(GalleryDb ctx, IMemoryCache memoryCache, SignInManager<GalleryUser> signInManager, GalleryRoleManager roleManager)
+        //{
+        //    //_ctx = ctx;
+        //    //_cache = memoryCache;
+        //    _signInMgr = signInManager;
+        //    _roleManager = roleManager;
+        //}
 
         //[HttpGet("{id:int}")]
         //public async Task<EventDto> Get(int id)

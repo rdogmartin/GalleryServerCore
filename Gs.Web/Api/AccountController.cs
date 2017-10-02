@@ -54,12 +54,16 @@ namespace Gs.Web.Controllers
                     var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, false);
                     if (result.Succeeded)
                     {
+                        // Assemble the claims for this user, starting with the roles they belong to.
+                        var claims = (await _userManager.GetRolesAsync(user)).Select(r => new Claim(ClaimTypes.Role, r)).ToList();
 
-                        var claims = new[]
-                        {
-                            new Claim(JwtRegisteredClaimNames.Sub, user.Email),
-                            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                        };
+                        claims.Add(new Claim(JwtRegisteredClaimNames.Sub, user.Email));
+                        claims.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()));
+                        //var claims2 = new[]
+                        //{
+                        //    new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+                        //    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                        //};
 
                         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Tokens:Key"]));
                         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
