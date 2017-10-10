@@ -92,9 +92,10 @@ namespace GalleryServer.Business
         /// Gets a cache object representing the <see cref="CacheItem.GalleryServerRoles" /> item. Returns null when no cache instance exists.
         /// </summary>
         /// <returns>ConcurrentDictionary&lt;System.String, IGalleryServerRoleCollection&gt;.</returns>
-        public static ConcurrentDictionary<string, IGalleryServerRoleCollection> GetGalleryServerRolesCache()
+        public static IGalleryServerRoleCollection GetGalleryServerRolesCache()
         {
-            return GetCache<ConcurrentDictionary<string, IGalleryServerRoleCollection>>(CacheItem.GalleryServerRoles);
+            return GetCache<IGalleryServerRoleCollection>(CacheItem.GalleryServerRoles);
+            //return GetCache<ConcurrentDictionary<string, IGalleryServerRoleCollection>>(CacheItem.GalleryServerRoles);
         }
 
         /// <summary>

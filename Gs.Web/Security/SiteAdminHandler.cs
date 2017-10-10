@@ -19,17 +19,17 @@ namespace GalleryServer.Web.Security
         //    _userManager = userManager;
         //}
 
-        protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, AdminRequirement requirement)
+        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, AdminRequirement requirement)
         {
             var roleNames = context.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value);
-            var roles = RoleController.GetGalleryServerRoles(roleNames);
+            var roles = await RoleController.GetGalleryServerRoles(roleNames);
 
             if (roles.Any(role => role.AllowAdministerSite))
             {
                 context.Succeed(requirement);
             }
 
-            return Task.CompletedTask;
+            //return Task.CompletedTask;
         }
     }
 }

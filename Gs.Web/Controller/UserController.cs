@@ -509,7 +509,7 @@ namespace GalleryServer.Web.Controller
 
             if (addingOrDeletingRoles)
             {
-                RoleController.RemoveRolesForUserFromCache(user.UserName);
+                //RoleController.RemoveRolesForUserFromCache(user.UserName);
                 CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
             }
         }
@@ -524,7 +524,7 @@ namespace GalleryServer.Web.Controller
             var deleteResult = MembershipGsp.DeleteUser(userName, true);
 
             CacheController.RemoveUserFromCache(userName);
-            RoleController.RemoveRolesForUserFromCache(userName);
+            //RoleController.RemoveRolesForUserFromCache(userName);
 
             return deleteResult;
         }
@@ -541,7 +541,7 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="galleryId"/> is <see cref="Int32.MinValue" />.</exception>
         public static void UserLoggedOn(string userName, int galleryId)
         {
-            RoleController.RemoveRolesForUserFromCache(userName);
+            //RoleController.RemoveRolesForUserFromCache(userName);
 
             // Store the user name and the fact that user is authenticated. Ideally we would not do this and just use
             // User.Identity.Name and User.Identity.IsAuthenticated, but those won't be assigned by ASP.NET until the 
@@ -562,7 +562,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         public static void UserLoggedOff()
         {
-            RoleController.RemoveRolesForUserFromCache(Utils.UserName);
+            //RoleController.RemoveRolesForUserFromCache(Utils.UserName);
 
             // Clear the user name and the fact that user is not authenticated. Ideally we would not do this and just use
             // User.Identity.Name and User.Identity.IsAuthenticated, but those won't be assigned by ASP.NET until the 
@@ -866,7 +866,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="userName">Name of the user.</param>
         private static async Task ValidateUserIsInDefaultRoles(string userName)
         {
-            var needToReloadRoles = false;
+            var needToReloadUser = false;
             //var usersRoles = (await RoleController.GetGalleryServerRolesForUser(userName)).Select(r => r.RoleName);
             var userRoles = await RoleController.GetRolesForUser(userName);
 
@@ -876,13 +876,13 @@ namespace GalleryServer.Web.Controller
                 if (await RoleController.RoleExists(role))
                 {
                     await RoleController.AddUserToRole(userName, role);
-                    needToReloadRoles = true;
+                    needToReloadUser = true;
                 }
             }
 
-            if (needToReloadRoles)
+            if (needToReloadUser)
             {
-                RoleController.RemoveRolesForUserFromCache(userName);
+                //RoleController.RemoveRolesForUserFromCache(userName);
                 CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
             }
         }
@@ -1646,7 +1646,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="userToSave">The user to save.</param>
         /// <param name="roles">The roles to associate with the user.</param>
         /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
-        private static void ValidateUserCanSaveOwnAccount(IUserAccount userToSave, IEnumerable<string> roles)
+        private static async Task ValidateUserCanSaveOwnAccount(IUserAccount userToSave, IEnumerable<string> roles)
         {
             // This function should be called only when the logged on person is updating their own account. They are not allowed to 
             // revoke approval and they must remain in at least one role that has Administer Site or Administer Gallery permission.
@@ -1655,7 +1655,7 @@ namespace GalleryServer.Web.Controller
                 throw new GallerySecurityException("Cannot revoke approval. You are editing the user account you are logged on as, and are trying to revoke approval, which would disable this account. You must log on as another user to revoke approval for this account.");
             }
 
-            if (!RoleController.GetGalleryServerRoles(roles).Any(role => role.AllowAdministerSite || role.AllowAdministerGallery))
+            if (!(await RoleController.GetGalleryServerRoles(roles)).Any(role => role.AllowAdministerSite || role.AllowAdministerGallery))
             {
                 throw new GallerySecurityException("Cannot remove requested roles. You are editing the user account you are logged on as, and you are attempting to remove your ability to administer this gallery. If you really want to do this, log on as another user and make the changes from that account.");
             }
@@ -1816,7 +1816,7 @@ namespace GalleryServer.Web.Controller
             // Return true if any of the galleries the current user can administer is also one of the galleries the specified
             // user is associated with.
             var galleriesCurUserCanAdmin = await GalleryController.GetGalleriesCurrentUserCanAdminister();
-            var userIsInGalleryCurrentUserHasAdminRightsFor = (await RoleController.GetGalleryServerRolesForUser(Utils.UserName)).Any(r => r.Galleries.Any(galleriesCurUserCanAdmin.Contains));
+            var userIsInGalleryCurrentUserHasAdminRightsFor = (await RoleController.GetGalleryServerRolesForUser()).Any(r => r.Galleries.Any(galleriesCurUserCanAdmin.Contains));
 
             return userIsInGalleryCurrentUserHasAdminRightsFor || (AppSetting.Instance.AllowGalleryAdminToViewAllUsersAndRoles && (await GalleryController.GetGalleriesCurrentUserCanAdminister()).Any());
         }

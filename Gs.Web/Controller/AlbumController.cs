@@ -347,11 +347,11 @@ namespace GalleryServer.Web.Controller
             albumEntity.InheritedOwners = (perms.AdministerGallery ? String.Join(", ", album.InheritedOwners) : null);
             albumEntity.IsPrivate = album.IsPrivate;
             albumEntity.VirtualType = album.VirtualAlbumType;
-            albumEntity.RssUrl = GetRssUrl(album);
+            //albumEntity.RssUrl = GetRssUrl(album);
             albumEntity.Permissions = perms;
             albumEntity.MetaItems = GalleryObjectController.ToMetaItems(album.MetadataItems.GetVisibleItems(), album);
             albumEntity.NumAlbums = album.GetChildGalleryObjects(GalleryObjectType.Album, !Utils.IsAuthenticated).Count;
-            albumEntity.BreadCrumbLinks = await GenerateBreadCrumbLinks(album);
+            //albumEntity.BreadCrumbLinks = await GenerateBreadCrumbLinks(album);
 
             // Assign sorting fields from profile if present; otherwise use album sort settings.
             var albumSortDef = ProfileController.GetProfile().AlbumProfiles.Find(album.Id);

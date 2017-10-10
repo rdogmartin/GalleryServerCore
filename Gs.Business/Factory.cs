@@ -1727,23 +1727,19 @@ namespace GalleryServer.Business
         {
             var rolesCache = CacheController.GetGalleryServerRolesCache();
 
-            IGalleryServerRoleCollection roles;
-
-            if ((rolesCache != null) && (rolesCache.TryGetValue(GlobalConstants.GalleryServerRoleAllRolesCacheKey, out roles)))
+            if (rolesCache != null)
             {
-                return roles;
+                return rolesCache;
             }
 
             // No roles in the cache, so get from data store and add to cache.
-            roles = GetGalleryServerRolesFromDataStore();
+            rolesCache = GetGalleryServerRolesFromDataStore();
 
-            roles.ValidateIntegrity();
+            rolesCache.ValidateIntegrity();
 
-            rolesCache = new ConcurrentDictionary<string, IGalleryServerRoleCollection>();
-            rolesCache.TryAdd(GlobalConstants.GalleryServerRoleAllRolesCacheKey, roles);
             CacheController.SetCache(CacheItem.GalleryServerRoles, rolesCache);
 
-            return roles;
+            return rolesCache;
         }
 
         /// <summary>

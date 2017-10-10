@@ -18,6 +18,7 @@ using Gs.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
@@ -66,6 +67,11 @@ namespace Gs.Web
 
             services.AddAuthorization(options =>
             {
+                //options.AddPolicy(GlobalConstants.PolicyViewAlbumOrAsset, policy =>
+                //{
+                //    policy.RequireAuthenticatedUser();
+                //    policy.Requirements.Add(new ViewAlbumOrAssetRequirement());
+                //});
                 options.AddPolicy(GlobalConstants.PolicyAdministrator, policy => policy.Requirements.Add(new AdminRequirement()));
                 //options.AddPolicy("Administrator", policy => policy.RequireClaim("EmployeeNumber", "1", "2", "3", "4", "5"));
             });
@@ -78,6 +84,7 @@ namespace Gs.Web
 
             services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
+            //services.AddSingleton<IAuthorizationHandler, ViewAlbumOrAssetHandler>();
             services.AddSingleton<IAuthorizationHandler, SiteAdminHandler>();
             services.AddSingleton<IAuthorizationHandler, GalleryAdminHandler>();
 
@@ -119,9 +126,7 @@ namespace Gs.Web
 
             app.UseMvc(routes =>
             {
-                routes.MapRoute(
-                    name: "default",
-                    template: "{controller}/{action=Index}/{id?}");
+                routes.MapRoute(name: "mvc", template: "{controller}/{action=Index}/{id?}");
             });
 
             // Handle client side routes

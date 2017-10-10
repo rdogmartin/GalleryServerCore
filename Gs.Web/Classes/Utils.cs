@@ -10,6 +10,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Security;
+using System.Security.Claims;
 using System.Threading;
 using System.Web;
 //using System.Web.Security;
@@ -19,6 +20,7 @@ using GalleryServer.Business.Interfaces;
 using GalleryServer.Data;
 using GalleryServer.Web.Controller;
 using Microsoft.ApplicationInsights.AspNetCore;
+using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Protocols;
@@ -70,7 +72,8 @@ namespace GalleryServer.Web
                 }
                 else
                 {
-                    return ParseUserName(DiHelper.HttpContext.User.Identity.Name ?? string.Empty);
+                    return ParseUserName(DiHelper.HttpContext.User.Claims.SingleOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
+                    //return ParseUserName(DiHelper.HttpContext.User.Identity.Name ?? string.Empty);
                 }
             }
             set => DiHelper.HttpContext.Items["UserName"] = value;
@@ -697,6 +700,7 @@ namespace GalleryServer.Web
         /// or null if <see cref="HttpContext.Current" /> is null.</returns>
         public static string GetCurrentPageUrl(bool includeQueryString = false)
         {
+            //var uri = DiHelper.HttpContext.Request.GetUri();
             throw new NotImplementedException();
             //if (HttpContext.Current == null)
             //    return null;

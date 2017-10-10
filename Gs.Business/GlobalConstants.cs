@@ -18,12 +18,12 @@ namespace GalleryServer.Business
         /// </summary>
         public const string DefaultAlbumDirectoryName = "Album";
 
-        /// <summary>
-        /// Gets the name of the dictionary key that references the <see cref="Interfaces.IGalleryServerRoleCollection" /> item containing
-        /// all roles for the current gallery in the cache item named <see cref="CacheItem.GalleryServerRoles" />. Note that other items 
-        /// in the dictionary have keys identified by the username.
-        /// </summary>
-        public const string GalleryServerRoleAllRolesCacheKey = "AllRoles";
+        ///// <summary>
+        ///// Gets the name of the dictionary key that references the <see cref="Interfaces.IGalleryServerRoleCollection" /> item containing
+        ///// all roles for the current gallery in the cache item named <see cref="CacheItem.GalleryServerRoles" />. Note that other items 
+        ///// in the dictionary have keys identified by the username.
+        ///// </summary>
+        //public const string GalleryServerRoleAllRolesCacheKey = "AllRoles";
 
         /// <summary>
         /// Gets the string that is used for the beginning of every role name used for album ownership. The role name has
@@ -159,5 +159,7 @@ namespace GalleryServer.Business
         public const string AuthenticatedUsersRoleName = "System Administrator";
 
         public const string PolicyAdministrator = "Administrator";
+
+        public const string PolicyViewAlbumOrAsset = "ViewAlbumOrAsset";
     }
 }

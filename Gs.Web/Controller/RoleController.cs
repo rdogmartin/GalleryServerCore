@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 //using System.Web;
@@ -19,13 +20,15 @@ namespace GalleryServer.Web.Controller
     /// <summary>
     /// Contains functionality for managing roles.
     /// </summary>
-    public static class RoleController
+    public class RoleController
     {
         #region Private Fields
 
         //private static RoleProvider _roleProvider;
         private static GalleryRoleManager _roleManager;
         private static UserManager<GalleryUser> _userManager;
+        private GalleryRoleManager _roleManager2;
+        private UserManager<GalleryUser> _userManager2;
         private static readonly object _sharedLock = new object();
         private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1);
 
@@ -38,6 +41,12 @@ namespace GalleryServer.Web.Controller
         private static readonly System.Text.RegularExpressions.Regex _gspAlbumOwnerTemplateRoleNameRegEx = new System.Text.RegularExpressions.Regex(_gspAlbumOwnerTemplateRoleNameRegExPattern, System.Text.RegularExpressions.RegexOptions.Compiled);
 
         #endregion
+
+        public RoleController(UserManager<GalleryUser> userManager, GalleryRoleManager roleManager)
+        {
+            _userManager2 = userManager;
+            _roleManager2 = roleManager;
+        }
 
         #region Properties
 
@@ -519,9 +528,28 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="roleNames">The role names.</param>
         /// <returns>Returns all roles.</returns>
-        public static IGalleryServerRoleCollection GetGalleryServerRoles(IEnumerable<string> roleNames)
+        public static async Task<IGalleryServerRoleCollection> GetGalleryServerRoles(IEnumerable<string> roleNames)
         {
-            return Factory.LoadGalleryServerRoles(roleNames);
+            // No roles in the cache, so get from business layer and add to cache.
+            IGalleryServerRoleCollection roles;
+            try
+            {
+                roles = Factory.LoadGalleryServerRoles(roleNames);
+            }
+            catch (InvalidGalleryServerRoleException)
+            {
+                // We could not find one or more GSP roles for the ASP.NET roles we passed to Factory.LoadGalleryServerRoles(). Things probably
+                // got out of sync. For example, this can happen if an admin adds an ASP.NET role outside of GSP (such as when using the 
+                // DNN control panel). Purge the cache, then run the validation routine, and try again. If the same exception is thrown again,
+                // let it bubble up - there isn't anything more we can do.
+                CacheController.RemoveCache(CacheItem.GalleryServerRoles);
+
+                await ValidateRoles();
+
+                roles = Factory.LoadGalleryServerRoles(roleNames);
+            }
+
+            return roles;
         }
 
         /// <summary>
@@ -557,6 +585,22 @@ namespace GalleryServer.Web.Controller
             }
         }
 
+        ///// <overloads>
+        ///// Gets a collection of Gallery Server roles.
+        ///// </overloads>
+        ///// <summary>
+        ///// Gets Gallery Server roles representing the roles for the currently logged-on user. Returns an empty collection if 
+        ///// no user is logged in or the user is logged in but not assigned to any roles (Count = 0).
+        ///// The roles may be returned from a cache. Guaranteed to not return null.
+        ///// </summary>
+        ///// <returns>
+        ///// Returns an <see cref="IGalleryServerRoleCollection" /> representing the roles for the currently logged-on user.
+        ///// </returns>
+        //public static async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
+        //{
+        //    return await GetGalleryServerRolesForUser(Utils.UserName);
+        //}
+        
         /// <overloads>
         /// Gets a collection of Gallery Server roles.
         /// </overloads>
@@ -570,9 +614,32 @@ namespace GalleryServer.Web.Controller
         /// </returns>
         public static async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
         {
-            return await GetGalleryServerRolesForUser(Utils.UserName);
+            //var userName = DiHelper.HttpContext.User.Claims.SingleOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            //return await GetGalleryServerRolesForUser(userName);
+            var roleNames = DiHelper.HttpContext.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value);
+            return await RoleController.GetGalleryServerRoles(roleNames);
         }
 
+        ///// <summary>
+        ///// Gets Gallery Server roles representing the roles for the specified <paramref name="userName"/>. Returns an empty collection if 
+        ///// the user is not assigned to any roles (Count = 0). The roles may be returned from a cache. Guaranteed to not return null.
+        ///// </summary>
+        ///// <param name="userName">Name of the user.</param>
+        ///// <returns>
+        ///// Returns an <see cref="IGalleryServerRoleCollection"/> representing the roles for the specified <paramref name="userName" />.
+        ///// </returns>
+        ///// <remarks>This method may run on a background thread and is therefore tolerant of the inability to access HTTP context 
+        ///// or the current user's session.</remarks>
+        //public async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser2(string userName)
+        //{
+        //    if (string.IsNullOrEmpty(userName))
+        //        return new GalleryServerRoleCollection();
+
+        //    var user = await _userManager2.FindByNameAsync(userName);
+        //    var roleNames = await _userManager2.GetRolesAsync(user);
+        //    return await RoleController.GetGalleryServerRoles(roleNames);
+        //}
+        
         /// <summary>
         /// Gets Gallery Server roles representing the roles for the specified <paramref name="userName"/>. Returns an empty collection if 
         /// the user is not assigned to any roles (Count = 0). The roles may be returned from a cache. Guaranteed to not return null.
@@ -588,62 +655,66 @@ namespace GalleryServer.Web.Controller
             if (string.IsNullOrEmpty(userName))
                 return new GalleryServerRoleCollection();
 
-            // Get cached dictionary entry matching logged on user. If not found, retrieve from business layer and add to cache.
-            var rolesCache = CacheController.GetGalleryServerRolesCache();
+            var user = await UserManager.FindByNameAsync(userName);
+            var roleNames = DiHelper.HttpContext.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value);
+            return await RoleController.GetGalleryServerRoles(roleNames);
 
-            IGalleryServerRoleCollection roles;
-            if ((rolesCache != null) && (rolesCache.TryGetValue(GetCacheKeyNameForRoles(userName), out roles)))
-            {
-                return roles;
-            }
+            //// Get cached dictionary entry matching logged on user. If not found, retrieve from business layer and add to cache.
+            //var rolesCache = CacheController.GetGalleryServerRolesCache();
 
-            // No roles in the cache, so get from business layer and add to cache.
-            try
-            {
-                roles = Factory.LoadGalleryServerRoles(await GetRolesForUser(userName));
-            }
-            catch (InvalidGalleryServerRoleException)
-            {
-                // We could not find one or more GSP roles for the ASP.NET roles we passed to Factory.LoadGalleryServerRoles(). Things probably
-                // got out of synch. For example, this can happen if an admin adds an ASP.NET role outside of GSP (such as when using the 
-                // DNN control panel). Purge the cache, then run the validation routine, and try again. If the same exception is thrown again,
-                // let it bubble up - there isn't anything more we can do.
-                CacheController.RemoveCache(CacheItem.GalleryServerRoles);
+            //IGalleryServerRoleCollection roles;
+            //if ((rolesCache != null) && (rolesCache.TryGetValue(GetCacheKeyNameForRoles(userName), out roles)))
+            //{
+            //    return roles;
+            //}
 
-                await ValidateRoles();
+            //// No roles in the cache, so get from business layer and add to cache.
+            //try
+            //{
+            //    roles = Factory.LoadGalleryServerRoles(await GetRolesForUser(userName));
+            //}
+            //catch (InvalidGalleryServerRoleException)
+            //{
+            //    // We could not find one or more GSP roles for the ASP.NET roles we passed to Factory.LoadGalleryServerRoles(). Things probably
+            //    // got out of synch. For example, this can happen if an admin adds an ASP.NET role outside of GSP (such as when using the 
+            //    // DNN control panel). Purge the cache, then run the validation routine, and try again. If the same exception is thrown again,
+            //    // let it bubble up - there isn't anything more we can do.
+            //    CacheController.RemoveCache(CacheItem.GalleryServerRoles);
 
-                roles = Factory.LoadGalleryServerRoles(await GetRolesForUser(userName));
-            }
+            //    await ValidateRoles();
 
-            if (rolesCache == null)
-            {
-                // The factory method should have created a cache item, so try again.
-                rolesCache = CacheController.GetGalleryServerRolesCache();
-                if (rolesCache == null)
-                {
-                    if (AppSetting.Instance.EnableCache)
-                    {
-                        AppEventController.LogError(new WebException("The method Factory.LoadGalleryServerRoles() should have created a cache entry, but none was found. This is not an issue if it occurs occasionally, but should be addressed if it is frequent."));
-                    }
+            //    roles = Factory.LoadGalleryServerRoles(await GetRolesForUser(userName));
+            //}
 
-                    return roles;
-                }
-            }
+            //if (rolesCache == null)
+            //{
+            //    // The factory method should have created a cache item, so try again.
+            //    rolesCache = CacheController.GetGalleryServerRolesCache();
+            //    if (rolesCache == null)
+            //    {
+            //        if (AppSetting.Instance.EnableCache)
+            //        {
+            //            AppEventController.LogError(new WebException("The method Factory.LoadGalleryServerRoles() should have created a cache entry, but none was found. This is not an issue if it occurs occasionally, but should be addressed if it is frequent."));
+            //        }
 
-            // Add to the cache, but only if we have access to the session ID.
-            if (GalleryServer.Data.DiHelper.HttpContext != null && GalleryServer.Data.DiHelper.HttpContext.Session != null)
-            {
-                lock (rolesCache)
-                {
-                    if (!rolesCache.ContainsKey(GetCacheKeyNameForRoles(userName)))
-                    {
-                        rolesCache.TryAdd(GetCacheKeyNameForRoles(userName), roles);
-                    }
-                }
-                CacheController.SetCache(CacheItem.GalleryServerRoles, rolesCache);
-            }
+            //        return roles;
+            //    }
+            //}
 
-            return roles;
+            //// Add to the cache, but only if we have access to the session ID.
+            ////if (GalleryServer.Data.DiHelper.HttpContext != null && GalleryServer.Data.DiHelper.HttpContext.Session != null)
+            ////{
+            //lock (rolesCache)
+            //{
+            //    if (!rolesCache.ContainsKey(GetCacheKeyNameForRoles(userName)))
+            //    {
+            //        rolesCache.TryAdd(GetCacheKeyNameForRoles(userName), roles);
+            //    }
+            //}
+            //CacheController.SetCache(CacheItem.GalleryServerRoles, rolesCache);
+            ////}
+
+            //return roles;
         }
 
         /// <summary>
@@ -1130,24 +1201,24 @@ namespace GalleryServer.Web.Controller
             return _gspAlbumOwnerTemplateRoleNameRegEx.Match(roleName).Success;
         }
 
-        /// <summary>
-        /// Removes the roles belonging to the <paramref name="userName" /> from cache.
-        /// This function is not critical for security or correctness, but is useful in keeping the cache cleared of unused items. When
-        /// a user logs on or off, their username changes - and therefore the name of the cache item changes, which causes the next call to
-        /// retrieve the user's roles to return nothing from the cache, which forces a retrieval from the database. Thus the correct roles will
-        /// always be retrieved, even if this function is not invoked during a logon/logoff event.
-        /// </summary>
-        /// <param name="userName">Name of the user.</param>
-        public static void RemoveRolesForUserFromCache(string userName)
-        {
-            var rolesCache = CacheController.GetGalleryServerRolesCache();
+        ///// <summary>
+        ///// Removes the roles belonging to the <paramref name="userName" /> from cache.
+        ///// This function is not critical for security or correctness, but is useful in keeping the cache cleared of unused items. When
+        ///// a user logs on or off, their username changes - and therefore the name of the cache item changes, which causes the next call to
+        ///// retrieve the user's roles to return nothing from the cache, which forces a retrieval from the database. Thus the correct roles will
+        ///// always be retrieved, even if this function is not invoked during a logon/logoff event.
+        ///// </summary>
+        ///// <param name="userName">Name of the user.</param>
+        //public static void RemoveRolesForUserFromCache(string userName)
+        //{
+        //    var rolesCache = CacheController.GetGalleryServerRolesCache();
 
-            if (rolesCache != null)
-            {
-                IGalleryServerRoleCollection roles;
-                rolesCache.TryRemove(GetCacheKeyNameForRoles(userName), out roles);
-            }
-        }
+        //    if (rolesCache != null)
+        //    {
+        //        IGalleryServerRoleCollection roles;
+        //        rolesCache.TryRemove(GetCacheKeyNameForRoles(userName), out roles);
+        //    }
+        //}
 
         /// <summary>
         /// Parses the name of the role from the <paramref name="roleNames" />. Example: If role name = "Administrators_0", return
@@ -1428,7 +1499,7 @@ namespace GalleryServer.Web.Controller
             if (roleToDelete.AllowAdministerSite || roleToDelete.AllowAdministerGallery)
             {
                 bool needToVerify = false;
-                IGalleryServerRoleCollection roles = await GetGalleryServerRolesForUser(Utils.UserName);
+                IGalleryServerRoleCollection roles = await GetGalleryServerRolesForUser();
                 foreach (IGalleryServerRole role in roles)
                 {
                     if (role.RoleName.Equals(roleName, StringComparison.OrdinalIgnoreCase))
