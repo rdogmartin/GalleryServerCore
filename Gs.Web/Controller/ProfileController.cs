@@ -14,20 +14,6 @@ namespace GalleryServer.Web.Controller
     {
         #region Public Methods
 
-        /// <overloads>
-        /// Gets the gallery-specific user profile for a user.
-        /// </overloads>
-        /// <summary>
-        /// Gets the gallery-specific user profile for the currently logged on user and specified <paramref name="galleryId"/>.
-        /// Guaranteed to not return null (returns an empty object if no profile is found).
-        /// </summary>
-        /// <param name="galleryId">The gallery ID.</param>
-        /// <returns>Gets the profile for the current user and the specified gallery.</returns>
-        public static IUserGalleryProfile GetProfileForGallery(int galleryId)
-        {
-            return GetProfileForGallery(Utils.UserName, galleryId);
-        }
-
         /// <summary>
         /// Gets the gallery-specific user profile for the specified <paramref name="userName"/> and <paramref name="galleryId"/>.
         /// Guaranteed to not return null (returns an empty object if no profile is found).
@@ -39,19 +25,6 @@ namespace GalleryServer.Web.Controller
         public static IUserGalleryProfile GetProfileForGallery(string userName, int galleryId)
         {
             return GetProfile(userName).GetGalleryProfile(galleryId);
-        }
-
-        /// <overloads>
-        /// Gets a user's profile. The UserName property will be an empty string 
-        /// for anonymous users and the remaining properties will be set to default values.
-        /// </overloads>
-        /// <summary>
-        /// Gets the profile for the current user.
-        /// </summary>
-        /// <returns>Gets the profile for the current user.</returns>
-        public static IUserProfile GetProfile()
-        {
-            return GetProfile(Utils.UserName);
         }
 
         /// <summary>
@@ -174,6 +147,30 @@ namespace GalleryServer.Web.Controller
             }
 
             SaveProfile(profile);
+        }
+
+        /// <summary>
+        /// Gets the ID of the album for the specified user's personal album (that is, this is the album that was created when the
+        /// user's account was created). If user albums are disabled or the UserAlbumId property is not found in the profile,
+        /// this function returns int.MinValue. This function executes faster than <see cref="GetUserAlbum(int)"/> and 
+        /// <see cref="GetUserAlbum(string, int)"/> but it does not validate that the album exists.
+        /// </summary>
+        /// <param name="userName">The account name for the user.</param>
+        /// <param name="galleryId">The gallery ID.</param>
+        /// <returns>
+        /// Returns the ID of the album for the current user's personal album.
+        /// </returns>
+        public static int GetUserAlbumId(string userName, int galleryId)
+        {
+            int albumId = Int32.MinValue;
+
+            if (!Factory.LoadGallerySetting(galleryId).EnableUserAlbum)
+                return albumId;
+
+            int tmpAlbumId = ProfileController.GetProfileForGallery(userName, galleryId).UserAlbumId;
+            albumId = (tmpAlbumId > 0 ? tmpAlbumId : albumId);
+
+            return albumId;
         }
 
         #endregion

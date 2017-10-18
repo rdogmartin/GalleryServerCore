@@ -1,27 +1,22 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
 using GalleryServer.Business;
 using GalleryServer.Data;
+using GalleryServer.Web.Controller;
 using GalleryServer.Web.Security;
+using Gs.Web.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Gs.Web.Services;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Gs.Web
 {
@@ -79,14 +74,24 @@ namespace Gs.Web
             // Register no-op EmailSender used by account confirmation and password reset during development
             // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=532713
             services.AddSingleton<IEmailSender, EmailSender>();
-            //services.AddSingleton<IMemoryCache, MemoryCache>();
+            services.AddSingleton<IMemoryCache, MemoryCache>();
             //services.AddSingleton<CacheController>();
+            services.AddScoped<UserController>();
+            services.AddScoped<RoleController>();
+            services.AddScoped<GalleryController>();
+            services.AddScoped<UrlController>();
+            services.AddScoped<HtmlController>();
+            services.AddScoped<AlbumController>();
+            services.AddScoped<AlbumTreeViewBuilder>();
+            services.AddScoped<EmailController>();
+            services.AddScoped<ExceptionController>();
+            services.AddScoped<GalleryObjectController>();
 
             services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
             //services.AddSingleton<IAuthorizationHandler, ViewAlbumOrAssetHandler>();
-            services.AddSingleton<IAuthorizationHandler, SiteAdminHandler>();
-            services.AddSingleton<IAuthorizationHandler, GalleryAdminHandler>();
+            services.AddScoped<IAuthorizationHandler, SiteAdminHandler>();
+            services.AddScoped<IAuthorizationHandler, GalleryAdminHandler>();
 
             //services.AddCors();
 
@@ -136,24 +141,15 @@ namespace Gs.Web
                 await context.Response.SendFileAsync(System.IO.Path.Combine(env.WebRootPath, "index.html"));
             });
 
-            //var scopeFactory = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>();
+            DiHelper.Configure(app.ApplicationServices.GetRequiredService<IMemoryCache>());
 
             using (var scope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope())
             {
-                //var signInManager = scope.ServiceProvider.GetRequiredService<SignInManager<GalleryUser>>();
-                //var roleManager = scope.ServiceProvider.GetRequiredService<GalleryRoleManager>();
-
-                DiHelper.Configure(app.ApplicationServices.GetRequiredService<IHttpContextAccessor>(),
-                    app.ApplicationServices.GetRequiredService<IMemoryCache>(),
-                    scope.ServiceProvider.GetRequiredService<SignInManager<GalleryUser>>(), // app.ApplicationServices.GetService<SignInManager<GalleryUser>>(),
-                    scope.ServiceProvider.GetRequiredService<GalleryRoleManager>(),
-                    env
-                    ); //app.ApplicationServices.GetRequiredService<GalleryRoleManager>());
+                var userController = scope.ServiceProvider.GetRequiredService<UserController>();
+                Task.Run(() => AppController.InitializeGspApplication(userController)).Wait();
             }
 
             //app.UseCors(builder => builder.AllowAnyOrigin()); // https://docs.microsoft.com/en-us/aspnet/core/security/cors
-
-            GalleryServer.Web.Controller.GalleryController.InitializeGspApplication();
         }
     }
 }

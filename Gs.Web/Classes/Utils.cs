@@ -1,30 +1,10 @@
-﻿using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
-using GalleryServer.Events.CustomExceptions;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Drawing;
-using System.Globalization;
-using System.IO;
-using System.Security;
-using System.Security.Claims;
-using System.Threading;
-using System.Web;
-//using System.Web.Security;
-using System.Xml;
-using GalleryServer.Business;
-using GalleryServer.Business.Interfaces;
-using GalleryServer.Data;
+﻿using GalleryServer.Business;
 using GalleryServer.Web.Controller;
-using Microsoft.ApplicationInsights.AspNetCore;
-using Microsoft.ApplicationInsights.AspNetCore.Extensions;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.IdentityModel.Protocols;
-using SecurityManager = GalleryServer.Business.SecurityManager;
+using Newtonsoft.Json;
+using System;
+using System.Drawing;
+using System.IO;
+using System.Linq;
 
 namespace GalleryServer.Web
 {
@@ -36,79 +16,79 @@ namespace GalleryServer.Web
     {
         #region Private Static Fields
 
-        private static readonly object _sharedLock = new object();
-        private static string _galleryRoot;
-        private static string _galleryResourcesPath;
-        private static string _skinPath;
+        //private static readonly object _sharedLock = new object();
+        //private static string _galleryRoot;
+        //private static string _galleryResourcesPath;
+        //private static string _skinPath;
         //private static string _webConfigFilePath;
         //private static string _lastKnownHostUrl;
 
         #endregion
 
-        #region Public Static Properties
+        #region Public Properties
 
-        /// <summary>
-        /// Gets or sets the name of the current user. Returns an empty string for anonymous users. This property becomes 
-        /// available immediately after a user logs in, even within the current page's life cycle. This property is preferred 
-        /// over HttpContext.Current.User.Identity.Name, which does not contain the user's name until the next page load. 
-        /// This property should be set only when the user logs in. When the property is not explicitly assigned, it 
-        /// automatically returns the value of HttpContext.Current.User.Identity.Name. When no HTTP context is available 
-        /// (such as during async method calls), this property returns null.
-        /// </summary>
-        /// <value>The name of the current user.</value>
-        public static string UserName
-        {
-            get
-            {
-                if (DiHelper.HttpContext == null)
-                {
-                    return null;
-                }
+        ///// <summary>
+        ///// Gets or sets the name of the current user. Returns an empty string for anonymous users. This property becomes 
+        ///// available immediately after a user logs in, even within the current page's life cycle. This property is preferred 
+        ///// over HttpContext.Current.User.Identity.Name, which does not contain the user's name until the next page load. 
+        ///// This property should be set only when the user logs in. When the property is not explicitly assigned, it 
+        ///// automatically returns the value of HttpContext.Current.User.Identity.Name. When no HTTP context is available 
+        ///// (such as during async method calls), this property returns null.
+        ///// </summary>
+        ///// <value>The name of the current user.</value>
+        //public string UserName
+        //{
+        //    get
+        //    {
+        //        if (HttpContext == null)
+        //        {
+        //            return null;
+        //        }
 
-                object userName = DiHelper.HttpContext.Items["UserName"];
-                if (userName != null)
-                {
-                    return userName.ToString();
-                }
-                else
-                {
-                    return ParseUserName(DiHelper.HttpContext.User.Claims.SingleOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
-                    //return ParseUserName(DiHelper.HttpContext.User.Identity.Name ?? string.Empty);
-                }
-            }
-            set => DiHelper.HttpContext.Items["UserName"] = value;
-        }
+        //        object userName = HttpContext.Items["UserName"];
+        //        if (userName != null)
+        //        {
+        //            return userName.ToString();
+        //        }
+        //        else
+        //        {
+        //            return ParseUserName(HttpContext.User.Claims.SingleOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
+        //            //return ParseUserName(DiHelper.HttpContext.User.Identity.Name ?? string.Empty);
+        //        }
+        //    }
+        //    set => HttpContext.Items["UserName"] = value;
+        //}
 
-        /// <summary>
-        /// Gets a value indicating whether the current user is authenticated. This property becomes true available immediately after 
-        /// a user logs in, even within the current page's life cycle. This property is preferred over 
-        /// HttpContext.Current.User.Identity.IsAuthenticated, which does not become true until the next page load. 
-        /// This property should be set only when the user logs in. When the property is not explicitly assigned, it automatically 
-        /// returns the value of HttpContext.Current.User.Identity.IsAuthenticated. When no HTTP context is available (such as during
-        /// async method calls), this property returns <c>false</c>.
-        /// </summary>
-        public static bool IsAuthenticated
-        {
-            get
-            {
-                if (DiHelper.HttpContext == null)
-                {
-                    return false;
-                }
+        ///// <summary>
+        ///// Gets a value indicating whether the current user is authenticated. This property becomes true available immediately after 
+        ///// a user logs in, even within the current page's life cycle. This property is preferred over 
+        ///// HttpContext.Current.User.Identity.IsAuthenticated, which does not become true until the next page load. 
+        ///// This property should be set only when the user logs in. When the property is not explicitly assigned, it automatically 
+        ///// returns the value of HttpContext.Current.User.Identity.IsAuthenticated. When no HTTP context is available (such as during
+        ///// async method calls), this property returns <c>false</c>.
+        ///// </summary>
+        //public static bool IsAuthenticated
+        //{
+        //    get
+        //    {
+        //        if (DiHelper.HttpContext == null)
+        //        {
+        //            return false;
+        //        }
 
-                object objIsAuthenticated = DiHelper.HttpContext.Items["IsAuthenticated"];
+        //        object objIsAuthenticated = DiHelper.HttpContext.Items["IsAuthenticated"];
 
-                if ((objIsAuthenticated != null) && Boolean.TryParse(objIsAuthenticated.ToString(), out var isAuthenticated))
-                {
-                    return isAuthenticated;
-                }
-                else
-                {
-                    return DiHelper.HttpContext.User.Identity.IsAuthenticated;
-                }
-            }
-            set => DiHelper.HttpContext.Items["IsAuthenticated"] = value;
-        }
+        //        if ((objIsAuthenticated != null) && Boolean.TryParse(objIsAuthenticated.ToString(), out var isAuthenticated))
+        //        {
+        //            return isAuthenticated;
+        //        }
+        //        else
+        //        {
+        //            return DiHelper.HttpContext.User.Identity.IsAuthenticated;
+        //        }
+        //    }
+        //    set => DiHelper.HttpContext.Items["IsAuthenticated"] = value;
+        //}
 
         ///// <summary>
         ///// Gets a value indicating whether the current request is from the local computer. Returns <c>false</c> if 
@@ -128,87 +108,87 @@ namespace GalleryServer.Web
         //    }
         //}
 
-        /// <summary>
-        /// Gets a value indicating whether the current request is in debug mode. That is, it returns <c>true</c> when 
-        /// debug = "true" in web.config and returns <c>false</c> when debug = "false".
-        /// </summary>
-        /// <value><c>true</c> if the current request is in debug mode; otherwise, <c>false</c>.</value>
-        public static bool IsDebugEnabled()
-        {
-            return DiHelper.GetHostingEnvironment().IsDevelopment();
-        }
+        ///// <summary>
+        ///// Gets a value indicating whether the current request is in debug mode. That is, it returns <c>true</c> when 
+        ///// debug = "true" in web.config and returns <c>false</c> when debug = "false".
+        ///// </summary>
+        ///// <value><c>true</c> if the current request is in debug mode; otherwise, <c>false</c>.</value>
+        //public static bool IsDebugEnabled()
+        //{
+        //    return DiHelper.GetHostingEnvironment().IsDevelopment();
+        //}
 
-        /// <summary>
-        /// Get the path, relative to the web site root, to the directory containing the Gallery Server user controls and 
-        /// other resources. Does not include the containing page or the trailing slash. Example: If GSP is installed at 
-        /// C:\inetpub\wwwroot\dev\gallery, where C:\inetpub\wwwroot\ is the parent web site, and the gallery support files are in 
-        /// the gsp directory, this property returns /dev/gallery/gsp. Guaranteed to not return null.
-        /// </summary>
-        /// <value>Returns the path, relative to the web site root, to the directory containing the Gallery Server user 
-        /// controls and other resources.</value>
-        public static string GalleryRoot
-        {
-            get
-            {
-                if (_galleryRoot == null)
-                {
-                    _galleryRoot = CalculateGalleryRoot();
-                }
+        ///// <summary>
+        ///// Get the path, relative to the web site root, to the directory containing the Gallery Server user controls and 
+        ///// other resources. Does not include the containing page or the trailing slash. Example: If GSP is installed at 
+        ///// C:\inetpub\wwwroot\dev\gallery, where C:\inetpub\wwwroot\ is the parent web site, and the gallery support files are in 
+        ///// the gsp directory, this property returns /dev/gallery/gsp. Guaranteed to not return null.
+        ///// </summary>
+        ///// <value>Returns the path, relative to the web site root, to the directory containing the Gallery Server user 
+        ///// controls and other resources.</value>
+        //public static string GalleryRoot
+        //{
+        //    get
+        //    {
+        //        if (_galleryRoot == null)
+        //        {
+        //            _galleryRoot = CalculateGalleryRoot();
+        //        }
 
-                return _galleryRoot;
-            }
-        }
+        //        return _galleryRoot;
+        //    }
+        //}
 
-        /// <summary>
-        /// Gets the path, relative to the current application, to the directory containing the Gallery Server
-        /// resources such as images, user controls, scripts, etc. This value is pulled from the AppSettings value "GalleryResourcesPath"
-        /// if present; otherwise it defaults to "gs". Examples: "gs", "GalleryServer\resources"
-        /// </summary>
-        /// <value>Returns the path, relative to the current application, to the directory containing the Gallery Server
-        /// resources such as images, user controls, scripts, etc.</value>
-        public static string GalleryResourcesPath
-        {
-            get
-            {
-                if (_galleryResourcesPath == null)
-                {
-                    _galleryResourcesPath = GetGalleryResourcesPath();
-                }
+        ///// <summary>
+        ///// Gets the path, relative to the current application, to the directory containing the Gallery Server
+        ///// resources such as images, user controls, scripts, etc. This value is pulled from the AppSettings value "GalleryResourcesPath"
+        ///// if present; otherwise it defaults to "gs". Examples: "gs", "GalleryServer\resources"
+        ///// </summary>
+        ///// <value>Returns the path, relative to the current application, to the directory containing the Gallery Server
+        ///// resources such as images, user controls, scripts, etc.</value>
+        //public static string GalleryResourcesPath
+        //{
+        //    get
+        //    {
+        //        if (_galleryResourcesPath == null)
+        //        {
+        //            _galleryResourcesPath = GetGalleryResourcesPath();
+        //        }
 
-                return _galleryResourcesPath;
-            }
-        }
+        //        return _galleryResourcesPath;
+        //    }
+        //}
 
-        /// <summary>
-        /// Gets the path, relative to the current application, to the directory containing the Gallery Server
-        /// skin resources for the currently selected skin. Examples: "gs/skins/dark", "/dev/gallery/gsp/skins/light"
-        /// </summary>
-        /// <value>Returns the path, relative to the current application, to the directory containing the Gallery Server
-        /// skin resources.</value>
-        public static string SkinPath
-        {
-            get
-            {
-                if (_skinPath == null)
-                {
-                    _skinPath = String.Concat(GalleryRoot, "/skins/", Skin);
-                }
+        ///// <summary>
+        ///// Gets the path, relative to the current application, to the directory containing the Gallery Server
+        ///// skin resources for the currently selected skin. Examples: "gs/skins/dark", "/dev/gallery/gsp/skins/light"
+        ///// </summary>
+        ///// <value>Returns the path, relative to the current application, to the directory containing the Gallery Server
+        ///// skin resources.</value>
+        //public static string SkinPath
+        //{
+        //    get
+        //    {
+        //        if (_skinPath == null)
+        //        {
+        //            _skinPath = String.Concat(GalleryRoot, "/skins/", Skin);
+        //        }
 
-                return _skinPath;
-            }
-        }
+        //        return _skinPath;
+        //    }
+        //}
 
-        /// <summary>
-        /// Gets the name of the currently selected skin. Examples: "dark", "light"
-        /// </summary>
-        /// <value>Returns the name of the currently selected skin.</value>
-        public static string Skin
-        {
-            get
-            {
-                return AppSetting.Instance.Skin;
-            }
-        }
+        ///// <summary>
+        ///// Gets the name of the currently selected skin. Examples: "dark", "light"
+        ///// </summary>
+        ///// <value>Returns the name of the currently selected skin.</value>
+        //public static string Skin
+        //{
+        //    get
+        //    {
+        //        return AppSetting.Instance.Skin;
+        //    }
+        //}
 
         ///// <summary>
         ///// Gets the fully qualified file path to web.config. Guaranteed to not return null.
@@ -228,47 +208,47 @@ namespace GalleryServer.Web
         //    }
         //}
 
-        /// <summary>
-        /// Get the path, relative to the web site root, to the current web application. Does not include the containing page 
-        /// or the trailing slash. Example: If GSP is installed at C:\inetpub\wwwroot\dev\gallery, and C:\inetpub\wwwroot\ is 
-        /// the parent web site, this property returns /dev/gallery. Guaranteed to not return null.
-        /// </summary>
-        /// <value>Get the path, relative to the web site root, to the current web application.</value>
-        public static string AppRoot
-        {
-            get
-            {
-                throw new NotImplementedException();
-                //return HttpRuntime.AppDomainAppVirtualPath.TrimEnd(new char[] { '/' });
+        ///// <summary>
+        ///// Get the path, relative to the web site root, to the current web application. Does not include the containing page 
+        ///// or the trailing slash. Example: If GSP is installed at C:\inetpub\wwwroot\dev\gallery, and C:\inetpub\wwwroot\ is 
+        ///// the parent web site, this property returns /dev/gallery. Guaranteed to not return null.
+        ///// </summary>
+        ///// <value>Get the path, relative to the web site root, to the current web application.</value>
+        //public static string AppRoot
+        //{
+        //    get
+        //    {
+        //        throw new NotImplementedException();
+        //        //return HttpRuntime.AppDomainAppVirtualPath.TrimEnd(new char[] { '/' });
 
-                // OBSOLETE: Used to use the following but it works only when a context is available:
-                //_appRoot = HttpContext.Current.Request.ApplicationPath.TrimEnd(new char[] { '/' });
-            }
-        }
+        //        // OBSOLETE: Used to use the following but it works only when a context is available:
+        //        //_appRoot = HttpContext.Current.Request.ApplicationPath.TrimEnd(new char[] { '/' });
+        //    }
+        //}
 
-        /// <summary>
-        /// Gets or sets the URI of the previous page the user was viewing. The value is stored in the user's session, and 
-        /// can be used after a user has completed a task to return to the original page. If the Session object is not available,
-        /// no value is saved in the setter and a null is returned in the getter.
-        /// </summary>
-        /// <value>The URI of the previous page the user was viewing.</value>
-        public static Uri PreviousUri
-        {
-            get
-            {
-                if (DiHelper.HttpContext.Session != null)
-                    return new Uri(DiHelper.HttpContext.Session.GetString("ReferringUrl"));
-                else
-                    return null;
-            }
-            set
-            {
-                if (DiHelper.HttpContext.Session == null)
-                    return; // Session is disabled for this page.
+        ///// <summary>
+        ///// Gets or sets the URI of the previous page the user was viewing. The value is stored in the user's session, and 
+        ///// can be used after a user has completed a task to return to the original page. If the Session object is not available,
+        ///// no value is saved in the setter and a null is returned in the getter.
+        ///// </summary>
+        ///// <value>The URI of the previous page the user was viewing.</value>
+        //public static Uri PreviousUri
+        //{
+        //    get
+        //    {
+        //        if (DiHelper.HttpContext.Session != null)
+        //            return new Uri(DiHelper.HttpContext.Session.GetString("ReferringUrl"));
+        //        else
+        //            return null;
+        //    }
+        //    set
+        //    {
+        //        if (DiHelper.HttpContext.Session == null)
+        //            return; // Session is disabled for this page.
 
-                DiHelper.HttpContext.Session.SetString("ReferringUrl", value.ToString());
-            }
-        }
+        //        DiHelper.HttpContext.Session.SetString("ReferringUrl", value.ToString());
+        //    }
+        //}
 
         /// <summary>
         /// Gets the path to the install trigger file. Example: "C:\websites\gallery\App_Data\install.txt". This file is expected to be
@@ -302,184 +282,83 @@ namespace GalleryServer.Web
         #region Public Static Methods
 
         /// <summary>
-        /// Determine whether user has permission to perform at least one of the specified security actions. Un-authenticated users
-        /// (anonymous users) are always considered NOT authorized (that is, this method returns false) except when the requested
-        /// security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or <see cref="SecurityActions.ViewOriginalMediaObject" />,
-        /// since Gallery Server is configured by default to allow anonymous viewing access
-        /// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
-        /// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
-        /// un-authenticated users, and the standard gallery server role functionality applies.
+        /// Returns the username from the parameter, leaving out the domain or computer name if present.
+        /// For example, if <paramref name="userName" />="mydomain\Vitali", this function returns "Vitali". If the parameter
+        /// does not contain a backward slash ("\"), then <paramref name="userName" /> is returned unmodified. If web.config contains
+        /// an application setting SuppressUserNameParsingFromHttpContextIdentity and it is <c>true</c>, then return the parameter
+        /// unmodified (thus giving same behavior as 3.2.1 and earlier versions). This setting will be necessary in cases where an
+        /// admin has user names containing a backward slash.
+        /// 
         /// </summary>
-        /// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
-        /// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery). If multiple actions are
-        /// specified, the method is successful if the user has permission for at least one of the actions. If you require that all actions
-        /// be satisfied to be successful, call one of the overloads that accept a SecurityActionsOption and
-        /// specify <see cref="SecurityActionsOption.RequireAll" />.</param>
-        /// <param name="albumId">The album ID to which the security action applies.</param>
-        /// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
-        /// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
-        /// <see cref="int.MinValue" />).</param>
-        /// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
-        /// is ignored for logged on users.</param>
-        /// <param name="isVirtualAlbum">if set to <c>true</c> the album is virtual album.</param>
-        /// <returns>
-        /// Returns true when the user is authorized to perform the specified security action against the specified album;
-        /// otherwise returns false.
-        /// </returns>
-        /// <overloads>
-        /// Determine if the current user has permission to perform the requested action.
-        ///   </overloads>
-        public static async Task<bool> IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, bool isVirtualAlbum)
+        /// <param name="userName">Name of the user. Examples: "Vitali", "mydomain\Vitali", "pcname\Vitali"</param>
+        /// <returns>System.String.</returns>
+        public static string ParseUserName(string userName)
         {
-            return IsUserAuthorized(securityActions, await RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, isVirtualAlbum);
+            var idx = userName.IndexOf("\\", StringComparison.Ordinal);
+            return (idx >= 0 ? userName.Substring(idx + 1) : userName);
         }
 
-        /// <summary>
-        /// Determine whether user has permission to perform the specified security actions. Un-authenticated users
-        /// (anonymous users) are always considered NOT authorized (that is, this method returns false) except when the requested
-        /// security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or <see cref="SecurityActions.ViewOriginalMediaObject" />,
-        /// since Gallery Server is configured by default to allow anonymous viewing access
-        /// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
-        /// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
-        /// un-authenticated users, and the standard gallery server role functionality applies.
-        /// </summary>
-        /// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
-        /// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery).</param>
-        /// <param name="albumId">The album ID to which the security action applies.</param>
-        /// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
-        /// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
-        /// <see cref="int.MinValue" />).</param>
-        /// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
-        /// is ignored for logged on users.</param>
-        /// <param name="secActionsOption">Specifies whether the user must have permission for all items in <paramref name="securityActions" />
-        /// to be successful or just one.</param>
-        /// <param name="isVirtualAlbum">if set to <c>true</c> the album is virtual album.</param>
-        /// <returns>
-        /// Returns true when the user is authorized to perform the specified security action against the specified album;
-        /// otherwise returns false.
-        /// </returns>
-        public static async Task<bool> IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, SecurityActionsOption secActionsOption, bool isVirtualAlbum)
-        {
-            return IsUserAuthorized(securityActions, await RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, secActionsOption, isVirtualAlbum);
-        }
+        ///// <summary>
+        ///// Determine whether user has permission to perform at least one of the specified security actions. Un-authenticated users
+        ///// (anonymous users) are always considered NOT authorized (that is, this method returns false) except when the requested
+        ///// security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or <see cref="SecurityActions.ViewOriginalMediaObject" />,
+        ///// since Gallery Server is configured by default to allow anonymous viewing access
+        ///// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
+        ///// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
+        ///// un-authenticated users, and the standard gallery server role functionality applies.
+        ///// </summary>
+        ///// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
+        ///// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery). If multiple actions are
+        ///// specified, the method is successful if the user has permission for at least one of the actions. If you require that all actions
+        ///// be satisfied to be successful, call one of the overloads that accept a SecurityActionsOption and
+        ///// specify <see cref="SecurityActionsOption.RequireAll" />.</param>
+        ///// <param name="albumId">The album ID to which the security action applies.</param>
+        ///// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
+        ///// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
+        ///// <see cref="int.MinValue" />).</param>
+        ///// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
+        ///// is ignored for logged on users.</param>
+        ///// <param name="isVirtualAlbum">if set to <c>true</c> the album is virtual album.</param>
+        ///// <returns>
+        ///// Returns true when the user is authorized to perform the specified security action against the specified album;
+        ///// otherwise returns false.
+        ///// </returns>
+        ///// <overloads>
+        ///// Determine if the current user has permission to perform the requested action.
+        /////   </overloads>
+        //public static async Task<bool> IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, bool isVirtualAlbum)
+        //{
+        //    return IsUserAuthorized(securityActions, await RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, isVirtualAlbum);
+        //}
 
-        /// <summary>
-        /// Determine whether user has permission to perform at least one of the specified security actions. Un-authenticated users
-        /// (anonymous users) are always considered NOT authorized (that is, this method returns false) except when the requested
-        /// security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or <see cref="SecurityActions.ViewOriginalMediaObject" />,
-        /// since Gallery Server is configured by default to allow anonymous viewing access
-        /// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
-        /// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
-        /// un-authenticated users, and the standard gallery server role functionality applies.
-        /// </summary>
-        /// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
-        /// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery). If multiple actions are
-        /// specified, the method is successful if the user has permission for at least one of the actions. If you require that all actions
-        /// be satisfied to be successful, call one of the overloads that accept a SecurityActionsOption and
-        /// specify <see cref="SecurityActionsOption.RequireAll" />.</param>
-        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. This parameter is ignored
-        /// for anonymous users. The parameter may be null.</param>
-        /// <param name="albumId">The album ID to which the security action applies.</param>
-        /// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
-        /// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
-        /// <see cref="int.MinValue" />).</param>
-        /// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
-        /// is ignored for logged on users.</param>
-        /// <param name="isVirtualAlbum">if set to <c>true</c> the album is virtual album.</param>
-        /// <returns>
-        /// Returns true when the user is authorized to perform the specified security action against the specified album;
-        /// otherwise returns false.
-        /// </returns>
-        public static bool IsUserAuthorized(SecurityActions securityActions, IGalleryServerRoleCollection roles, int albumId, int galleryId, bool isPrivate, bool isVirtualAlbum)
-        {
-            return IsUserAuthorized(securityActions, roles, albumId, galleryId, isPrivate, SecurityActionsOption.RequireOne, isVirtualAlbum);
-        }
-
-        /// <summary>
-        /// Determine whether user has permission to perform the specified security actions. When multiple security actions are passed, use
-        /// <paramref name="secActionsOption" /> to specify whether all of the actions must be satisfied to be successful or only one item
-        /// must be satisfied. Un-authenticated users (anonymous users) are always considered NOT authorized (that is, this method returns
-        /// false) except when the requested security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or
-        /// <see cref="SecurityActions.ViewOriginalMediaObject" />, since Gallery Server is configured by default to allow anonymous viewing access
-        /// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
-        /// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
-        /// un-authenticated users, and the standard gallery server role functionality applies.
-        /// </summary>
-        /// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
-        /// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery). If multiple actions are
-        /// specified, use <paramref name="secActionsOption" /> to specify whether all of the actions must be satisfied to be successful or
-        /// only one item must be satisfied.</param>
-        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. This parameter is ignored
-        /// for anonymous users. The parameter may be null.</param>
-        /// <param name="albumId">The album ID to which the security action applies.</param>
-        /// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
-        /// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
-        /// <see cref="int.MinValue" />).</param>
-        /// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
-        /// is ignored for logged on users.</param>
-        /// <param name="secActionsOption">Specifies whether the user must have permission for all items in <paramref name="securityActions" />
-        /// to be successful or just one.</param>
-        /// <param name="isVirtualAlbum">if set to <c>true</c> the album is a virtual album.</param>
-        /// <returns>
-        /// Returns true when the user is authorized to perform the specified security action against the specified album;
-        /// otherwise returns false.
-        /// </returns>
-        public static bool IsUserAuthorized(SecurityActions securityActions, IGalleryServerRoleCollection roles, int albumId, int galleryId, bool isPrivate, SecurityActionsOption secActionsOption, bool isVirtualAlbum)
-        {
-            return SecurityManager.IsUserAuthorized(securityActions, roles, albumId, galleryId, IsAuthenticated, isPrivate, secActionsOption, isVirtualAlbum);
-        }
-
-        /// <summary>
-        /// Determine whether the user belonging to the specified <paramref name="roles" /> is a site administrator. The user is considered a site
-        /// administrator if at least one role has Allow Administer Site permission.
-        /// </summary>
-        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. The parameter may be null.</param>
-        /// <returns>
-        /// 	<c>true</c> if the user is a site administrator; otherwise, <c>false</c>.
-        /// </returns>
-        public static bool IsUserSiteAdministrator(IGalleryServerRoleCollection roles)
-        {
-            return SecurityManager.IsUserSiteAdministrator(roles);
-        }
-
-        /// <summary>
-        /// Determine whether the user belonging to the specified <paramref name="roles"/> is a gallery administrator for the specified
-        /// <paramref name="galleryId"/>. The user is considered a gallery administrator if at least one role has Allow Administer Gallery permission.
-        /// </summary>
-        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. The parameter may be null.</param>
-        /// <param name="galleryId">The gallery ID.</param>
-        /// <returns>
-        /// 	<c>true</c> if the user is a gallery administrator; otherwise, <c>false</c>.
-        /// </returns>
-        public static bool IsUserGalleryAdministrator(IGalleryServerRoleCollection roles, int galleryId)
-        {
-            return SecurityManager.IsUserGalleryAdministrator(roles, galleryId);
-        }
-
-        /// <summary>
-        /// Determine whether the currently logged-on user is a site administrator. The user is considered a site
-        /// administrator if at least one role has Allow Administer Site permission.
-        /// </summary>
-        /// <returns>
-        /// 	<c>true</c> if the user is a site administrator; otherwise, <c>false</c>.
-        /// </returns>
-        public static async Task<bool> IsCurrentUserSiteAdministrator()
-        {
-            return IsUserSiteAdministrator(await RoleController.GetGalleryServerRolesForUser());
-        }
-
-        /// <summary>
-        /// Determine whether the currently logged-on user is a gallery administrator for the specified <paramref name="galleryId"/>. 
-        /// The user is considered a gallery administrator if at least one role has Allow Administer Gallery permission.
-        /// </summary>
-        /// <param name="galleryId">The gallery ID.</param>
-        /// <returns>
-        /// 	<c>true</c> if the user is a gallery administrator; otherwise, <c>false</c>.
-        /// </returns>
-        public static async Task<bool> IsCurrentUserGalleryAdministrator(int galleryId)
-        {
-            return SecurityManager.IsUserGalleryAdministrator(await RoleController.GetGalleryServerRolesForUser(), galleryId);
-        }
+        ///// <summary>
+        ///// Determine whether user has permission to perform the specified security actions. Un-authenticated users
+        ///// (anonymous users) are always considered NOT authorized (that is, this method returns false) except when the requested
+        ///// security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or <see cref="SecurityActions.ViewOriginalMediaObject" />,
+        ///// since Gallery Server is configured by default to allow anonymous viewing access
+        ///// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
+        ///// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
+        ///// un-authenticated users, and the standard gallery server role functionality applies.
+        ///// </summary>
+        ///// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
+        ///// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery).</param>
+        ///// <param name="albumId">The album ID to which the security action applies.</param>
+        ///// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
+        ///// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
+        ///// <see cref="int.MinValue" />).</param>
+        ///// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
+        ///// is ignored for logged on users.</param>
+        ///// <param name="secActionsOption">Specifies whether the user must have permission for all items in <paramref name="securityActions" />
+        ///// to be successful or just one.</param>
+        ///// <param name="isVirtualAlbum">if set to <c>true</c> the album is virtual album.</param>
+        ///// <returns>
+        ///// Returns true when the user is authorized to perform the specified security action against the specified album;
+        ///// otherwise returns false.
+        ///// </returns>
+        //public static async Task<bool> IsUserAuthorized(SecurityActions securityActions, int albumId, int galleryId, bool isPrivate, SecurityActionsOption secActionsOption, bool isVirtualAlbum)
+        //{
+        //    return IsUserAuthorized(securityActions, await RoleController.GetGalleryServerRolesForUser(), albumId, galleryId, isPrivate, secActionsOption, isVirtualAlbum);
+        //}
 
         ///// <summary>
         ///// Determines whether the current request is a Web.API request.
@@ -539,267 +418,248 @@ namespace GalleryServer.Web
         //    return trustLevel;
         //}
 
-        /// <summary>
-        /// Get the path, relative to the web site root, to the specified resource. Example: If the web application is at
-        /// /dev/gsweb/, the directory containing the resources is /gs/, and the desired resource is /images/info.gif, this function
-        /// will return /dev/gsweb/gs/images/info.gif.
-        /// </summary>
-        /// <param name="resource">A path relative to the directory containing the Gallery Server resource files (ex: images/info.gif).
-        /// The leading forward slash ('/') is optional.</param>
-        /// <returns>Returns the path, relative to the web site root, to the specified resource.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="resource" /> is null.</exception>
-        public static string GetUrl(string resource)
-        {
-            if (resource == null)
-                throw new ArgumentNullException("resource");
+        ///// <summary>
+        ///// Get the path, relative to the web site root, to the specified resource. Example: If the web application is at
+        ///// /dev/gsweb/, the directory containing the resources is /gs/, and the desired resource is /images/info.gif, this function
+        ///// will return /dev/gsweb/gs/images/info.gif.
+        ///// </summary>
+        ///// <param name="resource">A path relative to the directory containing the Gallery Server resource files (ex: images/info.gif).
+        ///// The leading forward slash ('/') is optional.</param>
+        ///// <returns>Returns the path, relative to the web site root, to the specified resource.</returns>
+        ///// <exception cref="ArgumentNullException">Thrown when <paramref name="resource" /> is null.</exception>
+        //public static string GetUrl(string resource)
+        //{
+        //    if (resource == null)
+        //        throw new ArgumentNullException("resource");
 
-            if (!resource.StartsWith("/", StringComparison.Ordinal))
-                resource = resource.Insert(0, "/"); // Make sure it starts with a '/'
+        //    if (!resource.StartsWith("/", StringComparison.Ordinal))
+        //        resource = resource.Insert(0, "/"); // Make sure it starts with a '/'
 
-            resource = String.Concat(GalleryRoot, resource);
+        //    resource = String.Concat(GalleryRoot, resource);
 
-            //#if DEBUG
-            //      if (!System.IO.File.Exists(HttpContext.Current.Server.MapPath(resource)))
-            //        throw new System.IO.FileNotFoundException(String.Format(CultureInfo.CurrentCulture, "No file exists at {0}.", resource), resource);
-            //#endif
+        //    //#if DEBUG
+        //    //      if (!System.IO.File.Exists(HttpContext.Current.Server.MapPath(resource)))
+        //    //        throw new System.IO.FileNotFoundException(String.Format(CultureInfo.CurrentCulture, "No file exists at {0}.", resource), resource);
+        //    //#endif
 
-            return resource;
-        }
+        //    return resource;
+        //}
 
-        /// <summary>
-        /// Get the path, relative to the web site root, to the specified resource in the current skin directory. Example: 
-        /// If the web application is at /dev/gsweb/, the directory containing the skin resources is /gs/skins/simple-grey,
-        /// and the desired resource is /images/info.gif, this function will return /dev/gsweb/gs/skins/simple-grey/images/info.gif.
-        /// </summary>
-        /// <param name="resource">A path relative to the skin directory containing the Gallery Server resource files (ex: images/info.gif).
-        /// The leading forward slash ('/') is optional but recommended for readability and a slight performance improvement.</param>
-        /// <returns>Returns the path, relative to the web site root, to the specified skin resource.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="resource" /> is null.</exception>
-        public static string GetSkinnedUrl(string resource)
-        {
-            if (resource == null)
-                throw new ArgumentNullException("resource");
+        ///// <summary>
+        ///// Get the path, relative to the web site root, to the specified resource in the current skin directory. Example: 
+        ///// If the web application is at /dev/gsweb/, the directory containing the skin resources is /gs/skins/simple-grey,
+        ///// and the desired resource is /images/info.gif, this function will return /dev/gsweb/gs/skins/simple-grey/images/info.gif.
+        ///// </summary>
+        ///// <param name="resource">A path relative to the skin directory containing the Gallery Server resource files (ex: images/info.gif).
+        ///// The leading forward slash ('/') is optional but recommended for readability and a slight performance improvement.</param>
+        ///// <returns>Returns the path, relative to the web site root, to the specified skin resource.</returns>
+        ///// <exception cref="ArgumentNullException">Thrown when <paramref name="resource" /> is null.</exception>
+        //public static string GetSkinnedUrl(string resource)
+        //{
+        //    if (resource == null)
+        //        throw new ArgumentNullException("resource");
 
-            if (!resource.StartsWith("/", StringComparison.Ordinal))
-                resource = resource.Insert(0, "/"); // Make sure it starts with a '/'
+        //    if (!resource.StartsWith("/", StringComparison.Ordinal))
+        //        resource = resource.Insert(0, "/"); // Make sure it starts with a '/'
 
-            resource = String.Concat(SkinPath, resource);
+        //    resource = String.Concat(SkinPath, resource);
 
-            //#if DEBUG
-            //      if (!System.IO.File.Exists(HttpContext.Current.Server.MapPath(resource)))
-            //        throw new System.IO.FileNotFoundException(String.Format(CultureInfo.CurrentCulture, "No file exists at {0}.", resource), resource);
-            //#endif
+        //    //#if DEBUG
+        //    //      if (!System.IO.File.Exists(HttpContext.Current.Server.MapPath(resource)))
+        //    //        throw new System.IO.FileNotFoundException(String.Format(CultureInfo.CurrentCulture, "No file exists at {0}.", resource), resource);
+        //    //#endif
 
-            return resource;
-        }
+        //    return resource;
+        //}
 
-        /// <overloads>Get an URL relative to the website root for the requested page.</overloads>
-        /// <summary>
-        /// Get an URL relative to the website root for the requested <paramref name="page"/>. Example: If 
-        /// <paramref name="page"/> is PageId.album and the current page is /dev/gs/gallery.aspx, this function 
-        /// returns /dev/gs/gallery.aspx?g=album. Returns null if <see cref="HttpContext.Current" /> is null.
-        /// </summary>
-        /// <param name="page">A <see cref="PageId"/> enumeration that represents the desired <see cref="Pages.GalleryPage"/>.</param>
-        /// <returns>Returns an URL relative to the website root for the requested <paramref name="page"/>, or null 
-        /// if <see cref="HttpContext.Current" /> is null.</returns>
-        public static string GetUrl(PageId page)
-        {
-            throw new NotImplementedException();
-            //if (HttpContext.Current == null)
-            //    return null;
+        ///// <overloads>Get an URL relative to the website root for the requested page.</overloads>
+        ///// <summary>
+        ///// Get an URL relative to the website root for the requested <paramref name="page"/>. Example: If 
+        ///// <paramref name="page"/> is PageId.album and the current page is /dev/gs/gallery.aspx, this function 
+        ///// returns /dev/gs/gallery.aspx?g=album. Returns null if <see cref="HttpContext.Current" /> is null.
+        ///// </summary>
+        ///// <param name="page">A <see cref="PageId"/> enumeration that represents the desired <see cref="Pages.GalleryPage"/>.</param>
+        ///// <returns>Returns an URL relative to the website root for the requested <paramref name="page"/>, or null 
+        ///// if <see cref="HttpContext.Current" /> is null.</returns>
+        //public static string GetUrl(PageId page)
+        //{
+        //    if (HttpContext.Current == null)
+        //        return null;
 
-            //return AddQueryStringParameter(GetCurrentPageUrl(), String.Concat("g=", page));
-        }
+        //    return AddQueryStringParameter(GetCurrentPageUrl(), String.Concat("g=", page));
+        //}
 
-        /// <summary>
-        /// Get an URL relative to the website root for the requested <paramref name="page"/> and with the specified 
-        /// <paramref name="args"/> appended as query string parameters. Example: If <paramref name="page"/> is PageId.task_addobjects, 
-        /// the current page is /dev/gs/gallery.aspx, <paramref name="format"/> is "aid={0}", and <paramref name="args"/>
-        /// is "23", this function returns /dev/gs/gallery.aspx?g=task_addobjects&amp;aid=23. If the <paramref name="page"/> is
-        /// <see cref="PageId.album"/> or <see cref="PageId.mediaobject"/>, don't include the "g" query string parameter, since 
-        /// we can deduce it by looking for the aid or moid query string parms. Returns null if <see cref="HttpContext.Current" /> is null.
-        /// </summary>
-        /// <param name="page">A <see cref="PageId"/> enumeration that represents the desired <see cref="Pages.GalleryPage"/>.</param>
-        /// <param name="format">A format string whose placeholders are replaced by values in <paramref name="args"/>. Do not use a '?'
-        /// or '&amp;' at the beginning of the format string. Example: "msg={0}".</param>
-        /// <param name="args">The values to be inserted into the <paramref name="format"/> string.</param>
-        /// <returns>Returns an URL relative to the website root for the requested <paramref name="page"/>, or 
-        /// null if <see cref="HttpContext.Current" /> is null.</returns>
-        public static string GetUrl(PageId page, string format, params object[] args)
-        {
-            throw new NotImplementedException();
-            //if (HttpContext.Current == null)
-            //    return null;
+        ///// <summary>
+        ///// Get an URL relative to the website root for the requested <paramref name="page"/> and with the specified 
+        ///// <paramref name="args"/> appended as query string parameters. Example: If <paramref name="page"/> is PageId.task_addobjects, 
+        ///// the current page is /dev/gs/gallery.aspx, <paramref name="format"/> is "aid={0}", and <paramref name="args"/>
+        ///// is "23", this function returns /dev/gs/gallery.aspx?g=task_addobjects&amp;aid=23. If the <paramref name="page"/> is
+        ///// <see cref="PageId.album"/> or <see cref="PageId.mediaobject"/>, don't include the "g" query string parameter, since 
+        ///// we can deduce it by looking for the aid or moid query string parms. Returns null if <see cref="HttpContext.Current" /> is null.
+        ///// </summary>
+        ///// <param name="page">A <see cref="PageId"/> enumeration that represents the desired <see cref="Pages.GalleryPage"/>.</param>
+        ///// <param name="format">A format string whose placeholders are replaced by values in <paramref name="args"/>. Do not use a '?'
+        ///// or '&amp;' at the beginning of the format string. Example: "msg={0}".</param>
+        ///// <param name="args">The values to be inserted into the <paramref name="format"/> string.</param>
+        ///// <returns>Returns an URL relative to the website root for the requested <paramref name="page"/>, or 
+        ///// null if <see cref="HttpContext.Current" /> is null.</returns>
+        //public static string GetUrl(PageId page, string format, params object[] args)
+        //{
+        //    if (HttpContext.Current == null)
+        //        return null;
 
-            //string queryString = String.Format(CultureInfo.InvariantCulture, format, args);
+        //    string queryString = String.Format(CultureInfo.InvariantCulture, format, args);
 
-            //if ((page != PageId.album) && (page != PageId.mediaobject))
-            //{
-            //    // Don't use the "g" parameter for album or mediaobject pages, since we can deduce it by looking for the 
-            //    // aid or moid query string parms. This results in a shorter, cleaner URL.
-            //    queryString = String.Concat("g=", page, "&", queryString);
-            //}
+        //    if ((page != PageId.album) && (page != PageId.mediaobject))
+        //    {
+        //        // Don't use the "g" parameter for album or mediaobject pages, since we can deduce it by looking for the 
+        //        // aid or moid query string parms. This results in a shorter, cleaner URL.
+        //        queryString = String.Concat("g=", page, "&", queryString);
+        //    }
 
-            //return AddQueryStringParameter(GetCurrentPageUrl(), queryString);
-        }
+        //    return AddQueryStringParameter(GetCurrentPageUrl(), queryString);
+        //}
 
-        /// <summary>
-        /// Get the physical path to the <paramref name="resource"/>. Example: If the web application is at
-        /// C:\inetpub\wwwroot\dev\gsweb\, the directory containing the resources is \gs\, and the desired resource is
-        /// /templates/AdminNotificationAccountCreated.txt, this function will return 
-        /// C:\inetpub\wwwroot\dev\gsweb\gs\templates\AdminNotificationAccountCreated.txt.
-        /// </summary>
-        /// <param name="resource">A path relative to the directory containing the Gallery Server resource files (ex: images/info.gif).
-        /// The slash may be forward (/) or backward (\), although there is a slight performance improvement if it is forward (/).
-        /// The parameter does not require a leading slash, although there is a slight performance improvement if it is present.</param>
-        /// <returns>Returns the physical path to the requested <paramref name="resource"/>.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="resource" /> is null.</exception>
-        public static string GetPath(string resource)
-        {
-            throw new NotImplementedException();
-            //if (resource == null)
-            //    throw new ArgumentNullException("resource");
+        ///// <summary>
+        ///// Get the physical path to the <paramref name="resource"/>. Example: If the web application is at
+        ///// C:\inetpub\wwwroot\dev\gsweb\, the directory containing the resources is \gs\, and the desired resource is
+        ///// /templates/AdminNotificationAccountCreated.txt, this function will return 
+        ///// C:\inetpub\wwwroot\dev\gsweb\gs\templates\AdminNotificationAccountCreated.txt.
+        ///// </summary>
+        ///// <param name="resource">A path relative to the directory containing the Gallery Server resource files (ex: images/info.gif).
+        ///// The slash may be forward (/) or backward (\), although there is a slight performance improvement if it is forward (/).
+        ///// The parameter does not require a leading slash, although there is a slight performance improvement if it is present.</param>
+        ///// <returns>Returns the physical path to the requested <paramref name="resource"/>.</returns>
+        ///// <exception cref="ArgumentNullException">Thrown when <paramref name="resource" /> is null.</exception>
+        //public static string GetPath(string resource)
+        //{
+        //    if (resource == null)
+        //        throw new ArgumentNullException("resource");
 
-            //// Convert back slash (\) to forward slash, if present.
-            //resource = resource.Replace(Path.DirectorySeparatorChar, '/');
+        //    // Convert back slash (\) to forward slash, if present.
+        //    resource = resource.Replace(Path.DirectorySeparatorChar, '/');
 
-            //return HttpContext.Current.Server.MapPath(GetUrl(resource));
-        }
+        //    return HttpContext.Current.Server.MapPath(GetUrl(resource));
+        //}
 
-        /// <summary>
-        /// Gets the URI of the current page request. Automatically handles port forwarding configurations by incorporating the port in the
-        /// HTTP_HOST server variable in the URI. Ex: "http://75.135.92.12:8080/dev/gs/default.aspx?moid=770"
-        /// Returns null if <see cref="HttpContext.Current" /> is null.
-        /// </summary>
-        /// <returns>Returns the URI of the current page request, or null if <see cref="HttpContext.Current" /> is null.</returns>
-        public static Uri GetCurrentPageUri()
-        {
-            throw new NotImplementedException();
-            //if (HttpContext.Current == null)
-            //    return null;
+        ///// <summary>
+        ///// Gets the URI of the current page request. Automatically handles port forwarding configurations by incorporating the port in the
+        ///// HTTP_HOST server variable in the URI. Ex: "http://75.135.92.12:8080/dev/gs/default.aspx?moid=770"
+        ///// Returns null if <see cref="HttpContext.Current" /> is null.
+        ///// </summary>
+        ///// <returns>Returns the URI of the current page request, or null if <see cref="HttpContext.Current" /> is null.</returns>
+        //public static Uri GetCurrentPageUri()
+        //{
+        //    if (HttpContext.Current == null)
+        //        return null;
 
-            //UriBuilder uriBuilder = new UriBuilder(HttpContext.Current.Request.Url);
-            //uriBuilder.Host = GetHostName();
-            //int? port = GetPort();
-            //if (port.HasValue)
-            //{
-            //    uriBuilder.Port = port.Value;
-            //}
+        //    UriBuilder uriBuilder = new UriBuilder(HttpContext.Current.Request.Url);
+        //    uriBuilder.Host = GetHostName();
+        //    int? port = GetPort();
+        //    if (port.HasValue)
+        //    {
+        //        uriBuilder.Port = port.Value;
+        //    }
 
-            //return uriBuilder.Uri;
-        }
+        //    return uriBuilder.Uri;
+        //}
 
-        /// <summary>
-        /// Gets the URL, relative to the website root and optionally including any query string parameters, to the current page.
-        /// This method is a wrapper for a call to HttpContext.Current.Request.Url. If the current URL is an API call (i.e. it starts
-        /// with "~/api", the referrer is used instead. Returns null if <see cref="HttpContext.Current" /> is null.
-        /// Examples: "/dev/gs/gallery.aspx", "/dev/gs/gallery.aspx?g=admin_email&amp;aid=2389" 
-        /// </summary>
-        /// <param name="includeQueryString">When <c>true</c> the query string is included.</param>
-        /// <returns>Returns the URL, relative to the website root and including any query string parameters, to the current page,
-        /// or null if <see cref="HttpContext.Current" /> is null.</returns>
-        public static string GetCurrentPageUrl(bool includeQueryString = false)
-        {
-            //var uri = DiHelper.HttpContext.Request.GetUri();
-            throw new NotImplementedException();
-            //if (HttpContext.Current == null)
-            //    return null;
+        ///// <summary>
+        ///// Gets the URL, relative to the website root and optionally including any query string parameters, to the current page.
+        ///// This method is a wrapper for a call to HttpContext.Current.Request.Url. If the current URL is an API call (i.e. it starts
+        ///// with "~/api", the referrer is used instead. Returns null if <see cref="HttpContext.Current" /> is null.
+        ///// Examples: "/dev/gs/gallery.aspx", "/dev/gs/gallery.aspx?g=admin_email&amp;aid=2389" 
+        ///// </summary>
+        ///// <param name="includeQueryString">When <c>true</c> the query string is included.</param>
+        ///// <returns>Returns the URL, relative to the website root and including any query string parameters, to the current page,
+        ///// or null if <see cref="HttpContext.Current" /> is null.</returns>
+        //public static string GetCurrentPageUrl(bool includeQueryString = false)
+        //{
+        //    if (HttpContext.Current == null)
+        //        return null;
 
-            //var urlPath = HttpContext.Current.Request.Url.AbsolutePath;
-            //var query = HttpContext.Current.Request.Url.Query;
+        //    var urlPath = HttpContext.Current.Request.Url.AbsolutePath;
+        //    var query = HttpContext.Current.Request.Url.Query;
 
-            //if (IsWebApiRequest())
-            //{
-            //    if (HttpContext.Current.Request.UrlReferrer != null)
-            //    {
-            //        urlPath = HttpContext.Current.Request.UrlReferrer.AbsolutePath;
-            //        query = HttpContext.Current.Request.UrlReferrer.Query;
-            //    }
-            //    else
-            //    {
-            //        // We don't know the current web page, so just return an empty string. This should not typically occur.
-            //        urlPath = query = String.Empty;
-            //    }
-            //}
+        //    if (IsWebApiRequest())
+        //    {
+        //        if (HttpContext.Current.Request.UrlReferrer != null)
+        //        {
+        //            urlPath = HttpContext.Current.Request.UrlReferrer.AbsolutePath;
+        //            query = HttpContext.Current.Request.UrlReferrer.Query;
+        //        }
+        //        else
+        //        {
+        //            // We don't know the current web page, so just return an empty string. This should not typically occur.
+        //            urlPath = query = String.Empty;
+        //        }
+        //    }
 
-            //if (includeQueryString)
-            //    return String.Concat(urlPath, query);
-            //else
-            //    return urlPath;
-        }
+        //    if (includeQueryString)
+        //        return String.Concat(urlPath, query);
+        //    else
+        //        return urlPath;
+        //}
 
-        /// <summary>
-        /// Get the full path to the current web page. Does not include any query string parms. Returns null if 
-        /// <see cref="HttpContext.Current" /> is null. Example: "http://www.techinfosystems.com/gs/default.aspx"
-        /// </summary>
-        /// <returns>Returns the full path to the current web page, or null if <see cref="HttpContext.Current" /> is null.</returns>
-        /// <remarks>This value is calculated each time it is requested because the URL may be different for different users 
-        /// (a local admin's URL may be http://localhost/gs/default.aspx, someone on the intranet may get the server's name
-        /// (http://Server1/gs/default.aspx), and someone on the internet may get the full name (http://www.bob.com/gs/default.aspx).</remarks>
-        public static string GetCurrentPageUrlFull()
-        {
-            throw new NotImplementedException();
-            //if (HttpContext.Current == null)
-            //    return null;
+        ///// <summary>
+        ///// Get the full path to the current web page. Does not include any query string parms. Returns null if 
+        ///// <see cref="HttpContext.Current" /> is null. Example: "http://www.techinfosystems.com/gs/default.aspx"
+        ///// </summary>
+        ///// <returns>Returns the full path to the current web page, or null if <see cref="HttpContext.Current" /> is null.</returns>
+        ///// <remarks>This value is calculated each time it is requested because the URL may be different for different users 
+        ///// (a local admin's URL may be http://localhost/gs/default.aspx, someone on the intranet may get the server's name
+        ///// (http://Server1/gs/default.aspx), and someone on the internet may get the full name (http://www.bob.com/gs/default.aspx).</remarks>
+        //public static string GetCurrentPageUrlFull()
+        //{
+        //    if (HttpContext.Current == null)
+        //        return null;
 
-            //return String.Concat(GetHostUrl(), GetCurrentPageUrl());
-        }
+        //    return String.Concat(GetHostUrl(), GetCurrentPageUrl());
+        //}
 
-        /// <summary>
-        /// Get the URI scheme, DNS host name or IP address, and port number for the current application. 
-        /// Examples: http://www.site.com, http://localhost, http://127.0.0.1, http://godzilla
-        /// Returns null if <see cref="HttpContext.Current" /> is null and no host URL has ever been calculated during this app's lifetime.
-        /// </summary>
-        /// <returns>Returns the URI scheme, DNS host name or IP address, and port number for the current application, 
-        /// or null.</returns>
-        /// <remarks>This value is retrieved from the user's session. If not present in the session, such as when the user first arrives, it
-        /// is calculated by parsing the appropriate pieces from HttpContext.Current.Request.Url and the HTTP_HOST server variable. The path is 
-        /// calculated on a per-user basis because the URL may be different for different users (a local admin's URL may be 
-        /// http://localhost, someone on the intranet may get the server's name (http://Server1), and someone on the internet may get 
-        /// the full name (http://www.site.com).</remarks>
-        public static string GetHostUrl()
-        {
-            throw new NotImplementedException();
-            //if (HttpContext.Current == null)
-            //{
-            //    // This is not a fail-safe approach since it might return a server name  (e.g. http://Server1) and then be accessed by a user on 
-            //    // the internet, but what is a better option? At the time of this writing the only case where the HTTP context is null is when
-            //    // SignalR is trying to generate an URL to the media object for the media queue page, leaving the possibility multiple admins
-            //    // on different hosts may see a broken image link on that page.
-            //    return _lastKnownHostUrl;
-            //}
+        ///// <summary>
+        ///// Get the URI scheme, DNS host name or IP address, and port number for the current application. 
+        ///// Examples: http://www.site.com, http://localhost, http://127.0.0.1, http://godzilla
+        ///// Returns null if <see cref="HttpContext.Current" /> is null and no host URL has ever been calculated during this app's lifetime.
+        ///// </summary>
+        ///// <returns>Returns the URI scheme, DNS host name or IP address, and port number for the current application, 
+        ///// or null.</returns>
+        ///// <remarks>This value is retrieved from the user's session. If not present in the session, such as when the user first arrives, it
+        ///// is calculated by parsing the appropriate pieces from HttpContext.Current.Request.Url and the HTTP_HOST server variable. The path is 
+        ///// calculated on a per-user basis because the URL may be different for different users (a local admin's URL may be 
+        ///// http://localhost, someone on the intranet may get the server's name (http://Server1), and someone on the internet may get 
+        ///// the full name (http://www.site.com).</remarks>
+        //public static string GetHostUrl()
+        //{
+        //    if (HttpContext.Current == null)
+        //    {
+        //        // This is not a fail-safe approach since it might return a server name  (e.g. http://Server1) and then be accessed by a user on 
+        //        // the internet, but what is a better option? At the time of this writing the only case where the HTTP context is null is when
+        //        // SignalR is trying to generate an URL to the media object for the media queue page, leaving the possibility multiple admins
+        //        // on different hosts may see a broken image link on that page.
+        //        return _lastKnownHostUrl;
+        //    }
 
-            //string hostUrl = null;
+        //    string hostUrl = null;
 
-            //if (HttpContext.Current.Session != null)
-            //{
-            //    hostUrl = (String)HttpContext.Current.Session["HostUrl"];
-            //}
+        //    if (HttpContext.Current.Session != null)
+        //    {
+        //        hostUrl = (String)HttpContext.Current.Session["HostUrl"];
+        //    }
 
-            //if (String.IsNullOrEmpty(hostUrl))
-            //{
-            //    hostUrl = String.Concat(HttpContext.Current.Request.Url.Scheme, "://", GetHostNameAndPort());
+        //    if (String.IsNullOrEmpty(hostUrl))
+        //    {
+        //        hostUrl = String.Concat(HttpContext.Current.Request.Url.Scheme, "://", GetHostNameAndPort());
 
-            //    if (HttpContext.Current.Session != null)
-            //        HttpContext.Current.Session["HostUrl"] = hostUrl;
-            //}
+        //        if (HttpContext.Current.Session != null)
+        //            HttpContext.Current.Session["HostUrl"] = hostUrl;
+        //    }
 
-            //// Save to static variable. We'll use this later if we ever call this function and we don't have an HTTP context to use.
-            //_lastKnownHostUrl = hostUrl;
+        //    // Save to static variable. We'll use this later if we ever call this function and we don't have an HTTP context to use.
+        //    _lastKnownHostUrl = hostUrl;
 
-            //return hostUrl;
-        }
-
-        /// <summary>
-        /// Gets the URL to the current web application. Does not include the containing page or the trailing slash. 
-        /// Guaranteed to not return null. Example: If the gallery is installed in a virtual directory 'gallery'
-        /// on domain 'www.site.com', this returns 'http://www.site.com/gallery'.
-        /// </summary>
-        /// <returns>Returns the URL to the current web application.</returns>
-        public static string GetAppUrl()
-        {
-            return String.Concat(GetHostUrl(), AppRoot);
-        }
+        //    return hostUrl;
+        //}
 
         ///// <summary>
         ///// Gets the URL to the list of recently added media objects. Ex: http://site.com/gallery/default.aspx?latest=50
@@ -827,70 +687,69 @@ namespace GalleryServer.Web
         //        return null;
         //}
 
-        /// <summary>
-        /// Gets the full URL to the directory containing the gallery resources. Does not include the containing page or 
-        /// the trailing slash. Guaranteed to not return null. Example: If the gallery is installed in a virtual directory 'gallery'
-        /// on domain 'www.site.com' and the resources are in directory 'gs', this returns 'http://www.site.com/gallery/gs'.
-        /// </summary>
-        /// <returns>Returns the full URL to the directory containing the gallery resources.</returns>
-        public static string GetGalleryResourcesUrl()
-        {
-            return String.Concat(GetHostUrl(), GalleryRoot);
-        }
+        ///// <summary>
+        ///// Gets the full URL to the directory containing the gallery resources. Does not include the containing page or 
+        ///// the trailing slash. Guaranteed to not return null. Example: If the gallery is installed in a virtual directory 'gallery'
+        ///// on domain 'www.site.com' and the resources are in directory 'gs', this returns 'http://www.site.com/gallery/gs'.
+        ///// </summary>
+        ///// <returns>Returns the full URL to the directory containing the gallery resources.</returns>
+        //public static string GetGalleryResourcesUrl()
+        //{
+        //    return String.Concat(GetHostUrl(), GalleryRoot);
+        //}
 
-        /// <summary>
-        /// Gets the Domain Name System (DNS) host name or IP address and the port number for the current web application. Includes the
-        /// port number if it differs from the default port. The value is generated from the HTTP_HOST server variable if present; 
-        /// otherwise HttpContext.Current.Request.Url.Authority is used. Ex: "www.site.com", "www.site.com:8080", "192.168.0.50", "75.135.92.12:8080"
-        /// </summary>
-        /// <returns>A <see cref="String" /> containing the authority component of the URI for the current web application.</returns>
-        /// <remarks>This function correctly handles configurations where the web application is port forwarded through a router. For 
-        /// example, if the router is configured to map incoming requests at www.site.com:8080 to an internal IP 192.168.0.100:8056,
-        /// this function returns "www.site.com:8080". This is accomplished by using the HTTP_HOST server variable rather than 
-        /// HttpContext.Current.Request.Url.Authority (when HTTP_HOST is present).</remarks>
-        public static string GetHostNameAndPort()
-        {
-            throw new NotImplementedException();
-            //string httpHost = HttpContext.Current.Request.ServerVariables["HTTP_HOST"];
+        ///// <summary>
+        ///// Gets the Domain Name System (DNS) host name or IP address and the port number for the current web application. Includes the
+        ///// port number if it differs from the default port. The value is generated from the HTTP_HOST server variable if present; 
+        ///// otherwise HttpContext.Current.Request.Url.Authority is used. Ex: "www.site.com", "www.site.com:8080", "192.168.0.50", "75.135.92.12:8080"
+        ///// </summary>
+        ///// <returns>A <see cref="String" /> containing the authority component of the URI for the current web application.</returns>
+        ///// <remarks>This function correctly handles configurations where the web application is port forwarded through a router. For 
+        ///// example, if the router is configured to map incoming requests at www.site.com:8080 to an internal IP 192.168.0.100:8056,
+        ///// this function returns "www.site.com:8080". This is accomplished by using the HTTP_HOST server variable rather than 
+        ///// HttpContext.Current.Request.Url.Authority (when HTTP_HOST is present).</remarks>
+        //public static string GetHostNameAndPort()
+        //{
+        //    string httpHost = HttpContext.Current.Request.ServerVariables["HTTP_HOST"];
 
-            //return (!String.IsNullOrEmpty(httpHost) ? httpHost : HttpContext.Current.Request.Url.Authority);
-        }
+        //    return (!String.IsNullOrEmpty(httpHost) ? httpHost : HttpContext.Current.Request.Url.Authority);
+        //}
 
-        /// <summary>
-        /// Gets the host name for the current request. Does not include port number or scheme. The value is generated from the 
-        /// HTTP_HOST server variable if present; otherwise HttpContext.Current.Request.Url.Authority is used. 
-        /// Ex: "www.site.com", "75.135.92.12"
-        /// </summary>
-        /// <returns>Returns the host name for the current request.</returns>
-        public static string GetHostName()
-        {
-            string host = GetHostNameAndPort();
+        ///// <summary>
+        ///// Gets the host name for the current request. Does not include port number or scheme. The value is generated from the 
+        ///// HTTP_HOST server variable if present; otherwise HttpContext.Current.Request.Url.Authority is used. 
+        ///// Ex: "www.site.com", "75.135.92.12"
+        ///// </summary>
+        ///// <returns>Returns the host name for the current request.</returns>
+        //public static string GetHostName()
+        //{
+        //    string host = GetHostNameAndPort();
 
-            return (host.IndexOf(":", StringComparison.Ordinal) < 0 ? host : host.Substring(0, host.IndexOf(":", StringComparison.Ordinal)));
-        }
+        //    return (host.IndexOf(":", StringComparison.Ordinal) < 0 ? host : host.Substring(0, host.IndexOf(":", StringComparison.Ordinal)));
+        //}
 
-        /// <summary>
-        /// Gets the port for the current request if one is specified; otherwise returns null. The value is generated from the 
-        /// HTTP_HOST server variable if present; otherwise HttpContext.Current.Request.Url.Authority is used. 
-        /// </summary>
-        /// <returns>Returns the port for the current request if one is specified; otherwise returns null.</returns>
-        public static int? GetPort()
-        {
-            string host = GetHostNameAndPort();
+        ///// <summary>
+        ///// Gets the port for the current request if one is specified; otherwise returns null. The value is generated from the 
+        ///// HTTP_HOST server variable if present; otherwise HttpContext.Current.Request.Url.Authority is used. 
+        ///// </summary>
+        ///// <returns>Returns the port for the current request if one is specified; otherwise returns null.</returns>
+        //public static int? GetPort()
+        //{
+        //    string host = GetHostNameAndPort();
 
-            if (host.IndexOf(":", StringComparison.Ordinal) >= 0)
-            {
-                string portString = host.Substring(host.IndexOf(":", StringComparison.Ordinal) + 1);
+        //    if (host.IndexOf(":", StringComparison.Ordinal) >= 0)
+        //    {
+        //        string portString = host.Substring(host.IndexOf(":", StringComparison.Ordinal) + 1);
 
-                int port;
-                if (Int32.TryParse(portString, out port))
-                {
-                    return port;
-                }
-            }
+        //        int port;
+        //        if (Int32.TryParse(portString, out port))
+        //        {
+        //            return port;
+        //        }
+        //    }
 
-            return null;
-        }
+        //    return null;
+        //}
 
         ///// <overloads>Redirects the user to the specified <paramref name="page"/>.</overloads>
         ///// <summary>
@@ -969,27 +828,26 @@ namespace GalleryServer.Web
         //    HttpContext.Current.ApplicationInstance.CompleteRequest();
         //}
 
-        /// <summary>
-        /// Retrieves the specified query string parameter value from the query string. Returns int.MinValue if
-        /// the parameter is not found, it is not a valid integer, or it is &lt;= 0.
-        /// </summary>
-        /// <param name="parameterName">The name of the query string parameter for which to retrieve it's value.</param>
-        /// <returns>Returns the value of the specified query string parameter.</returns>
-        public static int GetQueryStringParameterInt32(string parameterName)
-        {
-            throw new NotImplementedException();
-            //string parm = HttpContext.Current.Request.QueryString[parameterName];
+        ///// <summary>
+        ///// Retrieves the specified query string parameter value from the query string. Returns int.MinValue if
+        ///// the parameter is not found, it is not a valid integer, or it is &lt;= 0.
+        ///// </summary>
+        ///// <param name="parameterName">The name of the query string parameter for which to retrieve it's value.</param>
+        ///// <returns>Returns the value of the specified query string parameter.</returns>
+        //public static int GetQueryStringParameterInt32(string parameterName)
+        //{
+        //    string parm = HttpContext.Current.Request.QueryString[parameterName];
 
-            //int qsValue;
-            //if (Int32.TryParse(parm, out qsValue) && (qsValue >= 0))
-            //{
-            //    return qsValue;
-            //}
-            //else
-            //{
-            //    return Int32.MinValue;
-            //}
-        }
+        //    int qsValue;
+        //    if (Int32.TryParse(parm, out qsValue) && (qsValue >= 0))
+        //    {
+        //        return qsValue;
+        //    }
+        //    else
+        //    {
+        //        return Int32.MinValue;
+        //    }
+        //}
 
         ///// <summary>
         ///// Retrieves the specified query string parameter value from the query string. If no URI is specified, the current 
@@ -1032,18 +890,17 @@ namespace GalleryServer.Web
         //    }
         //}
 
-        /// <summary>
-        /// Retrieves the specified query string parameter value from the query string. Returns string.Empty 
-        /// if the parameter is not found.
-        /// </summary>
-        /// <param name="parameterName">The name of the query string parameter for which to retrieve it's value.</param>
-        /// <returns>Returns the value of the specified query string parameter.</returns>
-        /// <remarks>Do not call UrlDecode on the string, as it appears that .NET already does this.</remarks>
-        public static string GetQueryStringParameterString(string parameterName)
-        {
-            throw new NotImplementedException();
-            //return HttpContext.Current.Request.QueryString[parameterName] ?? String.Empty;
-        }
+        ///// <summary>
+        ///// Retrieves the specified query string parameter value from the query string. Returns string.Empty 
+        ///// if the parameter is not found.
+        ///// </summary>
+        ///// <param name="parameterName">The name of the query string parameter for which to retrieve it's value.</param>
+        ///// <returns>Returns the value of the specified query string parameter.</returns>
+        ///// <remarks>Do not call UrlDecode on the string, as it appears that .NET already does this.</remarks>
+        //public static string GetQueryStringParameterString(string parameterName)
+        //{
+        //    return HttpContext.Current.Request.QueryString[parameterName] ?? String.Empty;
+        //}
 
         ///// <summary>
         ///// Retrieves the specified query string parameter values from the query string as an array. When the query
@@ -1460,110 +1317,94 @@ namespace GalleryServer.Web
             //return encryptionKey.Replace("&", "X");
         }
 
-        /// <summary>
-        /// HtmlEncodes a string using System.Web.HttpUtility.HtmlEncode().
-        /// </summary>
-        /// <param name="html">The text to HTML encode.</param>
-        /// <returns>Returns <paramref name="html"/> as an HTML-encoded string.</returns>
-        public static string HtmlEncode(string html)
-        {
-            return HttpUtility.HtmlEncode(html);
-        }
+        ///// <summary>
+        ///// HtmlEncodes a string using System.Web.HttpUtility.HtmlEncode().
+        ///// </summary>
+        ///// <param name="html">The text to HTML encode.</param>
+        ///// <returns>Returns <paramref name="html"/> as an HTML-encoded string.</returns>
+        //public static string HtmlEncode(string html)
+        //{
+        //    return HttpUtility.HtmlEncode(html);
+        //}
 
-        /// <summary>
-        /// HtmlDecodes a string using System.Web.HttpUtility.HtmlDecode().
-        /// </summary>
-        /// <param name="html">The text to HTML decode.</param>
-        /// <returns>Returns <paramref name="html"/> as an HTML-decoded string.</returns>
-        public static string HtmlDecode(string html)
-        {
-            return HttpUtility.HtmlDecode(html);
-        }
+        ///// <summary>
+        ///// HtmlDecodes a string using System.Web.HttpUtility.HtmlDecode().
+        ///// </summary>
+        ///// <param name="html">The text to HTML decode.</param>
+        ///// <returns>Returns <paramref name="html"/> as an HTML-decoded string.</returns>
+        //public static string HtmlDecode(string html)
+        //{
+        //    return HttpUtility.HtmlDecode(html);
+        //}
 
-        /// <overloads>UrlEncodes a string using System.Uri.EscapeDataString().</overloads>
-        /// <summary>
-        /// UrlEncodes a string using System.Uri.EscapeDataString().
-        /// </summary>
-        /// <param name="text">The text to URL encode.</param>
-        /// <returns>Returns <paramref name="text"/> as an URL-encoded string.</returns>
-        public static string UrlEncode(string text)
-        {
-            if (String.IsNullOrEmpty(text))
-            {
-                return text;
-            }
+        ///// <overloads>UrlEncodes a string using System.Uri.EscapeDataString().</overloads>
+        ///// <summary>
+        ///// UrlEncodes a string using System.Uri.EscapeDataString().
+        ///// </summary>
+        ///// <param name="text">The text to URL encode.</param>
+        ///// <returns>Returns <paramref name="text"/> as an URL-encoded string.</returns>
+        //public static string UrlEncode(string text)
+        //{
+        //    if (String.IsNullOrEmpty(text))
+        //    {
+        //        return text;
+        //    }
 
-            return Uri.EscapeDataString(text);
-        }
+        //    return Uri.EscapeDataString(text);
+        //}
 
-        /// <summary>
-        /// Encodes the <paramref name="text" /> so that it can be assigned to a javascript variable.
-        /// </summary>
-        /// <param name="text">The text to encode.</param>
-        /// <returns>Returns <paramref name="text" /> as an encoded string.</returns>
-        public static string JsEncode(this string text)
-        {
-            if (String.IsNullOrEmpty(text))
-            {
-                return text;
-            }
+        ///// <summary>
+        ///// UrlEncodes a string using System.Uri.EscapeDataString(), excluding the character specified in <paramref name="charNotToEncode"/>.
+        ///// This overload is useful for encoding URLs or file paths where the forward or backward slash is not to be encoded.
+        ///// </summary>
+        ///// <param name="text">The text to URL encode</param>
+        ///// <param name="charNotToEncode">The character that, if present in <paramref name="text"/>, is not encoded.</param>
+        ///// <returns>Returns <paramref name="text"/> as an URL-encoded string.</returns>
+        //public static string UrlEncode(string text, char charNotToEncode)
+        //{
+        //    if (String.IsNullOrEmpty(text))
+        //    {
+        //        return text;
+        //    }
 
-            return text.Replace("\r\n", @"<br>").Replace(@"\", @"\\").Replace("'", @"\'").Replace(@"""", @"\""").Replace(@"<script>", @"<\script>").Replace(@"</script>", @"<\/script>");
-        }
+        //    string[] tokens = text.Split(new char[] { charNotToEncode });
+        //    for (int i = 0; i < tokens.Length; i++)
+        //    {
+        //        tokens[i] = UrlEncode(tokens[i]);
+        //    }
 
-        /// <summary>
-        /// UrlEncodes a string using System.Uri.EscapeDataString(), excluding the character specified in <paramref name="charNotToEncode"/>.
-        /// This overload is useful for encoding URLs or file paths where the forward or backward slash is not to be encoded.
-        /// </summary>
-        /// <param name="text">The text to URL encode</param>
-        /// <param name="charNotToEncode">The character that, if present in <paramref name="text"/>, is not encoded.</param>
-        /// <returns>Returns <paramref name="text"/> as an URL-encoded string.</returns>
-        public static string UrlEncode(string text, char charNotToEncode)
-        {
-            if (String.IsNullOrEmpty(text))
-            {
-                return text;
-            }
+        //    return String.Join(charNotToEncode.ToString(), tokens);
+        //}
 
-            string[] tokens = text.Split(new char[] { charNotToEncode });
-            for (int i = 0; i < tokens.Length; i++)
-            {
-                tokens[i] = UrlEncode(tokens[i]);
-            }
+        ///// <summary>
+        ///// UrlDecodes a string using System.Uri.UnescapeDataString().
+        ///// </summary>
+        ///// <param name="text">The text to URL decode.</param>
+        ///// <returns>Returns text as an URL-decoded string.</returns>
+        //public static string UrlDecode(string text)
+        //{
+        //    if (String.IsNullOrEmpty(text))
+        //        return text;
 
-            return String.Join(charNotToEncode.ToString(), tokens);
-        }
+        //    // Pre-process for + sign space formatting since System.Uri doesn't handle it
+        //    // plus literals are encoded as %2b normally so this should be safe.
+        //    text = text.Replace("+", " ");
+        //    return Uri.UnescapeDataString(text);
+        //}
 
-        /// <summary>
-        /// UrlDecodes a string using System.Uri.UnescapeDataString().
-        /// </summary>
-        /// <param name="text">The text to URL decode.</param>
-        /// <returns>Returns text as an URL-decoded string.</returns>
-        public static string UrlDecode(string text)
-        {
-            if (String.IsNullOrEmpty(text))
-                return text;
-
-            // Pre-process for + sign space formatting since System.Uri doesn't handle it
-            // plus literals are encoded as %2b normally so this should be safe.
-            text = text.Replace("+", " ");
-            return Uri.UnescapeDataString(text);
-        }
-
-        /// <summary>
-        /// Force the current application to recycle by updating the last modified timestamp on web.config.
-        /// </summary>
-        /// <exception cref="FileNotFoundException">Thrown when the application incorrectly calculates the current application's
-        /// web.config file location.</exception>
-        /// <exception cref="UnauthorizedAccessException">Thrown when the application does not have write permission to the
-        /// current application's web.config file.</exception>
-        /// <exception cref="NotSupportedException">Thrown when the path to the web.config file as calculated by the application is
-        /// in an invalid format.</exception>
-        public static void ForceAppRecycle()
-        {
-            throw new NotImplementedException();
-            //File.SetLastWriteTime(WebConfigFilePath, DateTime.Now);
-        }
+        ///// <summary>
+        ///// Force the current application to recycle by updating the last modified timestamp on web.config.
+        ///// </summary>
+        ///// <exception cref="FileNotFoundException">Thrown when the application incorrectly calculates the current application's
+        ///// web.config file location.</exception>
+        ///// <exception cref="UnauthorizedAccessException">Thrown when the application does not have write permission to the
+        ///// current application's web.config file.</exception>
+        ///// <exception cref="NotSupportedException">Thrown when the path to the web.config file as calculated by the application is
+        ///// in an invalid format.</exception>
+        //public static void ForceAppRecycle()
+        //{
+        //    File.SetLastWriteTime(WebConfigFilePath, DateTime.Now);
+        //}
 
         ///// <summary>
         ///// Excecute a maintenance routine to help ensure data integrity and eliminate unused data. The task is run on a background
@@ -1582,32 +1423,31 @@ namespace GalleryServer.Web
         //        Task.Factory.StartNew(PerformMaintenanceInternal);
         //}
 
-        /// <summary>
-        /// Nulls out the cached value of <see cref="Utils.SkinPath" /> so that it is recalculated the next time the property is accessed.
-        /// </summary>
-        public static void RecalculateSkinPath()
-        {
-            _skinPath = null;
-        }
+        ///// <summary>
+        ///// Nulls out the cached value of <see cref="Utils.SkinPath" /> so that it is recalculated the next time the property is accessed.
+        ///// </summary>
+        //public static void RecalculateSkinPath()
+        //{
+        //    _skinPath = null;
+        //}
 
-        /// <summary>
-        /// Gets the browser IDs for current request. In many cases this will be equal to HttpContext.Current.Request.Browser.Browsers.
-        /// However, Internet Explorer versions 1 through 8 include the ID "ie1to8", which is added by Gallery Server. This allows
-        /// the application to treat those versions differently than later versions. When HttpContext.Current is null, this function
-        /// returns a one-item array containing "default".
-        /// </summary>
-        /// <returns>Returns the browser IDs for current request.</returns>
-        public static Array GetBrowserIdsForCurrentRequest()
-        {
-            return new string[] {"default"};
-            //ArrayList browserIds = HttpContext.Current?.Request.Browser.Browsers ?? new ArrayList(new string[] { "default" });
+        ///// <summary>
+        ///// Gets the browser IDs for current request. In many cases this will be equal to HttpContext.Current.Request.Browser.Browsers.
+        ///// However, Internet Explorer versions 1 through 8 include the ID "ie1to8", which is added by Gallery Server. This allows
+        ///// the application to treat those versions differently than later versions. When HttpContext.Current is null, this function
+        ///// returns a one-item array containing "default".
+        ///// </summary>
+        ///// <returns>Returns the browser IDs for current request.</returns>
+        //public static Array GetBrowserIdsForCurrentRequest()
+        //{
+        //    ArrayList browserIds = HttpContext.Current?.Request.Browser.Browsers ?? new ArrayList(new string[] { "default" });
 
-            //AddBrowserIdForInternetExplorer(browserIds);
+        //    AddBrowserIdForInternetExplorer(browserIds);
 
-            //AddBrowserIdForChromeAndroid(browserIds);
+        //    AddBrowserIdForChromeAndroid(browserIds);
 
-            //return browserIds.ToArray();
-        }
+        //    return browserIds.ToArray();
+        //}
 
         /// <summary>
         /// Determines whether the <paramref name="url" /> is an absolute URL rather than a relative one. An URL is considered absolute if
@@ -1656,95 +1496,53 @@ namespace GalleryServer.Web
             //    return null;
         }
 
-        /// <summary>
-        /// Serializes the <paramref name="item" /> as JSON.
-        /// </summary>
-        /// <param name="item">The object to serialize.</param>
-        /// <returns>Returns a string that is a JSON-encoded representation of <paramref name="item" />.</returns>
-        /// <remarks>If the results of this function are to be sent to the browser in javascript, the slash (\)
-        /// and apostrophe (') characters should be escaped. Do this by adding the following code the return
-        /// value: <code>.Replace(@"\", @"\\").Replace("'", @"\'")</code>.</remarks>
-        public static string ToJson(this object item)
-        {
-            return Newtonsoft.Json.JsonConvert.SerializeObject(item);
+        ///// <summary>
+        ///// Adds the <paramref name="results" /> to the current user's session. If an object already exists,
+        ///// the results are added to the existing collection. No action is taken if the session is unavailable. 
+        ///// The session object is given the name stored in <see cref="GlobalConstants.SkippedFilesDuringUploadSessionKey" />.
+        ///// </summary>
+        ///// <param name="results">The results to store in the user's session.</param>
+        //public static void AddResultToSession(IEnumerable<ActionResult> results)
+        //{
+        //    if (DiHelper.HttpContext == null || DiHelper.HttpContext.Session == null)
+        //        return;
 
-            // Old way:
-            //DataContractJsonSerializer ser = new DataContractJsonSerializer(item.GetType());
-            //MemoryStream ms = new MemoryStream();
+        //    var objResults = DiHelper.HttpContext.Session.GetString(GlobalConstants.SkippedFilesDuringUploadSessionKey);
 
-            //ser.WriteObject(ms, item);
-            //return Encoding.UTF8.GetString(ms.ToArray());
-        }
+        //    var uploadResults = (objResults == null ? new List<ActionResult>() : Newtonsoft.Json.JsonConvert.DeserializeObject<List<ActionResult>>(objResults));
 
-        /// <summary>
-        /// Converts the specified <paramref name="json">JSON string</paramref> to the requested object.
-        /// </summary>
-        /// <typeparam name="T">The type of object to convert the JSON to.</typeparam>
-        /// <param name="json">The JSON string to convert.</param>
-        /// <returns>An instance of T.</returns>
-        /// <exception cref="InvalidCastException">Thrown when the JSON string cannot be cast to the 
-        /// requested type.</exception>
-        /// <exception cref="ArgumentException">Thrown when the string is not valid JSON.</exception>
-        public static T FromJson<T>(this string json)
-        {
-            return Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json);
+        //    lock (uploadResults)
+        //    {
+        //        uploadResults.AddRange(results);
+        //        DiHelper.HttpContext.Session.SetString(GlobalConstants.SkippedFilesDuringUploadSessionKey, Newtonsoft.Json.JsonConvert.SerializeObject(uploadResults));
+        //    }
+        //}
 
-            // Old way:
-            //using (MemoryStream ms = new MemoryStream(Encoding.Unicode.GetBytes(json)))
-            //{
-            //	DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(T));
-            //	return (T)ser.ReadObject(ms);
-            //}
-        }
+        ///// <summary>
+        ///// Generates a list of key/value pairs for the specified <paramref name="enumeration" /> where the key  is the
+        ///// enumeration value and the value is a friendly, human readable description. The value is assigned from a language resource
+        ///// value if it exists; otherwise, the string representation of the value is returned. The language resource key must
+        ///// be in this format: "Enum_{EnumTypeName}_{EnumValue}". For example, the expected resource key for the enum value
+        ///// JQueryTemplateType.Album is "Enum_JQueryTemplateType_Album".
+        ///// </summary>
+        ///// <param name="enumeration">An enumeration from which to generate a collection of key/value pairs.</param>
+        ///// <returns>Returns an enumerable list of key/value pairs.</returns>
+        //public static IEnumerable<KeyValuePair<string, string>> GetEnumList(Type enumeration)
+        //{
+        //    Array enumNames = Enum.GetNames(enumeration);
+        //    List<KeyValuePair<string, string>> items = new List<KeyValuePair<string, string>>(enumNames.Length);
 
-        /// <summary>
-        /// Adds the <paramref name="results" /> to the current user's session. If an object already exists,
-        /// the results are added to the existing collection. No action is taken if the session is unavailable. 
-        /// The session object is given the name stored in <see cref="GlobalConstants.SkippedFilesDuringUploadSessionKey" />.
-        /// </summary>
-        /// <param name="results">The results to store in the user's session.</param>
-        public static void AddResultToSession(IEnumerable<ActionResult> results)
-        {
-            if (DiHelper.HttpContext == null || DiHelper.HttpContext.Session == null)
-                return;
+        //    foreach (string enumName in enumNames)
+        //    {
+        //        string resourceKey = String.Concat("Enum_", enumeration.Name, "_", enumName);
 
-            var objResults = DiHelper.HttpContext.Session.GetString(GlobalConstants.SkippedFilesDuringUploadSessionKey);
+        //        string resDesc = Resources.GalleryServer.ResourceManager.GetString(resourceKey, CultureInfo.CurrentCulture);
 
-            var uploadResults = (objResults == null ? new List<ActionResult>() : Newtonsoft.Json.JsonConvert.DeserializeObject<List<ActionResult>>(objResults));
+        //        items.Add(new KeyValuePair<string, string>(enumName, resDesc ?? enumName));
+        //    }
 
-            lock (uploadResults)
-            {
-                uploadResults.AddRange(results);
-                DiHelper.HttpContext.Session.SetString(GlobalConstants.SkippedFilesDuringUploadSessionKey, Newtonsoft.Json.JsonConvert.SerializeObject(uploadResults));
-            }
-        }
-
-        /// <summary>
-        /// Generates a list of key/value pairs for the specified <paramref name="enumeration" /> where the key  is the
-        /// enumeration value and the value is a friendly, human readable description. The value is assigned from a language resource
-        /// value if it exists; otherwise, the string representation of the value is returned. The language resource key must
-        /// be in this format: "Enum_{EnumTypeName}_{EnumValue}". For example, the expected resource key for the enum value
-        /// JQueryTemplateType.Album is "Enum_JQueryTemplateType_Album".
-        /// </summary>
-        /// <param name="enumeration">An enumeration from which to generate a collection of key/value pairs.</param>
-        /// <returns>Returns an enumerable list of key/value pairs.</returns>
-        public static IEnumerable<KeyValuePair<string, string>> GetEnumList(Type enumeration)
-        {
-            throw new NotImplementedException();
-            //Array enumNames = Enum.GetNames(enumeration);
-            //List<KeyValuePair<string, string>> items = new List<KeyValuePair<string, string>>(enumNames.Length);
-
-            //foreach (string enumName in enumNames)
-            //{
-            //    string resourceKey = String.Concat("Enum_", enumeration.Name, "_", enumName);
-
-            //    string resDesc = Resources.GalleryServer.ResourceManager.GetString(resourceKey, CultureInfo.CurrentCulture);
-
-            //    items.Add(new KeyValuePair<string, string>(enumName, resDesc ?? enumName));
-            //}
-
-            //return items;
-        }
+        //    return items;
+        //}
 
         ///// <summary>
         ///// Gets a friendly, human readable description of the enumeration <paramref name="value" />. If a language resource
@@ -1761,64 +1559,41 @@ namespace GalleryServer.Web
         //	return Resources.GalleryServer.ResourceManager.GetString(resourceKey, CultureInfo.CurrentCulture) ?? value.ToString();
         //}
 
-        /// <summary>
-        /// Gets a <see cref="StringContent" /> instance with details about the specified <paramref name="ex" />. Returns a generic 
-        /// message when the hosting environment is anything other than "development"; otherwise returns the exception message.
-        /// </summary>
-        /// <param name="ex">The exception.</param>
-        /// <returns>An instance of <see cref="StringContent" />.</returns>
-        public static StringContent GetExStringContent(Exception ex)
-        {
-            var msg = "An error occurred on the server. Check the gallery's event log for details. ";
+        ///// <summary>
+        ///// Gets a <see cref="StringContent" /> instance with details about the specified <paramref name="ex" />. Returns a generic 
+        ///// message when the hosting environment is anything other than "development"; otherwise returns the exception message.
+        ///// </summary>
+        ///// <param name="ex">The exception.</param>
+        ///// <returns>An instance of <see cref="StringContent" />.</returns>
+        //public static StringContent GetExStringContent(Exception ex)
+        //{
+        //    var msg = "An error occurred on the server. Check the gallery's event log for details. ";
 
-            if (IsDebugEnabled())
-            {
-                msg += string.Concat(ex.GetType(), ": ", ex.Message);
-            }
+        //    if (IsDebugEnabled())
+        //    {
+        //        msg += string.Concat(ex.GetType(), ": ", ex.Message);
+        //    }
 
-            return new StringContent(msg);
-        }
+        //    return new StringContent(msg);
+        //}
 
-        /// <summary>
-        /// Gets a string with details about the specified <paramref name="ex" />. Returns a generic message when the hosting 
-        /// environment is anything other than "development"; otherwise returns the exception message.
-        /// </summary>
-        /// <param name="ex">The exception.</param>
-        /// <returns>An instance of <see cref="string" />.</returns>
-        public static string GetExString(Exception ex)
-        {
-            var msg = "An error occurred on the server. Check the gallery's event log for details. ";
+        ///// <summary>
+        ///// Gets a string with details about the specified <paramref name="ex" />. Returns a generic message when the hosting 
+        ///// environment is anything other than "development"; otherwise returns the exception message.
+        ///// </summary>
+        ///// <param name="ex">The exception.</param>
+        ///// <returns>An instance of <see cref="string" />.</returns>
+        //public static string GetExString(Exception ex)
+        //{
+        //    var msg = "An error occurred on the server. Check the gallery's event log for details. ";
 
-            if (IsDebugEnabled())
-            {
-                msg += string.Concat(ex.GetType(), ": ", ex.Message);
-            }
+        //    if (IsDebugEnabled())
+        //    {
+        //        msg += string.Concat(ex.GetType(), ": ", ex.Message);
+        //    }
 
-            return msg;
-        }
-
-        /// <summary>
-        /// Returns the username from the parameter, leaving out the domain or computer name if present.
-        /// For example, if <paramref name="userName" />="mydomain\Vitali", this function returns "Vitali". If the parameter
-        /// does not contain a backward slash ("\"), then <paramref name="userName" /> is returned unmodified. If web.config contains
-        /// an application setting SuppressUserNameParsingFromHttpContextIdentity and it is <c>true</c>, then return the parameter
-        /// unmodified (thus giving same behavior as 3.2.1 and earlier versions). This setting will be necessary in cases where an
-        /// admin has user names containing a backward slash.
-        /// 
-        /// </summary>
-        /// <param name="userName">Name of the user. Examples: "Vitali", "mydomain\Vitali", "pcname\Vitali"</param>
-        /// <returns>System.String.</returns>
-        public static string ParseUserName(string userName)
-        {
-            //bool dontParse;
-            //if (Boolean.TryParse(System.Web.Configuration.WebConfigurationManager.AppSettings["SuppressUserNameParsingFromHttpContextIdentity"], out dontParse) && dontParse)
-            //{
-            //    return userName;
-            //}
-
-            var idx = userName.IndexOf("\\", StringComparison.Ordinal);
-            return (idx >= 0 ? userName.Substring(idx + 1) : userName);
-        }
+        //    return msg;
+        //}
 
         /// <summary>
         /// Calculates the width and height based on a <paramref name="ratio" /> and the <paramref name="maxLength" /> of one of the sides.
@@ -1840,45 +1615,100 @@ namespace GalleryServer.Web
             }
         }
 
+        /// <summary>
+        /// Encodes the <paramref name="text" /> so that it can be assigned to a javascript variable.
+        /// </summary>
+        /// <param name="text">The text to encode.</param>
+        /// <returns>Returns <paramref name="text" /> as an encoded string.</returns>
+        public static string JsEncode(this string text)
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                return text;
+            }
+
+            return text.Replace("\r\n", @"<br>").Replace(@"\", @"\\").Replace("'", @"\'").Replace(@"""", @"\""").Replace(@"<script>", @"<\script>").Replace(@"</script>", @"<\/script>");
+        }
+
+        /// <summary>
+        /// Serializes the <paramref name="item" /> as JSON.
+        /// </summary>
+        /// <param name="item">The object to serialize.</param>
+        /// <returns>Returns a string that is a JSON-encoded representation of <paramref name="item" />.</returns>
+        /// <remarks>If the results of this function are to be sent to the browser in javascript, the slash (\)
+        /// and apostrophe (') characters should be escaped. Do this by adding the following code the return
+        /// value: <code>.Replace(@"\", @"\\").Replace("'", @"\'")</code>.</remarks>
+        public static string ToJson(this object item)
+        {
+            return JsonConvert.SerializeObject(item);
+
+            // Old way:
+            //DataContractJsonSerializer ser = new DataContractJsonSerializer(item.GetType());
+            //MemoryStream ms = new MemoryStream();
+
+            //ser.WriteObject(ms, item);
+            //return Encoding.UTF8.GetString(ms.ToArray());
+        }
+
+        /// <summary>
+        /// Converts the specified <paramref name="json">JSON string</paramref> to the requested object.
+        /// </summary>
+        /// <typeparam name="T">The type of object to convert the JSON to.</typeparam>
+        /// <param name="json">The JSON string to convert.</param>
+        /// <returns>An instance of T.</returns>
+        /// <exception cref="InvalidCastException">Thrown when the JSON string cannot be cast to the 
+        /// requested type.</exception>
+        /// <exception cref="ArgumentException">Thrown when the string is not valid JSON.</exception>
+        public static T FromJson<T>(this string json)
+        {
+            return JsonConvert.DeserializeObject<T>(json);
+
+            // Old way:
+            //using (MemoryStream ms = new MemoryStream(Encoding.Unicode.GetBytes(json)))
+            //{
+            //	DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(T));
+            //	return (T)ser.ReadObject(ms);
+            //}
+        }
+
         #endregion
 
         #region Private Static Methods
 
-        /// <summary>
-        /// Calculates the path, relative to the web site root, to the directory containing the Gallery Server user 
-        /// controls and other resources. Does not include the default page or the trailing slash. Ex: /dev/gsweb/gsp
-        /// </summary>
-        /// <returns>Returns the path to the directory containing the Gallery Server user controls and other resources.</returns>
-        private static string CalculateGalleryRoot()
-        {
-            string appPath = AppRoot;
-            string galleryPath = GetGalleryResourcesPath().TrimEnd(new char[] { Path.DirectorySeparatorChar, '/' });
+        ///// <summary>
+        ///// Calculates the path, relative to the web site root, to the directory containing the Gallery Server user 
+        ///// controls and other resources. Does not include the default page or the trailing slash. Ex: /dev/gsweb/gsp
+        ///// </summary>
+        ///// <returns>Returns the path to the directory containing the Gallery Server user controls and other resources.</returns>
+        //private static string CalculateGalleryRoot()
+        //{
+        //    string appPath = AppRoot;
+        //    string galleryPath = GetGalleryResourcesPath().TrimEnd(new char[] { Path.DirectorySeparatorChar, '/' });
 
-            if (!String.IsNullOrEmpty(galleryPath))
-            {
-                galleryPath = galleryPath.Replace("\\", "/");
+        //    if (!String.IsNullOrEmpty(galleryPath))
+        //    {
+        //        galleryPath = galleryPath.Replace("\\", "/");
 
-                if (!galleryPath.StartsWith("/", StringComparison.Ordinal))
-                    galleryPath = String.Concat("/", galleryPath); // Make sure it starts with a '/'
+        //        if (!galleryPath.StartsWith("/", StringComparison.Ordinal))
+        //            galleryPath = String.Concat("/", galleryPath); // Make sure it starts with a '/'
 
-                appPath = String.Concat(appPath, galleryPath.TrimEnd('/'));
-            }
+        //        appPath = String.Concat(appPath, galleryPath.TrimEnd('/'));
+        //    }
 
-            return appPath;
-        }
+        //    return appPath;
+        //}
 
-        /// <summary>
-        /// Gets the path, relative to the current application, to the directory containing the Gallery Server
-        /// resources such as images, user controls, scripts, etc. This value is pulled from the AppSettings value "GalleryResourcesPath"
-        /// if present; otherwise it defaults to "gs". Examples: "gs", "GalleryServer\resources"
-        /// </summary>
-        /// <returns>Returns the path, relative to the current application, to the directory containing the Gallery Server
-        /// resources such as images, user controls, scripts, etc.</returns>
-        private static String GetGalleryResourcesPath()
-        {
-            return "gs";
-            //return ConfigurationManager<>.AppSettings["GalleryResourcesPath"] ?? "gs";
-        }
+        ///// <summary>
+        ///// Gets the path, relative to the current application, to the directory containing the Gallery Server
+        ///// resources such as images, user controls, scripts, etc. This value is pulled from the AppSettings value "GalleryResourcesPath"
+        ///// if present; otherwise it defaults to "gs". Examples: "gs", "GalleryServer\resources"
+        ///// </summary>
+        ///// <returns>Returns the path, relative to the current application, to the directory containing the Gallery Server
+        ///// resources such as images, user controls, scripts, etc.</returns>
+        //private static String GetGalleryResourcesPath()
+        //{
+        //    return ConfigurationManager<>.AppSettings["GalleryResourcesPath"] ?? "gs";
+        //}
 
         ///// <summary>
         ///// When the current browser is Internet Explorer 1 to 8, add a "ie1to8" element to <paramref name="browserIds" />.
@@ -1925,52 +1755,52 @@ namespace GalleryServer.Web
         //    }
         //}
 
-        private static void PerformMaintenanceInternal()
-        {
-            bool mustRunMaintenance = false;
+        //private static void PerformMaintenanceInternal()
+        //{
+        //    bool mustRunMaintenance = false;
 
-            lock (_sharedLock)
-            {
-                if (AppSetting.Instance.MaintenanceStatus == MaintenanceStatus.NotStarted)
-                {
-                    mustRunMaintenance = true;
-                    AppSetting.Instance.MaintenanceStatus = MaintenanceStatus.InProgress;
-                }
-            }
+        //    lock (_sharedLock)
+        //    {
+        //        if (AppSetting.Instance.MaintenanceStatus == MaintenanceStatus.NotStarted)
+        //        {
+        //            mustRunMaintenance = true;
+        //            AppSetting.Instance.MaintenanceStatus = MaintenanceStatus.InProgress;
+        //        }
+        //    }
 
-            if (mustRunMaintenance)
-            {
-                try
-                {
-                    AppEventController.LogEvent("Maintenance routine has started on a background thread.");
+        //    if (mustRunMaintenance)
+        //    {
+        //        try
+        //        {
+        //            AppEventController.LogEvent("Maintenance routine has started on a background thread.");
 
-                    HelperFunctions.BeginTransaction();
+        //            HelperFunctions.BeginTransaction();
 
-                    // Make sure the list of ASP.NET roles is synchronized with the Gallery Server roles.
-                    RoleController.ValidateRoles();
+        //            // Make sure the list of ASP.NET roles is synchronized with the Gallery Server roles.
+        //            RoleController.ValidateRoles();
 
-                    RoleController.RemoveMissingRolesFromDefaultRolesForUsersSettings();
+        //            RoleController.RemoveMissingRolesFromDefaultRolesForUsersSettings();
 
-                    RoleController.ValidateUsersAreInDefaultRolesForUsers();
+        //            RoleController.ValidateUsersAreInDefaultRolesForUsers();
 
-                    MediaConversionQueue.Instance.DeleteOldQueueItems();
+        //            MediaConversionQueue.Instance.DeleteOldQueueItems();
 
-                    DeleteSampleSourceFiles();
+        //            DeleteSampleSourceFiles();
 
-                    HelperFunctions.CommitTransaction();
+        //            HelperFunctions.CommitTransaction();
 
-                    AppSetting.Instance.MaintenanceStatus = MaintenanceStatus.Complete;
+        //            AppSetting.Instance.MaintenanceStatus = MaintenanceStatus.Complete;
 
-                    AppEventController.LogEvent("Maintenance routine complete.");
-                }
-                catch (Exception ex)
-                {
-                    HelperFunctions.RollbackTransaction();
-                    AppEventController.LogError(ex);
-                    throw;
-                }
-            }
-        }
+        //            AppEventController.LogEvent("Maintenance routine complete.");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            HelperFunctions.RollbackTransaction();
+        //            AppEventController.LogError(ex);
+        //            throw;
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Delete the sample media asset files in the App_Data directory. These should have been removed when the gallery was first installed, but we check

@@ -2,17 +2,11 @@
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Events.CustomExceptions;
 using GalleryServer.Web.Controller;
-using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
-using GalleryServer.Data;
-using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Threading.Tasks;
 
 namespace GalleryServer.Web.Api
 {
@@ -21,14 +15,15 @@ namespace GalleryServer.Web.Api
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] // (AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)
     public class AlbumsController : Microsoft.AspNetCore.Mvc.Controller
     {
-        private readonly SignInManager<GalleryUser> _signInMgr;
-        private readonly GalleryRoleManager _roleManager;
+        private readonly AlbumController _albumController;
+        private readonly UserController _userController;
+        private readonly ExceptionController _exController;
 
-        public AlbumsController(SignInManager<GalleryUser> signInManager, GalleryRoleManager roleManager)
+        public AlbumsController(AlbumController albumController, UserController userController, ExceptionController exController)
         {
-            //_cache = memoryCache;
-            _signInMgr = signInManager;
-            _roleManager = roleManager;
+            _albumController = albumController;
+            _userController = userController;
+            _exController = exController;
         }
 
         /// <summary>
@@ -46,15 +41,15 @@ namespace GalleryServer.Web.Api
             IAlbum album = null;
             try
             {
-                album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(id) { InflateChildObjects = true });
+                album = _albumController.LoadAlbumInstance(new AlbumLoadOptions(id) { InflateChildObjects = true });
 
                 // Must authorize authenticated users here. Can't do it as an attribute because we can't allow anonymous and execute the 
                 // ViewAlbumOrAssetHandler for authenticated users. Maybe possible if we write our own attribute?
                 //var userName = HttpContext.User.Claims.SingleOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
-                var permissionsEntity = await AlbumController.GetPermissionsEntity(album);
+                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await _userController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, _userController.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+                var permissionsEntity = await _albumController.GetPermissionsEntity(album);
 
-                return new JsonResult(await AlbumController.ToAlbumEntity(album, permissionsEntity, new Entity.GalleryDataLoadOptions()));
+                return new JsonResult(_albumController.ToAlbumEntity(album, permissionsEntity, new Entity.GalleryDataLoadOptions()));
             }
             catch (InvalidAlbumException)
             {
@@ -76,7 +71,7 @@ namespace GalleryServer.Web.Api
             {
                 AppEventController.LogError(ex, album?.GalleryId);
 
-                return StatusCode(500, Utils.GetExString(ex));
+                return StatusCode(500, _exController.GetExString(ex));
 
                 //throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 //{

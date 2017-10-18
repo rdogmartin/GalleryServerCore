@@ -13,19 +13,17 @@ namespace GalleryServer.Web.Api
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] // (AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)
     public class EventsController : Microsoft.AspNetCore.Mvc.Controller
     {
+        private readonly ExceptionController _exController;
         //private SignInManager<GalleryUser> _signInMgr;
         //private GalleryRoleManager _roleManager;
 
         //private readonly GalleryDb _ctx;
         //private IMemoryCache _cache;
 
-        //public EventsController(GalleryDb ctx, IMemoryCache memoryCache, SignInManager<GalleryUser> signInManager, GalleryRoleManager roleManager)
-        //{
-        //    //_ctx = ctx;
-        //    //_cache = memoryCache;
-        //    _signInMgr = signInManager;
-        //    _roleManager = roleManager;
-        //}
+        public EventsController(ExceptionController exController)
+        {
+            _exController = exController;
+        }
 
         //[HttpGet("{id:int}")]
         //public async Task<EventDto> Get(int id)
@@ -76,7 +74,7 @@ namespace GalleryServer.Web.Api
                 else
                     AppEventController.LogError(ex);
 
-                return StatusCode(500, Utils.GetExString(ex));
+                return StatusCode(500, _exController.GetExString(ex));
                 //return StatusCode(500, ex.Message);
                 //throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 //{
@@ -141,7 +139,7 @@ namespace GalleryServer.Web.Api
                 else
                     AppEventController.LogError(ex);
 
-                return StatusCode(500, Utils.GetExString(ex));
+                return StatusCode(500, _exController.GetExString(ex));
                 //throw new HttpResponseException(new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 //{
                 //    Content = Utils.GetExStringContent(ex),

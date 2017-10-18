@@ -2,162 +2,81 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Mail;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
-//using System.Web.Security;
 using GalleryServer.Business;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Data;
 using GalleryServer.Events.CustomExceptions;
 using GalleryServer.Web.Entity;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 
 namespace GalleryServer.Web.Controller
 {
-    /// <summary>
-    /// Contains functionality related to user management.
-    /// </summary>
     public class UserController
     {
         #region Private Fields
 
-        private static MembershipProvider _membershipProvider;
-        private static GalleryRoleManager _roleManager;
-        private static UserManager<GalleryUser> _userManager;
+        private readonly UserManager<GalleryUser> _userManager;
+        private readonly RoleController _roleController;
+        //private readonly GalleryRoleManager _roleManager;
+        private readonly EmailController _emailController;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
+        #endregion
+
+        #region Constructor
+
+        public UserController(UserManager<GalleryUser> userManager, RoleController roleController, EmailController emailController, IHttpContextAccessor httpContextAccessor)
+        {
+            _userManager = userManager;
+            _roleController = roleController;
+            _emailController = emailController;
+            _httpContextAccessor = httpContextAccessor;
+
+            _roleController.SetUserController(this);
+        }
 
         #endregion
 
         #region Properties
 
         /// <summary>
-        /// Gets the role provider used by Gallery Server.
+        /// Gets the name of the current user. Returns an empty string for anonymous users.
         /// </summary>
-        /// <value>The role provider used by Gallery Server.</value>
-        internal static GalleryRoleManager RoleManager
+        /// <value>The name of the current user.</value>
+        public string UserName
         {
             get
             {
-                if (_roleManager == null)
-                {
-                    _roleManager = DiHelper.GetRoleManager();
-                }
-
-                return _roleManager;
-            }
-        }
-
-        public static UserManager<GalleryUser> UserManager
-        {
-            get
-            {
-                if (_userManager == null)
-                {
-                    _userManager = DiHelper.GetUserManager();
-                }
-
-                return _userManager;
+                return Utils.ParseUserName(_httpContextAccessor.HttpContext.User.Claims.SingleOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
             }
         }
 
         /// <summary>
-        /// Gets the Membership provider used by Gallery Server.
+        /// Gets a value indicating whether the current user is authenticated.
         /// </summary>
-        /// <value>The Membership provider used by Gallery Server.</value>
-        internal static MembershipProvider MembershipGsp
-        {
-            get
-            {
-                if (_membershipProvider == null)
-                {
-                    _membershipProvider = GetMembershipProvider();
-                }
-
-                return _membershipProvider;
-            }
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether the membership provider is configured to require the user to answer a password 
-        /// question for password reset and retrieval. 
-        /// </summary>
-        /// <value>
-        /// 	<c>true</c> if a password answer is required for password reset and retrieval; otherwise, <c>false</c>. The default is true.
-        /// </value>
-        public static bool RequiresQuestionAndAnswer
-        {
-            get
-            {
-                return MembershipGsp.RequiresQuestionAndAnswer;
-            }
-        }
-
-        /// <summary>
-        /// Indicates whether the membership provider is configured to allow users to reset their passwords. 
-        /// </summary>
-        /// <value><c>true</c> if the membership provider supports password reset; otherwise, <c>false</c>. The default is true.</value>
-        public static bool EnablePasswordReset
-        {
-            get
-            {
-                return MembershipGsp.EnablePasswordReset;
-            }
-        }
-
-        /// <summary>
-        /// Indicates whether the membership provider is configured to allow users to retrieve their passwords. 
-        /// </summary>
-        /// <value>
-        /// 	<c>true</c> if the membership provider is configured to support password retrieval; otherwise, <c>false</c>. The default is false.
-        /// </value>
-        public static bool EnablePasswordRetrieval
-        {
-            get
-            {
-                return MembershipGsp.EnablePasswordRetrieval;
-            }
-        }
-
-        /// <summary>
-        /// Gets the minimum length required for a password. 
-        /// </summary>
-        /// <value>The minimum length required for a password. </value>
-        public static int MinRequiredPasswordLength
-        {
-            get
-            {
-                return MembershipGsp.MinRequiredPasswordLength;
-            }
-        }
-
-        /// <summary>
-        /// Gets the minimum number of non alphanumeric characters that must be present in a password. 
-        /// </summary>
-        /// <value>The minimum number of non alphanumeric characters that must be present in a password.</value>
-        public static int MinRequiredNonAlphanumericCharacters
-        {
-            get
-            {
-                return MembershipGsp.MinRequiredNonAlphanumericCharacters;
-            }
-        }
+        public bool IsAuthenticated => _httpContextAccessor.HttpContext.User.Identity.IsAuthenticated;
 
         #endregion
 
-        #region Public Static Methods
+        #region Public Methods
 
-        public static IQueryable<GalleryUser> GetGalleryUsers()
+        public IQueryable<GalleryUser> GetGalleryUsers()
         {
-            return UserManager.Users;
+            return _userManager.Users;
         }
 
         /// <summary>
         /// Gets an unsorted collection of all the users in the database. The users may be returned from a cache.
         /// </summary>
         /// <returns>Returns a collection of all the users in the database.</returns>
-        public static IUserAccountCollection GetAllUsers()
+        public IUserAccountCollection GetAllUsers()
         {
             IUserAccountCollection usersCache = CacheController.GetUsersCache();
 
@@ -165,8 +84,7 @@ namespace GalleryServer.Web.Controller
             {
                 usersCache = new UserAccountCollection();
 
-                int totalRecords;
-                foreach (MembershipUser user in MembershipGsp.GetAllUsers(0, 0x7fffffff, out totalRecords))
+                foreach (var user in _userManager.Users)
                 {
                     usersCache.Add(ToUserAccount(user));
                 }
@@ -184,7 +102,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="userToLoad">The user account whose properties should be populated.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="userToLoad" /> is null.</exception>
-        public static void LoadUser(IUserAccount userToLoad)
+        public async Task LoadUser(IUserAccount userToLoad)
         {
             if (userToLoad == null)
                 throw new ArgumentNullException(nameof(userToLoad));
@@ -194,7 +112,7 @@ namespace GalleryServer.Web.Controller
                 throw new ArgumentException("The UserName property of the userToLoad parameter must have a valid value. Instead, it was null or empty.");
             }
 
-            IUserAccount user = GetUser(userToLoad.UserName, false);
+            IUserAccount user = await GetUser(userToLoad.UserName);
 
             if (user != null)
             {
@@ -206,25 +124,30 @@ namespace GalleryServer.Web.Controller
         /// Gets information from the data source for a user.
         /// </overloads>
         /// <summary>
-        /// Gets information from the data source for the current logged-on membership user.
+        /// Gets information from the data source for the current logged-on user.
         /// </summary>
-        /// <returns>A <see cref="IUserAccount"/> representing the current logged-on membership user.</returns>
-        public static IUserAccount GetUser()
+        /// <returns>A <see cref="IUserAccount"/> representing the current logged-on user.</returns>
+        public async Task<IUserAccount> GetUser()
         {
-            return String.IsNullOrEmpty(Utils.UserName) ? null : ToUserAccount(MembershipGsp.GetUser(Utils.UserName, false));
+            return await GetUser(UserName);
         }
 
         /// <summary>
-        /// Gets information from the data source for a user. Provides an option to update the last-activity date/time stamp for the user. 
-        /// Returns null if no matching user is found.
+        /// Gets information from the data source for the current logged-on user.
         /// </summary>
-        /// <param name="userName">The name of the user to get information for.</param>
-        /// <param name="userIsOnline"><c>true</c> to update the last-activity date/time stamp for the user; <c>false</c> to return user 
-        /// information without updating the last-activity date/time stamp for the user.</param>
-        /// <returns>A <see cref="IUserAccount"/> object populated with the specified user's information from the data source.</returns>
-        public static IUserAccount GetUser(string userName, bool userIsOnline)
+        /// <returns>A <see cref="IUserAccount"/> representing the current logged-on user.</returns>
+        public async Task<IUserAccount> GetUser(string userName)
         {
-            return ToUserAccount(MembershipGsp.GetUser(userName, userIsOnline));
+            return string.IsNullOrEmpty(userName) ? null : ToUserAccount(await _userManager.FindByNameAsync(userName));
+        }
+
+        /// <summary>
+        /// Gets information from the data source for the current logged-on user.
+        /// </summary>
+        /// <returns>A <see cref="IUserAccount"/> representing the current logged-on user.</returns>
+        public async Task<GalleryUser> GetGalleryUser(string userName)
+        {
+            return string.IsNullOrEmpty(userName) ? null : await _userManager.FindByNameAsync(userName);
         }
 
         /// <summary>
@@ -242,9 +165,9 @@ namespace GalleryServer.Web.Controller
         /// <overloads>
         /// Gets a collection of users the current user has permission to view.
         /// </overloads>
-        public static async Task<IUserAccountCollection> GetUsersCurrentUserCanView(int galleryId)
+        public async Task<IUserAccountCollection> GetUsersCurrentUserCanView(int galleryId)
         {
-            return await GetUsersCurrentUserCanView(await Utils.IsCurrentUserSiteAdministrator(), await Utils.IsCurrentUserGalleryAdministrator(galleryId));
+            return await GetUsersCurrentUserCanView(await _roleController.IsCurrentUserSiteAdministrator(), await _roleController.IsCurrentUserGalleryAdministrator(galleryId));
         }
 
         /// <summary>
@@ -260,11 +183,11 @@ namespace GalleryServer.Web.Controller
         /// <returns>
         /// Returns an <see cref="IUserAccountCollection"/> containing a list of roles the user has permission to view.
         /// </returns>
-        public static async Task<IUserAccountCollection> GetUsersCurrentUserCanView(bool userIsSiteAdmin, bool userIsGalleryAdmin)
+        public async Task<IUserAccountCollection> GetUsersCurrentUserCanView(bool userIsSiteAdmin, bool userIsGalleryAdmin)
         {
             if (userIsSiteAdmin)
             {
-                return UserController.GetAllUsers();
+                return GetAllUsers();
             }
             else if (userIsGalleryAdmin)
             {
@@ -274,9 +197,9 @@ namespace GalleryServer.Web.Controller
                 IUserAccountCollection users;
                 string cacheKeyName = String.Empty;
 
-                if (Data.DiHelper.HttpContext.Session != null)
+                if (_httpContextAccessor.HttpContext.Session != null)
                 {
-                    cacheKeyName = GetCacheKeyNameForUsersCurrentUserCanView(Utils.UserName);
+                    cacheKeyName = GetCacheKeyNameForUsersCurrentUserCanView(UserName);
 
                     if ((usersCache != null) && (usersCache.TryGetValue(cacheKeyName, out users)))
                     {
@@ -294,7 +217,7 @@ namespace GalleryServer.Web.Controller
                 }
 
                 // Add to the cache, but only if we have access to the session ID.
-                if (Data.DiHelper.HttpContext.Session != null)
+                if (_httpContextAccessor.HttpContext.Session != null)
                 {
                     lock (usersCache)
                     {
@@ -328,18 +251,18 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to view and edit the user.</exception>
         /// <exception cref="InvalidUserException">Thrown when the requested user does not exist.</exception>
         /// <exception cref="InvalidGalleryException">Thrown when the gallery ID does not represent an existing gallery.</exception>
-        public static async Task<User> GetUserEntity(string userName, int galleryId)
+        public async Task<User> GetUserEntity(string userName, int galleryId)
         {
             Factory.LoadGallery(galleryId); // Throws ex if gallery ID is not valid
 
             if (String.IsNullOrWhiteSpace(userName))
-                return new Entity.User() { IsNew = true, GalleryId = galleryId, Roles = RoleController.GetDefaultRolesForUser() };
+                return new User() { IsNew = true, GalleryId = galleryId, Roles = _roleController.GetDefaultRolesForUser() };
 
-            var user = GetUser(userName, false);
+            var user = await GetUser(userName);
 
             if (user == null)
             {
-                if (await Utils.IsCurrentUserSiteAdministrator() || await Utils.IsCurrentUserGalleryAdministrator(galleryId))
+                if (await _roleController.IsCurrentUserSiteAdministrator() || await _roleController.IsCurrentUserGalleryAdministrator(galleryId))
                     throw new InvalidUserException(String.Format("User '{0}' does not exist", userName));
                 else
                     throw new GallerySecurityException("Insufficient permission to view the user."); // Throw to avoid giving non-admin clues about existence of user
@@ -347,28 +270,28 @@ namespace GalleryServer.Web.Controller
             else if (!await UserCanViewAndEditUser(user))
                 throw new GallerySecurityException("Insufficient permission to view user.");
 
-            var userPerms = SecurityManager.GetUserObjectPermissions(await RoleController.GetGalleryServerRolesForUser(), galleryId);
+            var userPerms = SecurityManager.GetUserObjectPermissions(await _roleController.GetGalleryServerRolesForUser(), galleryId);
 
-            return new Entity.User()
+            return new User()
             {
                 UserName = user.UserName,
                 Comment = user.Comment,
                 Email = user.Email,
                 IsApproved = user.IsApproved,
-                IsAuthenticated = Utils.IsAuthenticated,
+                IsAuthenticated = IsAuthenticated,
                 CanAddAlbumToAtLeastOneAlbum = userPerms.UserCanAddAlbumToAtLeastOneAlbum,
                 CanAddMediaToAtLeastOneAlbum = userPerms.UserCanAddMediaAssetToAtLeastOneAlbum,
                 CanEditAtLeastOneAlbum = userPerms.UserCanEditAtLeastOneAlbum,
                 CanEditAtLeastOneMediaAsset = userPerms.UserCanEditAtLeastOneMediaAsset,
                 EnableUserAlbum = ProfileController.GetProfile(user.UserName).GetGalleryProfile(galleryId).EnableUserAlbum,
-                UserAlbumId = Math.Max((galleryId > int.MinValue ? GetUserAlbumId(user.UserName, galleryId) : 0), 0), // Returns 0 for no user album
+                UserAlbumId = Math.Max((galleryId > Int32.MinValue ? ProfileController.GetUserAlbumId(user.UserName, galleryId) : 0), 0), // Returns 0 for no user album
                 GalleryId = galleryId,
                 CreationDate = user.CreationDate,
                 IsLockedOut = user.IsLockedOut,
                 LastActivityDate = user.LastActivityDate,
                 LastLoginDate = user.LastLoginDate,
                 LastPasswordChangedDate = user.LastPasswordChangedDate,
-                Roles = (await RoleController.GetGalleryServerRolesForUser(userName)).Select(r => r.RoleName).ToArray(),
+                Roles = (await _roleController.GetGalleryServerRolesForUser(userName)).Select(r => r.RoleName).ToArray(),
                 Password = null,
                 PasswordResetRequested = null,
                 PasswordChangeRequested = null,
@@ -377,642 +300,24 @@ namespace GalleryServer.Web.Controller
         }
 
         /// <summary>
-        /// Gets the password for the specified user name from the data source. 
-        /// </summary>
-        /// <param name="userName">The user to retrieve the password for. </param>
-        /// <returns>The password for the specified user name.</returns>
-        public static String GetPassword(string userName)
-        {
-            return MembershipGsp.GetPassword(userName, null);
-        }
-
-        /// <summary>
-        /// Resets a user's password to a new, automatically generated password. This method does not authorize the request; it is
-        /// assumed the caller has already done this.
-        /// </summary>
-        /// <param name="userName">The user to reset the password for. </param>
-        /// <returns>The new password for the specified user.</returns>
-        public static string ResetPassword(string userName)
-        {
-            return ResetPasswordInternal(userName);
-        }
-
-        /// <summary>
-        /// Processes a request to update the password for a membership user.
-        /// </summary>
-        /// <param name="userName">The user to update the password for.</param>
-        /// <param name="oldPassword">The current password for the specified user.</param>
-        /// <param name="newPassword">The new password for the specified user.</param>
-        /// <returns><c>true</c> if the password was updated successfully; otherwise, <c>false</c>.</returns>
-        public static bool ChangePassword(string userName, string oldPassword, string newPassword)
-        {
-            return MembershipGsp.ChangePassword(userName, oldPassword, newPassword);
-        }
-
-        /// <summary>
         /// Clears a lock so that the membership user can be validated.
         /// </summary>
         /// <param name="userName">The membership user whose lock status you want to clear.</param>
         /// <returns><c>true</c> if the membership user was successfully unlocked; otherwise, <c>false</c>.</returns>
-        public static bool UnlockUser(string userName)
+        public async Task<bool> UnlockUser(string userName)
         {
-            return MembershipGsp.UnlockUser(userName);
+            var result = await _userManager.SetLockoutEnabledAsync(await GetGalleryUser(userName), true);
+            return result.Succeeded;
         }
-
-        /// <overloads>
-        /// Persist the user to the data store.
-        /// </overloads>
-        /// <summary>
-        /// Persist the <paramref name="user" /> to the data store. If a password reset is being requested, the new password is 
-        /// assigned to <paramref name="newPassword" />.
-        /// </summary>
-        /// <param name="user">The user to save.</param>
-        /// <param name="newPassword">The value of the newly reset password. Assigned only when <see cref="Entity.User.PasswordResetRequested" />
-        /// is <c>true</c>; will be null in all other cases.</param>
-        /// <exception cref="System.ArgumentNullException">user</exception>
-        /// <exception cref="System.ArgumentOutOfRangeException">user;The GalleryId property of the user parameter was null.</exception>
-        /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
-        /// <exception cref="InvalidUserException">Thrown when the e-mail address is not valid.</exception>
-        public static void SaveUser(Entity.User user, out string newPassword)
-        {
-            if (user == null)
-                throw new ArgumentNullException(nameof(user));
-
-            if (!user.GalleryId.HasValue)
-                throw new ArgumentOutOfRangeException(nameof(user), "The GalleryId property of the user parameter was null.");
-
-            if (user.Roles == null)
-                throw new ArgumentOutOfRangeException(nameof(user), "The Roles property of the user parameter was null.");
-
-            var userAccount = ToUserAccount(user);
-
-            if (userAccount == null)
-                throw new GallerySecurityException();
-
-            SaveUser(userAccount, user.Roles);
-
-            SaveProfileProperties(user);
-
-            HandlePasswordUpdateRequest(user, out newPassword);
-        }
-
-        /// <summary>
-        /// Persist the <paramref name="user" /> to the data store.
-        /// </summary>
-        /// <param name="user">The user to save.</param>
-        public static void SaveUser(IUserAccount user)
-        {
-            UserController.UpdateUser(user);
-
-            CacheController.ReplaceUserInCache(user);
-        }
-
-        /// <summary>
-        /// Persist the <paramref name="user"/> to the data store, including associating the specified roles with the user. The user is
-        /// automatically removed from any other roles they may be a member of. Prior to saving, validation is performed and a 
-        /// <see cref="GallerySecurityException"/> is thrown if a business rule would be violated.
-        /// </summary>
-        /// <param name="user">The user to save.</param>
-        /// <param name="roles">The roles to associate with the user.</param>
-        /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
-        /// <exception cref="InvalidUserException">Thrown when the e-mail address is not valid.</exception>
-        public static async Task SaveUser(IUserAccount user, string[] roles)
-        {
-            if (user == null)
-                throw new ArgumentNullException(nameof(user));
-
-            if (roles == null)
-                throw new ArgumentNullException(nameof(roles));
-
-            ValidateSaveUser(user, roles);
-
-            UserController.UpdateUser(user);
-
-            CacheController.ReplaceUserInCache(user);
-
-            var currentRolesForUser = await RoleController.GetRolesForUser(user.UserName);
-
-            // Enforce the rule that any default roles settings in any gallery are applied to this user, ensuring the user isn't inadvertently removed from any.
-            var rolesToAssignToUser = roles.Union(RoleController.GetDefaultRolesForUser()).ToArray();
-
-            var rolesToAdd = rolesToAssignToUser.Where(r => !currentRolesForUser.Contains(r)).ToArray();
-            var rolesToRemove = currentRolesForUser.Where(r => !rolesToAssignToUser.Contains(r)).ToArray();
-
-#pragma warning disable 4014
-            RoleController.AddUserToRoles(user.UserName, rolesToAdd);
-            RoleController.RemoveUserFromRoles(user.UserName, rolesToRemove);
-#pragma warning restore 4014
-
-            var addingOrDeletingRoles = ((rolesToAdd.Length > 0) || (rolesToRemove.Length > 0));
-
-            if (addingOrDeletingRoles)
-            {
-                //RoleController.RemoveRolesForUserFromCache(user.UserName);
-                CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
-            }
-        }
-
-        /// <summary>
-        /// Removes a user from the membership data source.
-        /// </summary>
-        /// <param name="userName">The name of the user to delete.</param>
-        /// <returns><c>true</c> if the user was successfully deleted; otherwise, <c>false</c>.</returns>
-        public static bool DeleteUser(string userName)
-        {
-            var deleteResult = MembershipGsp.DeleteUser(userName, true);
-
-            CacheController.RemoveUserFromCache(userName);
-            //RoleController.RemoveRolesForUserFromCache(userName);
-
-            return deleteResult;
-        }
-
-        /// <summary>
-        /// Contains functionality that must execute after a user has logged on. Specifically, roles are cleared from the cache,
-        /// validation ensures the user has the default roles specified for the gallery, and if user albums are enabled, the user's 
-        /// personal album is validated. Developers integrating Gallery Server into their applications should call this method 
-        /// after they have authenticated a user. User must be logged on by the time this method is called. For example, one can 
-        /// call this method in the LoggedIn event of the ASP.NET Login control.
-        /// </summary>
-        /// <param name="galleryId">The gallery ID for the gallery the user has logged into. This value is required.</param>
-        /// <param name="userName">Name of the user that has logged on.</param>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="galleryId"/> is <see cref="Int32.MinValue" />.</exception>
-        public static void UserLoggedOn(string userName, int galleryId)
-        {
-            //RoleController.RemoveRolesForUserFromCache(userName);
-
-            // Store the user name and the fact that user is authenticated. Ideally we would not do this and just use
-            // User.Identity.Name and User.Identity.IsAuthenticated, but those won't be assigned by ASP.NET until the 
-            // next page load.
-            Utils.IsAuthenticated = true;
-            Utils.UserName = userName;
-
-            ValidateUserAlbum(userName, galleryId);
-
-            ValidateUserIsInDefaultRoles(userName);
-        }
-
-        /// <summary>
-        /// Contains functionality that must execute after a user has logged off. Specifically, roles are cleared from the cache.
-        /// Developers integrating Gallery Server into their applications should call this method after a user has signed out. 
-        /// User must be already be logged off by the time this method is called. For example, one can call this method in the 
-        /// LoggedOut event of the ASP.NET LoginStatus control.
-        /// </summary>
-        public static void UserLoggedOff()
-        {
-            //RoleController.RemoveRolesForUserFromCache(Utils.UserName);
-
-            // Clear the user name and the fact that user is not authenticated. Ideally we would not do this and just use
-            // User.Identity.Name and User.Identity.IsAuthenticated, but those won't be assigned by ASP.NET until the 
-            // next page load.
-            Utils.IsAuthenticated = false;
-            Utils.UserName = String.Empty;
-        }
-
-        /// <overloads>
-        /// Create a new user in the Membership data store.
-        /// </overloads>
-        /// <summary>
-        /// Creates the new user having the properties specified in <paramref name="user" />. Note that only the username, email,
-        /// password, and roles are persisted. To save other properties, call <see cref="SaveUser(Entity.User, out string)" /> after 
-        /// executing this function. If default roles roles have been specified for any non-template gallery, they are assigned
-        /// to the user even if they are not included in the <see cref="Entity.User.Roles" /> property of <paramref name="user" />.
-        /// </summary>
-        /// <param name="user">The user.</param>
-        /// <returns>An instance of <see cref="IUserAccount" />.</returns>
-        /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
-        /// <exception cref="MembershipCreateUserException">Thrown when an error occurs during account creation. Check the StatusCode
-        /// property for a MembershipCreateStatus value.</exception>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when the <see cref="Entity.User.GalleryId" /> property of the <paramref name="user" />
-        ///  parameter is null.</exception>
-        public static IUserAccount CreateUser(Entity.User user)
-        {
-            if (user == null)
-                throw new ArgumentNullException(nameof(user));
-
-            if (!user.GalleryId.HasValue)
-                throw new ArgumentOutOfRangeException(nameof(user), "The GalleryId property of the user parameter was null.");
-
-            return CreateUser(user.UserName, user.Password, user.Email, user.Roles, false, user.GalleryId.Value);
-        }
-
-        /// <summary>
-        /// Creates a new account in the membership system with the specified <paramref name="userName"/>, <paramref name="password"/>,
-        /// <paramref name="email"/>, and belonging to the specified <paramref name="roles"/>. If required, it sends a verification
-        /// e-mail to the user, sends an e-mail notification to admins, and creates a user album. The account will be disabled when
-        /// <paramref name="isSelfRegistration"/> is <c>true</c> and either the system option 
-        /// <see cref="IGallerySettings.RequireEmailValidationForSelfRegisteredUser" /> or 
-        /// <see cref="IGallerySettings.RequireApprovalForSelfRegisteredUser" /> is enabled.
-        /// </summary>
-        /// <param name="userName">Account name of the user. Cannot be null or empty.</param>
-        /// <param name="password">The password for the user. Cannot be null or empty.</param>
-        /// <param name="email">The email associated with the user. Required when <paramref name="isSelfRegistration"/> is true
-        /// and email verification is enabled.</param>
-        /// <param name="roles">The names of the roles to assign to the user. The roles must already exist. If null or empty, no
-        /// roles are assigned to the user. If default roles roles have been specified for any non-template gallery, they are assigned
-        /// to the user regardless of the values specified here.</param>
-        /// <param name="isSelfRegistration">Indicates when the user is creating his or her own account. Set to false when an
-        /// administrator creates an account.</param>
-        /// <param name="galleryId">The gallery ID.</param>
-        /// <returns>Returns the newly created user.</returns>
-        /// <exception cref="MembershipCreateUserException">Thrown when an error occurs during account creation. Check the StatusCode
-        /// property for a MembershipCreateStatus value.</exception>
-        /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="userName" /> or <paramref name="password" /> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown when <paramref name="userName" /> or <paramref name="password" /> is an empty string.</exception>
-        public static IUserAccount CreateUser(string userName, string password, string email, string[] roles, bool isSelfRegistration, int galleryId)
-        {
-            #region Validation
-
-            if (userName == null)
-                throw new ArgumentNullException(nameof(userName));
-
-            if (password == null)
-                throw new ArgumentNullException(nameof(password));
-
-            if (String.IsNullOrEmpty(userName))
-                throw new ArgumentException("The parameter cannot be an empty string.", nameof(userName));
-
-            if (String.IsNullOrEmpty(password))
-                throw new ArgumentException("The parameter cannot be an empty string.", nameof(password));
-
-            if ((String.IsNullOrEmpty(email)) && (HelperFunctions.IsValidEmail(userName)))
-            {
-                // No email address was specified, but the user name happens to be in the form of an email address,
-                // so let's set the email property to the user name.
-                email = userName;
-            }
-
-            #endregion
-
-            IGallerySettings gallerySettings = Factory.LoadGallerySetting(galleryId);
-
-            // Step 1: Create the user. Any number of exceptions may occur; we'll let the caller deal with them.
-            IUserAccount user = CreateUser(userName, password, email);
-
-            // Step 2: If this is a self-registered account and email verification is enabled or admin approval is required,
-            // disable it. It will be approved when the user validates the email or the admin gives approval.
-            if (isSelfRegistration)
-            {
-                if (gallerySettings.RequireEmailValidationForSelfRegisteredUser || gallerySettings.RequireApprovalForSelfRegisteredUser)
-                {
-                    user.IsApproved = false;
-                    UpdateUser(user);
-                }
-            }
-
-            // Step 3: Verify no business rules are being violated by the logged-on user creating an account. We skip this verification
-            // for self registrations, because there isn't a logged-on user.
-            if (!isSelfRegistration)
-            {
-                ValidateSaveUser(user, roles);
-            }
-
-            // Step 4: Ensure this user is being added to the default roles for all galleries.
-            var rolesForUser = roles.Union(RoleController.GetDefaultRolesForUser()).ToArray();
-
-            // Step 5: Add user to roles.
-            RoleController.AddUserToRoles(userName, rolesForUser);
-
-            // Step 6: Notify admins that an account was created.
-            NotifyAdminsOfNewlyCreatedAccount(user, isSelfRegistration, false, galleryId);
-
-            // Step 7: Send user a welcome message or a verification link.
-            if (HelperFunctions.IsValidEmail(user.Email))
-            {
-                NotifyUserOfNewlyCreatedAccount(user, galleryId);
-            }
-            else if (isSelfRegistration && gallerySettings.RequireEmailValidationForSelfRegisteredUser)
-            {
-                // Invalid email, but we need one to send the email verification. Throw error.
-                throw new WebException("Cannot create user because an invalid e-mail was specified.");
-                //throw new MembershipCreateUserException(MembershipCreateStatus.InvalidEmail);
-            }
-
-            CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
-            CacheController.RemoveCache(CacheItem.Users);
-
-            return user;
-        }
-
-        /// <summary>
-        /// Delete the user from the membership system. In addition, remove the user from any roles. If a role is an ownership role,
-        /// then delete it if the user is the only member. Remove the user from ownership of any albums, and delete the user's
-        /// personal album, if user albums are enabled.
-        /// </summary>
-        /// <param name="userName">Name of the user to be deleted.</param>
-        /// <param name="preventDeletingLoggedOnUser">If set to <c>true</c>, throw a <see cref="WebException"/> if attempting
-        /// to delete the currently logged on user.</param>
-        /// <exception cref="WebException">Thrown when the user cannot be deleted because doing so violates one of the business rules.</exception>
-        /// <exception cref="GallerySecurityException">Thrown when the user cannot be deleted because doing so violates one of the business rules.</exception>
-        public static void DeleteGalleryServerProUser(string userName, bool preventDeletingLoggedOnUser)
-        {
-            if (String.IsNullOrEmpty(userName))
-                return;
-
-            ValidateDeleteUser(userName, preventDeletingLoggedOnUser, true);
-
-            foreach (IGallery gallery in Factory.LoadGalleries())
-            {
-                DeleteUserAlbum(userName, gallery.GalleryId);
-            }
-
-            UpdateRolesAndOwnershipBeforeDeletingUser(userName);
-
-            ProfileController.DeleteProfileForUser(userName);
-
-            DeleteUser(userName);
-        }
-
-        /// <overloads>
-        /// Gets the personal album for a user.
-        /// </overloads>
-        /// <summary>
-        /// Gets the album for the current user's personal album and <paramref name="galleryId" /> (that is, get the 
-        /// album that was created when the user's account was created). The album is created if it does not exist. 
-        /// If user albums are disabled or the user has disabled their own album, this function returns null. It also 
-        /// returns null if the UserAlbumId property is not found in the profile (this should not typically occur).
-        /// </summary>
-        /// <param name="galleryId">The gallery ID.</param>
-        /// <returns>Returns the album for the current user's personal album.</returns>
-        public static IAlbum GetUserAlbum(int galleryId)
-        {
-            return GetUserAlbum(Utils.UserName, galleryId);
-        }
-
-        /// <summary>
-        /// Gets the personal album for the specified <paramref name="userName"/> and <paramref name="galleryId" /> 
-        /// (that is, get the album that was created when the user's account was created). The album is created if it 
-        /// does not exist. If user albums are disabled or the user has disabled their own album, this function returns 
-        /// null. It also returns null if the UserAlbumId property is not found in the profile (this should not typically occur).
-        /// </summary>
-        /// <param name="userName">The account name for the user.</param>
-        /// <param name="galleryId">The gallery ID.</param>
-        /// <returns>
-        /// Returns the personal album for the specified <paramref name="userName"/>.
-        /// </returns>
-        public static IAlbum GetUserAlbum(string userName, int galleryId)
-        {
-            return ValidateUserAlbum(userName, galleryId);
-        }
-
-        /// <summary>
-        /// Gets the ID of the album for the specified user's personal album (that is, this is the album that was created when the
-        /// user's account was created). If user albums are disabled or the UserAlbumId property is not found in the profile,
-        /// this function returns int.MinValue. This function executes faster than <see cref="GetUserAlbum(int)"/> and 
-        /// <see cref="GetUserAlbum(string, int)"/> but it does not validate that the album exists.
-        /// </summary>
-        /// <param name="userName">The account name for the user.</param>
-        /// <param name="galleryId">The gallery ID.</param>
-        /// <returns>
-        /// Returns the ID of the album for the current user's personal album.
-        /// </returns>
-        public static int GetUserAlbumId(string userName, int galleryId)
-        {
-            int albumId = Int32.MinValue;
-
-            if (!Factory.LoadGallerySetting(galleryId).EnableUserAlbum)
-                return albumId;
-
-            int tmpAlbumId = ProfileController.GetProfileForGallery(userName, galleryId).UserAlbumId;
-            albumId = (tmpAlbumId > 0 ? tmpAlbumId : albumId);
-
-            return albumId;
-        }
-
-        /// <summary>
-        /// Verifies the user album for the specified <paramref name="userName">user</paramref> exists if it is supposed to exist
-        /// (creating it if necessary), or does not exist if not (that is, deleting it if necessary). Returns a reference to the user
-        /// album if a user album exists or has just been created; otherwise returns null. Also returns null if user albums are
-        /// disabled at the application level or <see cref="IGallerySettings.UserAlbumParentAlbumId" /> does not match an existing album.
-        /// A user album is created if user albums are enabled but none for the user exists. If user albums are enabled at the
-        /// application level but the user has disabled them in his profile, the album is deleted if it exists.
-        /// </summary>
-        /// <param name="userName">Name of the user.</param>
-        /// <param name="galleryId">The gallery ID for the gallery where the user album is to be validated. This value is required.</param>
-        /// <returns>
-        /// Returns a reference to the user album for the specified <paramref name="userName">user</paramref>, or null
-        /// if user albums are disabled or <see cref="IGallerySettings.UserAlbumParentAlbumId" /> does not match an existing album.
-        /// </returns>
-        /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is null or empty.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="galleryId"/> is <see cref="Int32.MinValue" />.</exception>
-        public static IAlbum ValidateUserAlbum(string userName, int galleryId)
-        {
-            if (String.IsNullOrEmpty(userName))
-                throw new ArgumentException("Parameter cannot be null or an empty string.", nameof(userName));
-
-            if (!Factory.LoadGallerySetting(galleryId).EnableUserAlbum)
-                return null;
-
-            if (galleryId == Int32.MinValue)
-            {
-                // If we get here then user albums are enabled but an invalid gallery ID has been passed. This function can't do 
-                // its job without the ID, so throw an error.
-                throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "A valid gallery ID must be passed to the UserController.ValidateUserAlbum function when user albums are enabled. Instead, the value {0} was passed for the gallery ID.", galleryId));
-            }
-
-            bool userAlbumExists = false;
-            bool userAlbumShouldExist = ProfileController.GetProfileForGallery(userName, galleryId).EnableUserAlbum;
-
-            IAlbum album = null;
-
-            int albumId = GetUserAlbumId(userName, galleryId);
-
-            if (albumId > Int32.MinValue)
-            {
-                try
-                {
-                    // Try loading the album.
-                    album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(albumId) { IsWritable = true });
-
-                    userAlbumExists = true;
-                }
-                catch (InvalidAlbumException) { }
-            }
-
-            // Delete or create if necessary. Deleting should only be needed if 
-            if (userAlbumExists && !userAlbumShouldExist)
-            {
-                try
-                {
-                    AlbumController.DeleteAlbum(album);
-                }
-                catch (Exception ex)
-                {
-                    // Log any errors that happen but don't let them bubble up.
-                    AppEventController.LogError(ex, galleryId);
-                }
-                finally
-                {
-                    album = null;
-                }
-            }
-            else if (!userAlbumExists && userAlbumShouldExist)
-            {
-                album = AlbumController.CreateUserAlbum(userName, galleryId);
-            }
-
-            return album;
-        }
-
-        /// <summary>
-        /// Verifies the default roles specified in <see cref="IGallerySettings.DefaultRolesForUser" /> for all non-template galleries
-        /// are assigned to <paramref name="userName" />. This is necessary in a few cases: (1) A user has been added to AD and is now logging in.
-        /// (2) An admin updated the default roles setting and a user is logging in before the change has been propagated to all users.
-        /// </summary>
-        /// <param name="userName">Name of the user.</param>
-        private static async Task ValidateUserIsInDefaultRoles(string userName)
-        {
-            var needToReloadUser = false;
-            //var usersRoles = (await RoleController.GetGalleryServerRolesForUser(userName)).Select(r => r.RoleName);
-            var userRoles = await RoleController.GetRolesForUser(userName);
-
-            //foreach (var role in RoleController.GetDefaultRolesForUser().Where(r => !userRoles.Contains(r)).Where(RoleController.RoleExists))
-            foreach (var role in RoleController.GetDefaultRolesForUser().Where(r => !userRoles.Contains(r)))
-            {
-                if (await RoleController.RoleExists(role))
-                {
-                    await RoleController.AddUserToRole(userName, role);
-                    needToReloadUser = true;
-                }
-            }
-
-            if (needToReloadUser)
-            {
-                //RoleController.RemoveRolesForUserFromCache(userName);
-                CacheController.RemoveCache(CacheItem.UsersCurrentUserCanView);
-            }
-        }
-
-        /// <summary>
-        /// Activates the account for the specified <paramref name="userName"/> and automatically logs on the user. If the
-        /// admin approval system setting is enabled (RequireApprovalForSelfRegisteredUser=<c>true</c>), then record the
-        /// validation in the user's comment field but do not activate the account. Instead, send the administrator(s) an
-        /// e-mail notifying them of a pending account. This method is typically called after a user clicks the confirmation
-        /// link in the verification e-mail after creating a new account.
-        /// </summary>
-        /// <param name="userName">Name of the user who has just validated his or her e-mail address.</param>
-        /// <param name="galleryId">The gallery ID for the gallery where the user is being activated. This value is required.</param>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="galleryId"/> is <see cref="Int32.MinValue" />.</exception>
-        public static void UserEmailValidatedAfterCreation(string userName, int galleryId)
-        {
-            IUserAccount user = GetUser(userName, true);
-
-            NotifyAdminsOfNewlyCreatedAccount(user, true, true, galleryId);
-
-            if (!Factory.LoadGallerySetting(galleryId).RequireApprovalForSelfRegisteredUser)
-            {
-                user.IsApproved = true;
-
-                LogOffUser();
-                LogOnUser(userName, galleryId);
-            }
-
-            user.Comment = string.Format(CultureInfo.CurrentCulture, "{0} validated {1:MMM dd, yyyy h:mm:ss tt UTC}.", user.Email, DateTime.UtcNow);
-
-            UpdateUser(user);
-
-            CacheController.ReplaceUserInCache(user);
-        }
-
-        /// <summary>
-        /// Logs off the current user.
-        /// </summary>
-        public static void LogOffUser()
-        {
-            throw new NotImplementedException();
-            //FormsAuthentication.SignOut();
-
-            //UserLoggedOff();
-        }
-
-        /// <overloads>
-        /// Sets an authentication cookie for the specified user so that the user is considered logged on by the application. This
-        /// function does not authenticate the user; the calling function must perform that function or otherwise guarantee that it
-        /// is appropriate to log on the user.
-        /// </overloads>
-        /// <summary>
-        /// Logs on the specified <paramref name="userName"/>.
-        /// </summary>
-        /// <param name="userName">The username for the user to log on.</param>
-        public static void LogOnUser(string userName)
-        {
-            foreach (IGallery gallery in Factory.LoadGalleries())
-            {
-                LogOnUser(userName, gallery.GalleryId);
-            }
-        }
-
-        /// <summary>
-        /// Sets an authentication cookie for the specified <paramref name="userName"/> so that the user is considered logged on by
-        /// the application. This function does not authenticate the user; the calling function must perform that function or 
-        /// otherwise guarantee that it is appropriate to log on the user.
-        /// </summary>
-        /// <param name="userName">The username for the user to log on.</param>
-        /// <param name="galleryId">The gallery ID for the gallery where the user album is to be validated. This value is required.</param>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="galleryId"/> is <see cref="Int32.MinValue" />.</exception>
-        public static void LogOnUser(string userName, int galleryId)
-        {
-            throw new NotImplementedException();
-            //FormsAuthentication.SetAuthCookie(userName, false);
-
-            //UserLoggedOn(userName, galleryId);
-        }
-
-        ///// <summary>
-        ///// Gets the error message associated with the <see cref="MembershipCreateUserException" /> exception that can occur when
-        ///// adding a user.
-        ///// </summary>
-        ///// <param name="status">A <see cref="MembershipCreateStatus" />. This can be populated from the 
-        ///// <see cref="MembershipCreateUserException.StatusCode" /> property of the exception.</param>
-        ///// <returns>Returns an error message.</returns>
-        //public static string GetAddUserErrorMessage(MembershipCreateStatus status)
-        //{
-        //    switch (status)
-        //    {
-        //        case MembershipCreateStatus.DuplicateUserName:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_DuplicateUserName;
-
-        //        case MembershipCreateStatus.DuplicateEmail:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_DuplicateEmail;
-
-        //        case MembershipCreateStatus.InvalidPassword:
-        //            return String.Format(CultureInfo.CurrentCulture, Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_InvalidPassword, MinRequiredPasswordLength, MinRequiredNonAlphanumericCharacters);
-
-        //        case MembershipCreateStatus.InvalidEmail:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_InvalidEmail;
-
-        //        case MembershipCreateStatus.InvalidAnswer:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_InvalidAnswer;
-
-        //        case MembershipCreateStatus.InvalidQuestion:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_InvalidQuestion;
-
-        //        case MembershipCreateStatus.InvalidUserName:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_InvalidUserName;
-
-        //        case MembershipCreateStatus.ProviderError:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_ProviderError;
-
-        //        case MembershipCreateStatus.UserRejected:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_UserRejected;
-
-        //        default:
-        //            return Resources.GalleryServer.Admin_Manage_Users_Create_User_Error_Generic;
-        //    }
-        //}
 
         /// <summary>
         /// Get a list of galleries the current user can administer. Site administrators can view all galleries, while gallery
         /// administrators may have access to zero or more galleries.
         /// </summary>
         /// <returns>Returns an <see cref="IGalleryCollection" /> containing the galleries the current user can administer.</returns>
-        public static async Task<IGalleryCollection> GetGalleriesCurrentUserCanAdminister()
+        public async Task<IGalleryCollection> GetGalleriesCurrentUserCanAdminister()
         {
-            return await GetGalleriesUserCanAdminister(Utils.UserName);
+            return await GetGalleriesUserCanAdminister(UserName);
         }
 
         /// <summary>
@@ -1023,10 +328,10 @@ namespace GalleryServer.Web.Controller
         /// <returns>
         /// Returns an <see cref="IGalleryCollection"/> containing the galleries the current user can administer.
         /// </returns>
-        public static async Task<IGalleryCollection> GetGalleriesUserCanAdminister(string userName)
+        public async Task<IGalleryCollection> GetGalleriesUserCanAdminister(string userName)
         {
             IGalleryCollection adminGalleries = new GalleryCollection();
-            foreach (IGalleryServerRole role in await RoleController.GetGalleryServerRolesForUser(userName))
+            foreach (IGalleryServerRole role in await _roleController.GetGalleryServerRolesForUser(userName))
             {
                 if (role.AllowAdministerSite)
                 {
@@ -1052,11 +357,11 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="userName">Name of the user.</param>
         /// <returns>Returns an <see cref="IGalleryCollection" /> of all the galleries the specified <paramref name="userName" /> has access to.</returns>
-        public static async Task<IGalleryCollection> GetGalleriesForUser(string userName)
+        public async Task<IGalleryCollection> GetGalleriesForUser(string userName)
         {
             IGalleryCollection galleries = new GalleryCollection();
 
-            foreach (IGalleryServerRole role in await RoleController.GetGalleryServerRolesForUser(userName))
+            foreach (IGalleryServerRole role in await _roleController.GetGalleryServerRolesForUser(userName))
             {
                 foreach (IGallery gallery in role.Galleries)
                 {
@@ -1078,12 +383,12 @@ namespace GalleryServer.Web.Controller
         /// <param name="userToSave">The user to save. The only property that must be specified is <see cref="IUserAccount.UserName" />.</param>
         /// <param name="roles">The roles to be associated with the user.</param>
         /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
-        public static async Task ValidateLoggedOnUserHasPermissionToSaveUser(IUserAccount userToSave, string[] roles)
+        public async Task ValidateLoggedOnUserHasPermissionToSaveUser(IUserAccount userToSave, string[] roles)
         {
             if (roles == null)
                 throw new ArgumentNullException(nameof(roles));
 
-            var rolesForUser = await RoleController.GetRolesForUser(userToSave.UserName);
+            var rolesForUser = await GetRolesAsync(userToSave.UserName);
             var rolesToAdd = roles.Where(r => !rolesForUser.Contains(r)).ToArray();
             var rolesToRemove = rolesForUser.Where(r => !roles.Contains(r)).ToArray();
 
@@ -1095,7 +400,7 @@ namespace GalleryServer.Web.Controller
             // 4. NOT ENFORCED: If user to be updated is a member of roles that apply to other galleries, Gallery admin must be a gallery admin 
             //    in every one of those galleries. Not enforced because this is considered acceptable behavior.
 
-            if (await Utils.IsCurrentUserSiteAdministrator())
+            if (await _roleController.IsCurrentUserSiteAdministrator())
                 return;
 
             VerifyGalleryAdminIsNotUpdatingUserWithAdminSitePermission(userToSave, rolesToAdd);
@@ -1133,10 +438,10 @@ namespace GalleryServer.Web.Controller
         /// Automatically logs on the user specified in the query string parameter 'user' and then reloads the page with the 
         /// parameter removed. If the parameter does not exist or the user is already logged on, do nothing. Additionally, if the 
         /// specified user is not specified in the web.config application setting named GalleryServerAutoLogonUsers, no action is taken.
-        /// Note: All requests come through here, even those for static resources like CSS and js files.
+        /// Note: All requests come through here, even those for resources like CSS and js files.
         /// </summary>
         /// <param name="context">The HTTP context.</param>
-        public static void AutoLogonUser(HttpContext context)
+        public void AutoLogonUser(HttpContext context)
         {
             throw new NotImplementedException();
             //string username;
@@ -1155,9 +460,266 @@ namespace GalleryServer.Web.Controller
             //context.Response.Redirect(Utils.RemoveQueryStringParameter(Utils.GetCurrentPageUrl(true), "user"), true);
         }
 
+        /// <summary>
+        /// Determine whether user has permission to perform at least one of the specified security actions. Un-authenticated users
+        /// (anonymous users) are always considered NOT authorized (that is, this method returns false) except when the requested
+        /// security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or <see cref="SecurityActions.ViewOriginalMediaObject" />,
+        /// since Gallery Server is configured by default to allow anonymous viewing access
+        /// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
+        /// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
+        /// un-authenticated users, and the standard gallery server role functionality applies.
+        /// </summary>
+        /// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
+        /// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery). If multiple actions are
+        /// specified, the method is successful if the user has permission for at least one of the actions. If you require that all actions
+        /// be satisfied to be successful, call one of the overloads that accept a SecurityActionsOption and
+        /// specify <see cref="SecurityActionsOption.RequireAll" />.</param>
+        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. This parameter is ignored
+        /// for anonymous users. The parameter may be null.</param>
+        /// <param name="albumId">The album ID to which the security action applies.</param>
+        /// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
+        /// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
+        /// <see cref="int.MinValue" />).</param>
+        /// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
+        /// is ignored for logged on users.</param>
+        /// <param name="isVirtualAlbum">if set to <c>true</c> the album is virtual album.</param>
+        /// <returns>
+        /// Returns true when the user is authorized to perform the specified security action against the specified album;
+        /// otherwise returns false.
+        /// </returns>
+        public bool IsUserAuthorized(SecurityActions securityActions, IGalleryServerRoleCollection roles, int albumId, int galleryId, bool isPrivate, bool isVirtualAlbum)
+        {
+            return IsUserAuthorized(securityActions, roles, albumId, galleryId, isPrivate, SecurityActionsOption.RequireOne, isVirtualAlbum);
+        }
+
+        /// <summary>
+        /// Determine whether user has permission to perform the specified security actions. When multiple security actions are passed, use
+        /// <paramref name="secActionsOption" /> to specify whether all of the actions must be satisfied to be successful or only one item
+        /// must be satisfied. Un-authenticated users (anonymous users) are always considered NOT authorized (that is, this method returns
+        /// false) except when the requested security action is <see cref="SecurityActions.ViewAlbumOrMediaObject" /> or
+        /// <see cref="SecurityActions.ViewOriginalMediaObject" />, since Gallery Server is configured by default to allow anonymous viewing access
+        /// but it does not allow anonymous editing of any kind. This method will continue to work correctly if the webmaster configures
+        /// Gallery Server to require users to log in in order to view objects, since at that point there will be no such thing as
+        /// un-authenticated users, and the standard gallery server role functionality applies.
+        /// </summary>
+        /// <param name="securityActions">Represents the permission or permissions being requested. Multiple actions can be specified by using
+        /// a bitwise OR between them (example: SecurityActions.AdministerSite | SecurityActions.AdministerGallery). If multiple actions are
+        /// specified, use <paramref name="secActionsOption" /> to specify whether all of the actions must be satisfied to be successful or
+        /// only one item must be satisfied.</param>
+        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. This parameter is ignored
+        /// for anonymous users. The parameter may be null.</param>
+        /// <param name="albumId">The album ID to which the security action applies.</param>
+        /// <param name="galleryId">The ID for the gallery the user is requesting permission in. The <paramref name="albumId" /> must exist in
+        /// this gallery. This parameter is not required <paramref name="securityActions" /> is SecurityActions.AdministerSite (you can specify
+        /// <see cref="int.MinValue" />).</param>
+        /// <param name="isPrivate">Indicates whether the specified album is private (hidden from anonymous users). The parameter
+        /// is ignored for logged on users.</param>
+        /// <param name="secActionsOption">Specifies whether the user must have permission for all items in <paramref name="securityActions" />
+        /// to be successful or just one.</param>
+        /// <param name="isVirtualAlbum">if set to <c>true</c> the album is a virtual album.</param>
+        /// <returns>
+        /// Returns true when the user is authorized to perform the specified security action against the specified album;
+        /// otherwise returns false.
+        /// </returns>
+        public bool IsUserAuthorized(SecurityActions securityActions, IGalleryServerRoleCollection roles, int albumId, int galleryId, bool isPrivate, SecurityActionsOption secActionsOption, bool isVirtualAlbum)
+        {
+            return SecurityManager.IsUserAuthorized(securityActions, roles, albumId, galleryId, IsAuthenticated, isPrivate, secActionsOption, isVirtualAlbum);
+        }
+
+        /// <summary>
+        /// Determine whether the user belonging to the specified <paramref name="roles" /> is a site administrator. The user is considered a site
+        /// administrator if at least one role has Allow Administer Site permission.
+        /// </summary>
+        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. The parameter may be null.</param>
+        /// <returns>
+        /// 	<c>true</c> if the user is a site administrator; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsUserSiteAdministrator(IGalleryServerRoleCollection roles)
+        {
+            return SecurityManager.IsUserSiteAdministrator(roles);
+        }
+
+        /// <summary>
+        /// Determine whether the user belonging to the specified <paramref name="roles"/> is a gallery administrator for the specified
+        /// <paramref name="galleryId"/>. The user is considered a gallery administrator if at least one role has Allow Administer Gallery permission.
+        /// </summary>
+        /// <param name="roles">A collection of Gallery Server roles to which the currently logged-on user belongs. The parameter may be null.</param>
+        /// <param name="galleryId">The gallery ID.</param>
+        /// <returns>
+        /// 	<c>true</c> if the user is a gallery administrator; otherwise, <c>false</c>.
+        /// </returns>
+        public bool IsUserGalleryAdministrator(IGalleryServerRoleCollection roles, int galleryId)
+        {
+            return SecurityManager.IsUserGalleryAdministrator(roles, galleryId);
+        }
+
+        public Task AddToRoleAsync(GalleryUser user, string roleName)
+        {
+            return _userManager.AddToRoleAsync(user, roleName);
+        }
+
+        public Task AddToRolesAsync(GalleryUser user, string[] roleNames)
+        {
+            return _userManager.AddToRolesAsync(user, roleNames);
+        }
+
+        public Task RemoveFromRoleAsync(GalleryUser user, string roleName)
+        {
+            return _userManager.RemoveFromRoleAsync(user, roleName);
+        }
+
+        public Task RemoveFromRolesAsync(GalleryUser user, string[] roleNames)
+        {
+            return _userManager.RemoveFromRolesAsync(user, roleNames);
+        }
+
+        public async Task<IList<string>> GetRolesAsync(string userName)
+        {
+            if (string.IsNullOrEmpty(userName))
+                return new string[] { };
+
+            var user = await GetUserByUserName(userName);
+            return await _userManager.GetRolesAsync(user);
+        }
+
+        public async Task<GalleryUser> GetUserByUserName(string userName)
+        {
+            if (userName == null)
+                throw new ArgumentNullException(nameof(userName));
+
+            return await _userManager.FindByNameAsync(userName.Trim());
+        }
+
+        /// <summary>
+        /// Gets a list of users in the specified role for the current application.
+        /// </summary>
+        /// <param name="roleName">The name of the role.</param>
+        /// <returns>A list of users in the specified role for the current application.</returns>
+        public async Task<IList<GalleryUser>> GetUsersInRole(string roleName)
+        {
+            if (string.IsNullOrEmpty(roleName))
+                return new GalleryUser[] { };
+
+            return await _userManager.GetUsersInRoleAsync(roleName.Trim());
+            //return RoleGsp.GetUsersInRole(roleName.Trim());
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the specified user is in the specified role for the current application.
+        /// </summary>
+        /// <param name="userName">The user name to search for.</param>
+        /// <param name="roleName">The role to search in.</param>
+        /// <returns>
+        /// 	<c>true</c> if the specified user is in the specified role for the configured applicationName; otherwise, <c>false</c>.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="userName" /> or <paramref name="roleName" /> is null
+        /// or an empty string.</exception>
+        public async Task<bool> IsUserInRole(string userName, string roleName)
+        {
+            return await _roleController.IsUserInRole(userName, roleName);
+        }
+
+        /// <summary>
+        /// Gets a <see cref="User" /> instance having the properties specified in <see cref="Utils.InstallFilePath" />.
+        /// Supports these properties: UserName, Password, Email. Returns null if none of these exist in the text file.
+        /// </summary>
+        /// <returns>An instance of <see cref="User" />, or null.</returns>
+        public User GetAdminUserFromInstallTextFile()
+        {
+            User user = null;
+
+            try
+            {
+                using (var sr = new StreamReader(Utils.InstallFilePath))
+                {
+                    var lineText = sr.ReadLine();
+                    while (lineText != null)
+                    {
+                        var kvp = lineText.Split(new[] { '=' });
+
+                        if (kvp.Length == 2)
+                        {
+                            if (kvp[0].Equals("UserName", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (user == null)
+                                    user = new User();
+
+                                user.UserName = kvp[1].Trim(); // Found username row
+                            }
+
+                            if (kvp[0].Equals("Password", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (user == null)
+                                    user = new User();
+
+                                user.Password = kvp[1].Trim(); // Found password row
+                            }
+
+                            if (kvp[0].Equals("Email", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (user == null)
+                                    user = new User();
+
+                                user.Email = kvp[1].Trim(); // Found email row
+                            }
+                        }
+
+                        lineText = sr.ReadLine();
+                    }
+                }
+            }
+            catch (FileNotFoundException) { }
+
+            return user;
+        }
+
+        /// <overloads>
+        /// Gets a collection of Gallery Server roles.
+        /// </overloads>
+        /// <summary>
+        /// Gets Gallery Server roles representing the roles for the currently logged-on user. Returns an empty collection if 
+        /// no user is logged in or the user is logged in but not assigned to any roles (Count = 0).
+        /// The roles may be returned from a cache. Guaranteed to not return null.
+        /// </summary>
+        /// <returns>
+        /// Returns an <see cref="IGalleryServerRoleCollection" /> representing the roles for the currently logged-on user.
+        /// </returns>
+        public async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
+        {
+            return await _roleController.GetGalleryServerRolesForUser();
+        }
+
+        /// <summary>
+        /// Gets Gallery Server roles representing the roles for the specified <paramref name="userName"/>. Returns an empty collection if 
+        /// the user is not assigned to any roles (Count = 0). The roles may be returned from a cache. Guaranteed to not return null.
+        /// </summary>
+        /// <param name="userName">Name of the user.</param>
+        /// <returns>
+        /// Returns an <see cref="IGalleryServerRoleCollection"/> representing the roles for the specified <paramref name="userName" />.
+        /// </returns>
+        /// <remarks>This method may run on a background thread and is therefore tolerant of the inability to access HTTP context 
+        /// or the current user's session.</remarks>
+        public async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser(string userName)
+        {
+            return await _roleController.GetGalleryServerRolesForUser(userName);
+        }
+
+        /// <summary>
+        /// Verify that any role needed for album ownership exists and is properly configured. If an album owner
+        /// is specified and the album is new (IsNew == true), the album is persisted to the data store. This is 
+        /// required because the ID is not assigned until it is saved, and a valid ID is required to configure the
+        /// role.
+        /// </summary>
+        /// <param name="album">The album to validate for album ownership. If a null value is passed, the function
+        /// returns without error or taking any action.</param>
+        internal async Task ValidateRoleExistsForAlbumOwner(IAlbum album)
+        {
+            await _roleController.ValidateRoleExistsForAlbumOwner(album);
+        }
+
         #endregion
 
-        #region Private Static Methods
+        #region Private Methods
 
         /// <summary>
         /// Adds a new user with the specified e-mail address to the data store.
@@ -1166,7 +728,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="password">The password for the new user.</param>
         /// <param name="email">The email for the new user.</param>
         /// <returns>Returns a new user with the specified e-mail address to the data store.</returns>
-        private static IUserAccount CreateUser(string userName, string password, string email)
+        private IUserAccount CreateUser(string userName, string password, string email)
         {
             throw new NotImplementedException();
             //// This function is a re-implementation of the System.Web.Security.Membership.CreateUser method. We can't call it directly
@@ -1182,23 +744,6 @@ namespace GalleryServer.Web.Controller
         }
 
         /// <summary>
-        /// Gets the Membership provider used by Gallery Server.
-        /// </summary>
-        /// <returns>The Membership provider used by Gallery Server.</returns>
-        private static MembershipProvider GetMembershipProvider()
-        {
-            return new MembershipProvider();
-            //if (String.IsNullOrEmpty(AppSetting.Instance.MembershipProviderName))
-            //{
-            //    return Membership.Provider;
-            //}
-            //else
-            //{
-            //    return Membership.Providers[AppSetting.Instance.MembershipProviderName];
-            //}
-        }
-
-        /// <summary>
         /// Send an e-mail to the users that are subscribed to new account notifications. These are specified in the
         /// <see cref="IGallerySettings.UsersToNotifyWhenAccountIsCreated" /> configuration setting. If 
         /// <see cref="IGallerySettings.RequireEmailValidationForSelfRegisteredUser" /> is enabled, do not send an e-mail at this time. 
@@ -1210,7 +755,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="isEmailVerified">If set to <c>true</c> the e-mail has been verified to be a valid, active e-mail address.</param>
         /// <param name="galleryId">The gallery ID storing the e-mail configuration information and the list of users to notify.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
-        private static void NotifyAdminsOfNewlyCreatedAccount(IUserAccount user, bool isSelfRegistration, bool isEmailVerified, int galleryId)
+        private void NotifyAdminsOfNewlyCreatedAccount(IUserAccount user, bool isSelfRegistration, bool isEmailVerified, int galleryId)
         {
             if (user == null)
                 throw new ArgumentNullException(nameof(user));
@@ -1225,11 +770,11 @@ namespace GalleryServer.Web.Controller
             EmailTemplate emailTemplate;
             if (isSelfRegistration && gallerySettings.RequireApprovalForSelfRegisteredUser)
             {
-                emailTemplate = EmailController.GetEmailTemplate(EmailTemplateForm.AdminNotificationAccountCreatedRequiresApproval, user);
+                emailTemplate = _emailController.GetEmailTemplate(EmailTemplateForm.AdminNotificationAccountCreatedRequiresApproval, user);
             }
             else
             {
-                emailTemplate = EmailController.GetEmailTemplate(EmailTemplateForm.AdminNotificationAccountCreated, user);
+                emailTemplate = _emailController.GetEmailTemplate(EmailTemplateForm.AdminNotificationAccountCreated, user);
             }
 
             foreach (IUserAccount userToNotify in gallerySettings.UsersToNotifyWhenAccountIsCreated)
@@ -1239,7 +784,7 @@ namespace GalleryServer.Web.Controller
                     MailAddress admin = new MailAddress(userToNotify.Email, userToNotify.UserName);
                     try
                     {
-                        EmailController.SendEmail(admin, emailTemplate.Subject, emailTemplate.Body, galleryId);
+                        _emailController.SendEmail(admin, emailTemplate.Subject, emailTemplate.Body, galleryId);
                     }
                     catch (WebException ex)
                     {
@@ -1261,7 +806,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="user">An instance of <see cref="IUserAccount"/> that represents the newly created account.</param>
         /// <param name="galleryId">The gallery ID. This specifies which gallery to use to look up configuration settings.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
-        private static void NotifyUserOfNewlyCreatedAccount(IUserAccount user, int galleryId)
+        private void NotifyUserOfNewlyCreatedAccount(IUserAccount user, int galleryId)
         {
             if (user == null)
                 throw new ArgumentNullException(nameof(user));
@@ -1273,65 +818,65 @@ namespace GalleryServer.Web.Controller
 
             if (enableEmailVerification)
             {
-                EmailController.SendNotificationEmail(user, EmailTemplateForm.UserNotificationAccountCreatedNeedsVerification);
+                _emailController.SendNotificationEmail(user, EmailTemplateForm.UserNotificationAccountCreatedNeedsVerification);
             }
             else if (requireAdminApproval)
             {
-                EmailController.SendNotificationEmail(user, EmailTemplateForm.UserNotificationAccountCreatedNeedsApproval);
+                _emailController.SendNotificationEmail(user, EmailTemplateForm.UserNotificationAccountCreatedNeedsApproval);
             }
             else
             {
-                EmailController.SendNotificationEmail(user, EmailTemplateForm.UserNotificationAccountCreated);
+                _emailController.SendNotificationEmail(user, EmailTemplateForm.UserNotificationAccountCreated);
             }
         }
 
-        /// <summary>
-        /// Throws an exception if the user cannot be deleted, such as when trying to delete his or her own account, or when deleting
-        /// the only account with admin permission.
-        /// </summary>
-        /// <param name="userName">Name of the user to delete.</param>
-        /// <param name="preventDeletingLoggedOnUser">If set to <c>true</c>, throw a <see cref="GallerySecurityException"/> if attempting
-        /// to delete the currently logged on user.</param>
-        /// <param name="preventDeletingLastAdminAccount">If set to <c>true</c> throw a <see cref="GallerySecurityException"/> if attempting
-        /// to delete the last user with <see cref="SecurityActions.AdministerSite" /> permission. When false, do not perform this check. It does not matter
-        /// whether the user to delete is actually an administrator.</param>
-        /// <exception cref="GallerySecurityException">Thrown when the user cannot be deleted because doing so violates one of the business rules.</exception>
-        private static async Task ValidateDeleteUser(string userName, bool preventDeletingLoggedOnUser, bool preventDeletingLastAdminAccount)
-        {
-            if (preventDeletingLoggedOnUser)
-            {
-                // Don't let user delete their own account.
-                if (userName.Equals(Utils.UserName, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new GallerySecurityException("You are not allowed to delete the account you are logged on as. If you want to delete this account, first log on as another user.");
-                }
-            }
+        ///// <summary>
+        ///// Throws an exception if the user cannot be deleted, such as when trying to delete his or her own account, or when deleting
+        ///// the only account with admin permission.
+        ///// </summary>
+        ///// <param name="userName">Name of the user to delete.</param>
+        ///// <param name="preventDeletingLoggedOnUser">If set to <c>true</c>, throw a <see cref="GallerySecurityException"/> if attempting
+        ///// to delete the currently logged on user.</param>
+        ///// <param name="preventDeletingLastAdminAccount">If set to <c>true</c> throw a <see cref="GallerySecurityException"/> if attempting
+        ///// to delete the last user with <see cref="SecurityActions.AdministerSite" /> permission. When false, do not perform this check. It does not matter
+        ///// whether the user to delete is actually an administrator.</param>
+        ///// <exception cref="GallerySecurityException">Thrown when the user cannot be deleted because doing so violates one of the business rules.</exception>
+        //private async Task ValidateDeleteUser(string userName, bool preventDeletingLoggedOnUser, bool preventDeletingLastAdminAccount)
+        //{
+        //    if (preventDeletingLoggedOnUser)
+        //    {
+        //        // Don't let user delete their own account.
+        //        if (userName.Equals(UserName, StringComparison.OrdinalIgnoreCase))
+        //        {
+        //            throw new GallerySecurityException("You are not allowed to delete the account you are logged on as. If you want to delete this account, first log on as another user.");
+        //        }
+        //    }
 
-            if (preventDeletingLastAdminAccount)
-            {
-                if (!await DoesAtLeastOneOtherSiteAdminExist(userName))
-                {
-                    if (!await DoesAtLeastOneOtherGalleryAdminExist(userName))
-                    {
-                        throw new GallerySecurityException("You are attempting to delete the only user with permission to administer a gallery or site. If you want to delete this account, first assign another account to a role with administrative permission.");
-                    }
-                }
-            }
+        //    if (preventDeletingLastAdminAccount)
+        //    {
+        //        if (!await DoesAtLeastOneOtherSiteAdminExist(userName))
+        //        {
+        //            if (!await DoesAtLeastOneOtherGalleryAdminExist(userName))
+        //            {
+        //                throw new GallerySecurityException("You are attempting to delete the only user with permission to administer a gallery or site. If you want to delete this account, first assign another account to a role with administrative permission.");
+        //            }
+        //        }
+        //    }
 
-            // User can delete account only if he is a site admin or a gallery admin in every gallery this user can access.
-            IGalleryCollection adminGalleries = await GetGalleriesCurrentUserCanAdminister();
+        //    // User can delete account only if he is a site admin or a gallery admin in every gallery this user can access.
+        //    IGalleryCollection adminGalleries = await GetGalleriesCurrentUserCanAdminister();
 
-            if (adminGalleries.Count > 0) // Only continue when user is an admin for at least one gallery. This allows regular users to delete their own account.
-            {
-                foreach (IGallery gallery in await GetGalleriesForUser(userName))
-                {
-                    if (!adminGalleries.Contains(gallery))
-                    {
-                        throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "The user '{0}' has access to a gallery (Gallery ID = {1}) that you are not an administrator for. To delete a user, one of the following must be true: (1) you are a site administrator, or (2) you are a gallery administrator in every gallery the user has access to.", userName, gallery.GalleryId));
-                    }
-                }
-            }
-        }
+        //    if (adminGalleries.Count > 0) // Only continue when user is an admin for at least one gallery. This allows regular users to delete their own account.
+        //    {
+        //        foreach (IGallery gallery in await GetGalleriesForUser(userName))
+        //        {
+        //            if (!adminGalleries.Contains(gallery))
+        //            {
+        //                throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "The user '{0}' has access to a gallery (Gallery ID = {1}) that you are not an administrator for. To delete a user, one of the following must be true: (1) you are a site administrator, or (2) you are a gallery administrator in every gallery the user has access to.", userName, gallery.GalleryId));
+        //            }
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// If user is a gallery admin, verify at least one other user is a gallery admin for each gallery. If user is not a gallery 
@@ -1341,11 +886,11 @@ namespace GalleryServer.Web.Controller
         /// <param name="userName">Name of the user.</param>
         /// <returns><c>true</c> if at least one user besides <paramref name="userName" /> is a gallery admin for each gallery;
         /// otherwise <c>false</c>.</returns>
-        private static async Task<bool> DoesAtLeastOneOtherGalleryAdminExist(string userName)
+        private async Task<bool> DoesAtLeastOneOtherGalleryAdminExist(string userName)
         {
             bool atLeastOneOtherAdminExists = false;
 
-            IGalleryCollection galleriesUserCanAdminister = await UserController.GetGalleriesUserCanAdminister(userName);
+            IGalleryCollection galleriesUserCanAdminister = await GetGalleriesUserCanAdminister(userName);
 
             if (galleriesUserCanAdminister.Count == 0)
             {
@@ -1357,10 +902,10 @@ namespace GalleryServer.Web.Controller
             foreach (IGallery gallery in galleriesUserCanAdminister)
             {
                 // Get all the roles that have gallery admin permission to this gallery
-                foreach (IGalleryServerRole role in RoleController.GetGalleryServerRolesForGallery(gallery).GetRolesWithGalleryAdminPermission())
+                foreach (IGalleryServerRole role in _roleController.GetGalleryServerRolesForGallery(gallery).GetRolesWithGalleryAdminPermission())
                 {
                     // Make sure at least one user besides the user specified in userName is in these roles.
-                    foreach (var userNameInRole in await RoleController.GetUsersInRole(role.RoleName))
+                    foreach (var userNameInRole in await GetUsersInRole(role.RoleName))
                     {
                         if (!userNameInRole.UserName.Equals(userName, StringComparison.OrdinalIgnoreCase))
                         {
@@ -1385,16 +930,16 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="userName">A user name.</param>
         /// <returns><c>true</c> if at least one other user beside <paramref name="userName" /> is a site administrator; otherwise <c>false</c>.</returns>
-        private static async Task<bool> DoesAtLeastOneOtherSiteAdminExist(string userName)
+        private async Task<bool> DoesAtLeastOneOtherSiteAdminExist(string userName)
         {
             bool atLeastOneOtherAdminExists = false;
 
-            foreach (IGalleryServerRole role in RoleController.GetGalleryServerRoles())
+            foreach (IGalleryServerRole role in _roleController.GetGalleryServerRoles())
             {
                 if (!role.AllowAdministerSite)
                     continue;
 
-                foreach (var userInAdminRole in await RoleController.GetUsersInRole(role.RoleName))
+                foreach (var userInAdminRole in await GetUsersInRole(role.RoleName))
                 {
                     if (!userInAdminRole.UserName.Equals(userName, StringComparison.OrdinalIgnoreCase))
                     {
@@ -1406,13 +951,13 @@ namespace GalleryServer.Web.Controller
             return atLeastOneOtherAdminExists;
         }
 
-        private static void DeleteUserAlbum(string userName, int galleryId)
-        {
-            IAlbum album = GetUserAlbum(userName, galleryId);
+        //private void DeleteUserAlbum(string userName, int galleryId)
+        //{
+        //    IAlbum album = GetUserAlbum(userName, galleryId);
 
-            if (album != null)
-                AlbumController.DeleteAlbum(album);
-        }
+        //    if (album != null)
+        //        AlbumController.DeleteAlbum(album);
+        //}
 
         /// <summary>
         /// Remove the user from any roles. If a role is an ownership role, then delete it if the user is the only member.
@@ -1422,16 +967,16 @@ namespace GalleryServer.Web.Controller
         /// <remarks>The user will be specified as an owner only for those albums that belong in ownership roles, so
         /// to find all albums the user owns, we need only to loop through the user's roles and inspect the ones
         /// where the names begin with the album owner role name prefix variable.</remarks>
-        private static async Task UpdateRolesAndOwnershipBeforeDeletingUser(string userName)
+        private async Task UpdateRolesAndOwnershipBeforeDeletingUser(string userName)
         {
             List<string> rolesToDelete = new List<string>();
 
-            var userRoles = await RoleController.GetRolesForUser(userName);
+            var userRoles = await GetRolesAsync(userName);
             foreach (var roleName in userRoles)
             {
-                if (RoleController.IsRoleAnAlbumOwnerRole(roleName))
+                if (_roleController.IsRoleAnAlbumOwnerRole(roleName))
                 {
-                    if (!(await RoleController.GetUsersInRole(roleName)).Any())
+                    if (!(await GetUsersInRole(roleName)).Any())
                     {
                         // The user we are deleting is the only user in the owner role. Mark for deletion.
                         rolesToDelete.Add(roleName);
@@ -1443,142 +988,22 @@ namespace GalleryServer.Web.Controller
             {
                 foreach (string role in userRoles)
                 {
-                    RoleController.RemoveUserFromRole(userName, role);
+                    _roleController.RemoveUserFromRole(userName, role);
                 }
             }
 
             foreach (string roleName in rolesToDelete)
             {
-                RoleController.DeleteGalleryServerProRole(roleName);
+                _roleController.DeleteGalleryServerProRole(roleName);
             }
         }
 
-        /// <summary>
-        /// Updates the properties of the <see cref="IUserAccount" /> corresponding to the specified entity with the properties
-        /// of the entity. The changes are not persisted to the data store. Returns null if no existing user has a username
-        /// matching <see cref="Entity.User.UserName" />.
-        /// </summary>
-        /// <param name="userEntity">The user entity.</param>
-        /// <returns>An instance of <see cref="IUserAccount" />, or null.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="userEntity" /> is null.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when one or more properties of <paramref name="userEntity" />
-        /// has an unexpected value.</exception>
-        private static IUserAccount ToUserAccount(Entity.User userEntity)
-        {
-            if (userEntity == null)
-                throw new ArgumentNullException(nameof(userEntity));
-
-            if (!userEntity.IsApproved.HasValue)
-                throw new ArgumentOutOfRangeException(nameof(userEntity), "The IsApproved property of the userEntity parameter was null.");
-
-            if (!userEntity.IsLockedOut.HasValue)
-                throw new ArgumentOutOfRangeException(nameof(userEntity), "The IsLockedOut property of the userEntity parameter was null.");
-
-            var user = GetUser(userEntity.UserName, false);
-
-            if (user == null)
-                return null;
-
-            user.Comment = userEntity.Comment;
-            user.Email = userEntity.Email;
-            user.IsApproved = userEntity.IsApproved.Value;
-            user.IsLockedOut = userEntity.IsLockedOut.Value;
-
-            if (MembershipGsp.GetType().ToString() == GlobalConstants.ActiveDirectoryMembershipProviderName)
-            {
-                // The AD provider will throw an ArgumentException during the UpdateUser method if the comment is empty,
-                // so add a single space if necessary.
-                if (String.IsNullOrEmpty(user.Comment))
-                    user.Comment = " ";
-            }
-
-            return user;
-        }
-
-        private static IUserAccount ToUserAccount(MembershipUser u)
+        private static IUserAccount ToUserAccount(GalleryUser u)
         {
             if (u == null)
                 return null;
 
-            if (MembershipGsp.GetType().ToString() == GlobalConstants.ActiveDirectoryMembershipProviderName)
-            {
-                // The AD provider does not support a few properties so substitute default values for them.
-                return new UserAccount(u.Comment, u.CreationDate, u.Email, u.IsApproved, u.IsLockedOut, false,
-                                       DateTime.MinValue, u.LastLockoutDate, DateTime.MinValue, u.LastPasswordChangedDate,
-                                       u.PasswordQuestion, u.ProviderName, u.ProviderUserKey, u.UserName, false, String.Empty, String.Empty, String.Empty);
-            }
-            else
-            {
-                return new UserAccount(u.Comment, u.CreationDate, u.Email, u.IsApproved, u.IsLockedOut, u.IsOnline,
-                                       u.LastActivityDate, u.LastLockoutDate, u.LastLoginDate, u.LastPasswordChangedDate,
-                                       u.PasswordQuestion, u.ProviderName, u.ProviderUserKey, u.UserName, false, String.Empty, String.Empty, String.Empty);
-            }
-        }
-
-        private static void UpdateMembershipUser(MembershipUser userInDb, IUserAccount source)
-        {
-            if (userInDb == null)
-                throw new ArgumentNullException("userToUpdate");
-
-            if (source == null)
-                throw new ArgumentNullException(nameof(source));
-
-            userInDb.Comment = source.Comment;
-            userInDb.Email = source.Email;
-            userInDb.IsApproved = source.IsApproved;
-        }
-
-        //private static MembershipUser ToMembershipUser(IUserAccount u)
-        //{
-        //	if (String.IsNullOrEmpty(u.UserName))
-        //	{
-        //		throw new ArgumentException("IUserAccount.UserName cannot be empty.");
-        //	}
-
-        //	MembershipUser user = MembershipGsp.GetUser(u.UserName, false);
-
-        //	if (user != null)
-        //	{
-        //		user.Comment = u.Comment;
-        //		user.Email = u.Email;
-        //		user.IsApproved = u.IsApproved;
-        //	}
-
-        //	return user;
-        //}
-
-        /// <summary>
-        /// Updates information about a user in the data source, including unlocking the user if requested. No action is taken if
-        /// an existing user in the data store is not found.
-        /// </summary>
-        /// <param name="userToSave">A <see cref="IUserAccount"/> object that represents the user to update and the updated information for the user.</param>
-        private static void UpdateUser(IUserAccount userToSave)
-        {
-            var userInDb = MembershipGsp.GetUser(userToSave.UserName, false);
-
-            if (userInDb == null)
-                return;
-
-            if (HasUserBeenModified(userToSave, userInDb))
-            {
-                bool userIsBeingApproved = !userInDb.IsApproved && userToSave.IsApproved;
-
-                if (userInDb.IsLockedOut && !userToSave.IsLockedOut)
-                {
-                    // A request is being made to unlock the user.
-                    UnlockUser(userToSave.UserName);
-                }
-
-                UpdateMembershipUser(userInDb, userToSave);
-
-                MembershipGsp.UpdateUser(userInDb);
-
-                if (userIsBeingApproved)
-                {
-                    // Administrator is approving user. Send notification e-mail to user.
-                    EmailController.SendNotificationEmail(userToSave, EmailTemplateForm.UserNotificationAccountCreatedApprovalGiven);
-                }
-            }
+            return new UserAccount(null, DateTime.MinValue, u.Email, true, false, false, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, null, null, null, u.UserName, false, string.Empty, string.Empty, string.Empty);
         }
 
         /// <summary>
@@ -1590,9 +1015,9 @@ namespace GalleryServer.Web.Controller
         /// <param name="roles">The roles to associate with the user.</param>
         /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
         /// <exception cref="InvalidUserException">Thrown when the e-mail address is not valid.</exception>
-        private static async Task ValidateSaveUser(IUserAccount userToSave, string[] roles)
+        private async Task ValidateSaveUser(IUserAccount userToSave, string[] roles)
         {
-            if (AppSetting.Instance.InstallationRequested && (GalleryController.GetAdminUserFromInstallTextFile().UserName == userToSave.UserName))
+            if (AppSetting.Instance.InstallationRequested && (GetAdminUserFromInstallTextFile().UserName == userToSave.UserName))
             {
                 // We are creating the user specified in install.txt. Don't continue validation because it will fail 
                 // if no one is logged in to the gallery or the logged on user doesn't have permission to create/edit a user.
@@ -1606,7 +1031,7 @@ namespace GalleryServer.Web.Controller
                 throw new GallerySecurityException("You must be a gallery or site administrator to save changes to this user.");
             }
 
-            if (userToSave.UserName.Equals(Utils.UserName, StringComparison.OrdinalIgnoreCase))
+            if (userToSave.UserName.Equals(UserName, StringComparison.OrdinalIgnoreCase))
             {
                 ValidateUserCanSaveOwnAccount(userToSave, roles);
             }
@@ -1617,36 +1042,12 @@ namespace GalleryServer.Web.Controller
         }
 
         /// <summary>
-        /// Gets a value indicating whether the <paramref name="userToSave" /> is different than the data store's version of 
-        /// the user passed in via <paramref name="userInDb" />.
-        /// </summary>
-        /// <param name="userToSave">The user to persist to the membership provider.</param>
-        /// <param name="userInDb">The membership user as it exists in the data store.</param>
-        /// <returns>A bool indicating whether the <paramref name="userToSave" /> is different than the one stored in the
-        /// membership provider.</returns>
-        private static bool HasUserBeenModified(IUserAccount userToSave, MembershipUser userInDb)
-        {
-            if (userToSave == null)
-                throw new ArgumentNullException(nameof(userToSave));
-
-            if (userInDb == null)
-                throw new ArgumentNullException(nameof(userInDb));
-
-            bool commentEqual = ((String.IsNullOrWhiteSpace(userToSave.Comment) && String.IsNullOrWhiteSpace(userInDb.Comment)) || userToSave.Comment == userInDb.Comment);
-            bool emailEqual = ((String.IsNullOrWhiteSpace(userToSave.Email) && String.IsNullOrWhiteSpace(userInDb.Email)) || userToSave.Email == userInDb.Email);
-            bool isApprovedEqual = (userToSave.IsApproved == userInDb.IsApproved);
-            bool isLockEqual = (userToSave.IsLockedOut == userInDb.IsLockedOut);
-
-            return (!(commentEqual && emailEqual && isApprovedEqual && isLockEqual));
-        }
-
-        /// <summary>
         /// Validates the user can save his own account. Throws a <see cref="GallerySecurityException" /> when the action is not allowed.
         /// </summary>
         /// <param name="userToSave">The user to save.</param>
         /// <param name="roles">The roles to associate with the user.</param>
         /// <exception cref="GallerySecurityException">Thrown when the user cannot be saved because doing so would violate a business rule.</exception>
-        private static async Task ValidateUserCanSaveOwnAccount(IUserAccount userToSave, IEnumerable<string> roles)
+        private async Task ValidateUserCanSaveOwnAccount(IUserAccount userToSave, IEnumerable<string> roles)
         {
             // This function should be called only when the logged on person is updating their own account. They are not allowed to 
             // revoke approval and they must remain in at least one role that has Administer Site or Administer Gallery permission.
@@ -1655,7 +1056,7 @@ namespace GalleryServer.Web.Controller
                 throw new GallerySecurityException("Cannot revoke approval. You are editing the user account you are logged on as, and are trying to revoke approval, which would disable this account. You must log on as another user to revoke approval for this account.");
             }
 
-            if (!(await RoleController.GetGalleryServerRoles(roles)).Any(role => role.AllowAdministerSite || role.AllowAdministerGallery))
+            if (!(await _roleController.GetGalleryServerRoles(roles)).Any(role => role.AllowAdministerSite || role.AllowAdministerGallery))
             {
                 throw new GallerySecurityException("Cannot remove requested roles. You are editing the user account you are logged on as, and you are attempting to remove your ability to administer this gallery. If you really want to do this, log on as another user and make the changes from that account.");
             }
@@ -1669,7 +1070,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="rolesToAdd">The roles to be associated with the user. Must not be null. The roles should not already be assigned to the
         /// user, although no harm is done if they are.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="userToSave" /> or <paramref name="rolesToAdd" /> is null.</exception>
-        private static async Task VerifyGalleryAdminIsNotUpdatingUserWithAdminSitePermission(IUserAccount userToSave, IEnumerable<string> rolesToAdd)
+        private async Task VerifyGalleryAdminIsNotUpdatingUserWithAdminSitePermission(IUserAccount userToSave, IEnumerable<string> rolesToAdd)
         {
             if (userToSave == null)
                 throw new ArgumentNullException(nameof(userToSave));
@@ -1677,7 +1078,7 @@ namespace GalleryServer.Web.Controller
             if (rolesToAdd == null)
                 throw new ArgumentNullException(nameof(rolesToAdd));
 
-            IGalleryServerRoleCollection rolesAssignedOrBeingAssignedToUser = (await RoleController.GetGalleryServerRolesForUser(userToSave.UserName)).Copy();
+            IGalleryServerRoleCollection rolesAssignedOrBeingAssignedToUser = (await _roleController.GetGalleryServerRolesForUser(userToSave.UserName)).Copy();
 
             foreach (string roleToAdd in rolesToAdd)
             {
@@ -1710,7 +1111,7 @@ namespace GalleryServer.Web.Controller
         /// user, although no harm is done if they are.</param>
         /// <param name="rolesToRemove">The roles to remove from user.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="rolesToAdd" /> or <paramref name="rolesToRemove" /> is null.</exception>
-        private static async Task VerifyGalleryAdminCanAddOrRemoveRolesForUser(IEnumerable<string> rolesToAdd, IEnumerable<string> rolesToRemove)
+        private async Task VerifyGalleryAdminCanAddOrRemoveRolesForUser(IEnumerable<string> rolesToAdd, IEnumerable<string> rolesToRemove)
         {
             if (rolesToAdd == null)
                 throw new ArgumentNullException(nameof(rolesToAdd));
@@ -1718,7 +1119,7 @@ namespace GalleryServer.Web.Controller
             if (rolesToRemove == null)
                 throw new ArgumentNullException(nameof(rolesToRemove));
 
-            IGalleryCollection adminGalleries = await UserController.GetGalleriesCurrentUserCanAdminister();
+            IGalleryCollection adminGalleries = await GetGalleriesCurrentUserCanAdminister();
 
             List<string> rolesBeingAddedOrRemoved = new List<string>(rolesToAdd);
             rolesBeingAddedOrRemoved.AddRange(rolesToRemove);
@@ -1748,22 +1149,22 @@ namespace GalleryServer.Web.Controller
         /// <param name="userIsSiteAdmin">If set to <c>true</c>, the currently logged on user is a site administrator.</param>
         /// <param name="userIsGalleryAdmin">If set to <c>true</c>, the currently logged on user is a gallery administrator for the current gallery.</param>
         /// <returns>Returns an <see cref="IUserAccountCollection"/> containing a list of roles the user has permission to view.</returns>
-        private static async Task<IUserAccountCollection> DetermineUsersCurrentUserCanView(bool userIsSiteAdmin, bool userIsGalleryAdmin)
+        private async Task<IUserAccountCollection> DetermineUsersCurrentUserCanView(bool userIsSiteAdmin, bool userIsGalleryAdmin)
         {
             if (userIsSiteAdmin || (userIsGalleryAdmin && AppSetting.Instance.AllowGalleryAdminToViewAllUsersAndRoles))
             {
-                return UserController.GetAllUsers();
+                return GetAllUsers();
             }
 
             // Filter the accounts so that only users in galleries where
             // the current user is a gallery admin are shown.
-            IGalleryCollection adminGalleries = await UserController.GetGalleriesCurrentUserCanAdminister();
+            IGalleryCollection adminGalleries = await GetGalleriesCurrentUserCanAdminister();
 
             IUserAccountCollection users = new UserAccountCollection();
 
-            foreach (IUserAccount user in UserController.GetAllUsers())
+            foreach (IUserAccount user in GetAllUsers())
             {
-                foreach (IGalleryServerRole role in await RoleController.GetGalleryServerRolesForUser(user.UserName))
+                foreach (IGalleryServerRole role in await _roleController.GetGalleryServerRolesForUser(user.UserName))
                 {
                     bool userHasBeenAdded = false;
                     foreach (IGallery gallery in role.Galleries)
@@ -1782,9 +1183,9 @@ namespace GalleryServer.Web.Controller
             return users;
         }
 
-        private static string GetCacheKeyNameForUsersCurrentUserCanView(string userName)
+        private string GetCacheKeyNameForUsersCurrentUserCanView(string userName)
         {
-            return String.Concat(Data.DiHelper.HttpContext.Session.Id, "_", userName, "_Users");
+            return String.Concat(_httpContextAccessor.HttpContext.Session.Id, "_", userName, "_Users");
         }
 
         /// <summary>
@@ -1798,112 +1199,27 @@ namespace GalleryServer.Web.Controller
         /// <param name="user">The user to evaluate.</param>
         /// <returns><c>true</c> if the user has permission to view and edit the specified user; otherwise <c>false</c>.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
-        private static async Task<bool> UserCanViewAndEditUser(IUserAccount user)
+        private async Task<bool> UserCanViewAndEditUser(IUserAccount user)
         {
             if (user == null)
                 throw new ArgumentNullException(nameof(user));
 
-            if (await Utils.IsCurrentUserSiteAdministrator())
+            if (await _roleController.IsCurrentUserSiteAdministrator())
             {
                 return true;
             }
 
-            if (Utils.UserName.Equals(user.UserName, StringComparison.OrdinalIgnoreCase))
+            if (UserName.Equals(user.UserName, StringComparison.OrdinalIgnoreCase))
             {
                 return true; // User can edit their own account
             }
 
             // Return true if any of the galleries the current user can administer is also one of the galleries the specified
             // user is associated with.
-            var galleriesCurUserCanAdmin = await GalleryController.GetGalleriesCurrentUserCanAdminister();
-            var userIsInGalleryCurrentUserHasAdminRightsFor = (await RoleController.GetGalleryServerRolesForUser()).Any(r => r.Galleries.Any(galleriesCurUserCanAdmin.Contains));
+            var galleriesCurUserCanAdmin = await GetGalleriesCurrentUserCanAdminister();
+            var userIsInGalleryCurrentUserHasAdminRightsFor = (await _roleController.GetGalleryServerRolesForUser()).Any(r => r.Galleries.Any(galleriesCurUserCanAdmin.Contains));
 
-            return userIsInGalleryCurrentUserHasAdminRightsFor || (AppSetting.Instance.AllowGalleryAdminToViewAllUsersAndRoles && (await GalleryController.GetGalleriesCurrentUserCanAdminister()).Any());
-        }
-
-        private static void SaveProfileProperties(Entity.User user)
-        {
-            if (!user.GalleryId.HasValue || user.GalleryId == int.MinValue)
-                return;
-
-            var gallerySetting = Factory.LoadGallerySetting(user.GalleryId.Value);
-
-            if (!gallerySetting.EnableUserAlbum)
-                return; // User albums are disabled system-wide, so there is nothing to save.
-
-            // Get reference to user's album. We need to do this *before* saving the profile, because if the admin disabled the user album,
-            // this method will return null after saving the profile.
-            var album = UserController.GetUserAlbum(user.UserName, user.GalleryId.Value);
-
-            var userProfile = ProfileController.GetProfile(user.UserName);
-            var profile = userProfile.GetGalleryProfile(user.GalleryId.Value);
-
-            profile.EnableUserAlbum = user.EnableUserAlbum.GetValueOrDefault();
-
-            if (!profile.EnableUserAlbum)
-            {
-                profile.UserAlbumId = 0;
-            }
-
-            ProfileController.SaveProfile(userProfile);
-
-            if (!profile.EnableUserAlbum)
-            {
-                AlbumController.DeleteAlbum(album);
-            }
-        }
-
-        /// <summary>
-        /// Check the <paramref name="user" /> for requests to reset or change the password and execute if found. An email notification
-        /// is sent if requested.
-        /// </summary>
-        /// <param name="user">The user.</param>
-        /// <param name="newPassword">The new password.</param>
-        /// <exception cref="System.ArgumentOutOfRangeException">Thrown if the GalleryId property of the user parameter is null.</exception>
-        private static void HandlePasswordUpdateRequest(Entity.User user, out string newPassword)
-        {
-            if (!user.GalleryId.HasValue)
-                throw new ArgumentOutOfRangeException(nameof(user), "The GalleryId property of the user parameter was null.");
-
-            var pwdChange = user.PasswordChangeRequested.GetValueOrDefault();
-            var pwdReset = user.PasswordResetRequested.GetValueOrDefault();
-
-            if (pwdChange)
-            {
-                ChangePassword(user.UserName, GetPassword(user.UserName), user.Password);
-            }
-
-            newPassword = (pwdReset ? ResetPassword(user.UserName) : null);
-
-            if ((pwdChange || pwdReset) && user.NotifyUserOnPasswordChange.GetValueOrDefault())
-            {
-                EmailController.SendNotificationEmail(user.UserName, user.Email, EmailTemplateForm.UserNotificationPasswordChangedByAdmin, false);
-            }
-        }
-
-        /// <summary>
-        /// Resets a user's password to a new, automatically generated password.
-        /// </summary>
-        /// <param name="userName">The user to reset the password for.</param>
-        /// <param name="userNameIsHtmlEncoded">if set to <c>true</c>, the user name is HTML encoded.</param>
-        /// <returns>The new password for the specified user.</returns>
-        private static string ResetPasswordInternal(string userName, bool userNameIsHtmlEncoded = false)
-        {
-            try
-            {
-                return MembershipGsp.ResetPassword(userName, null);
-            }
-            catch (NullReferenceException)
-            {
-                // In some cases DNN stores a HTML-encoded version of the username, so if we get a NullReferenceException, try again with an HTML-encoded
-                // version. This isn't really needed in the stand-alone version but it doesn't hurt and helps keep the code the same.
-                if (!userNameIsHtmlEncoded)
-                {
-                    return ResetPasswordInternal(Utils.HtmlEncode(userName), true);
-                }
-                else
-                    throw;
-            }
+            return userIsInGalleryCurrentUserHasAdminRightsFor || (AppSetting.Instance.AllowGalleryAdminToViewAllUsersAndRoles && (await GetGalleriesCurrentUserCanAdminister()).Any());
         }
 
         /// <summary>
@@ -1912,7 +1228,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="user">The user to validate.</param>
         /// <exception cref="InvalidUserException">Thrown when the e-mail address is not valid.</exception>
-        private static void ValidateEmail(IUserAccount user)
+        private void ValidateEmail(IUserAccount user)
         {
             if (user == null)
                 throw new ArgumentNullException(nameof(user));
@@ -1923,160 +1239,48 @@ namespace GalleryServer.Web.Controller
             }
         }
 
-        ///// <summary>
-        ///// Checks the URL for a user login request. Returns <c>true</c> if one is present, the requested user is not
-        ///// currently logged in, the user exists in the membership database, and the user is listed as an authorized
-        ///// auto-logon account in web.config. The requested user is assigned to the <paramref name="username" /> parameter.
-        ///// </summary>
-        ///// <param name="context">The HTTP context.</param>
-        ///// <param name="username">The username associated with the 'user' query string parameter in the URL. Assigned
-        ///// to an empty string if query string parameter is not present.</param>
-        ///// <returns><c>true</c> if the user is authorized to be auto-logged on, <c>false</c> otherwise.</returns>
-        //private static bool ValidateAutoLogonUserRequest(System.Web.HttpContext context, out string username)
-        //{
-        //    username = Utils.GetQueryStringParameterString("user");
-
-        //    if (String.IsNullOrWhiteSpace(username))
-        //        return false;
-
-        //    var user = context.User;
-
-        //    if (user == null || !Utils.ParseUserName(user.Identity.Name).Equals(username, StringComparison.InvariantCultureIgnoreCase))
-        //    {
-        //        var userAccount = UserController.GetUser(username, false);
-
-        //        if (userAccount != null)
-        //        {
-        //            // Found requested user account.
-        //            username = userAccount.UserName; // Update username to fix any case differences (e.g. 'joe' in query string vs 'Joe' as account name)
-
-        //            return ValidateAutoLogonUser(username);
-        //        }
-        //    }
-
-        //    return false;
-        //}
-
-        ///// <summary>
-        ///// Verifies that the <paramref name="username" /> is listed as one of the authorized auto-logon accounts in web.config.
-        ///// </summary>
-        ///// <param name="username">The user name.</param>
-        ///// <returns><c>true</c> if the user is listed in web.config, <c>false</c> otherwise.</returns>
-        //private static bool ValidateAutoLogonUser(string username)
-        //{
-        //    // web.config setting contains comma-separated list of allowed user names. If it contains * (wildcard), then all users are 
-        //    // allowed except for those with a preceding hyphen.
-        //    // Ex: "Demo,Viewer" Only user Demo and Viewer allowed to auto-login
-        //    // Ex: "*,-Admin" All users allowed except for Admin
-        //    var autoLoginUsersStr = System.Web.Configuration.WebConfigurationManager.AppSettings["GalleryServerAutoLogonUsers"];
-
-        //    if (String.IsNullOrWhiteSpace(autoLoginUsersStr))
-        //        return false;
-
-        //    var autoLoginUsers = autoLoginUsersStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(p => p.Trim()).ToList();
-
-        //    var allowedUsers = new List<string>();
-        //    var disallowedUsers = new List<string>();
-        //    var allUsersWildcardFound = false;
-
-        //    foreach (var autoLoginUser in autoLoginUsers)
-        //    {
-        //        if (autoLoginUser.StartsWith("-"))
-        //        {
-        //            disallowedUsers.Add(autoLoginUser.Substring(1));
-        //        }
-        //        else if (autoLoginUser == "*")
-        //        {
-        //            allUsersWildcardFound = true;
-        //        }
-        //        else
-        //        {
-        //            allowedUsers.Add(autoLoginUser);
-        //        }
-        //    }
-
-        //    // If wildcard present, allow any user unless it is disallowed.
-        //    if (allUsersWildcardFound)
-        //    {
-        //        return !disallowedUsers.Contains(username);
-        //    }
-
-        //    // If no wildcard, allow user only if specified
-        //    return allowedUsers.Contains(username);
-        //}
-
         #endregion
-    }
 
-    public class MembershipUser
-    {
-        public string Comment { get; set; }
-        public DateTime CreationDate { get; set; }
-        public string Email { get; set; }
-        public bool IsApproved { get; set; }
-        public bool IsLockedOut { get; set; }
-        public DateTime LastLockoutDate { get; set; }
-        public DateTime LastPasswordChangedDate { get; set; }
-        public string PasswordQuestion { get; set; }
-        public string ProviderName { get; set; }
-        public object ProviderUserKey { get; set; }
-        public string UserName { get; set; }
-        public bool IsOnline { get; set; }
-        public DateTime LastLoginDate { get; set; }
-        public DateTime LastActivityDate { get; set; }
-    }
-
-    internal class MembershipProvider
-    {
-        public bool RequiresQuestionAndAnswer { get; set; }
-        public bool EnablePasswordReset { get; set; }
-        public bool EnablePasswordRetrieval { get; set; }
-        public int MinRequiredPasswordLength { get; set; }
-        public int MinRequiredNonAlphanumericCharacters { get; set; }
-
-        public IEnumerable<MembershipUser> GetAllUsers(int i, int i1, out int totalRecords)
+        public Task<bool> RoleExists(string roleName)
         {
-            throw new NotImplementedException();
+            return _roleController.RoleExists(roleName);
         }
 
-        public MembershipUser GetUser(string userName, bool userIsOnline)
+        public Task AddUserToRole(string userName, string roleName)
         {
-            throw new NotImplementedException();
+            return _roleController.AddUserToRole(userName, roleName);
         }
 
-        public string GetPassword(string userName, string answer)
+        public Task RemoveUserFromRole(GalleryUser user, string roleName)
         {
-            throw new NotImplementedException();
+            return _roleController.RemoveUserFromRole(user, roleName);
         }
 
-        public bool ChangePassword(string userName, string oldPassword, string newPassword)
+        /// <summary>
+        /// Retrieve Gallery Server roles, optionally excluding roles that were programmatically
+        /// created to assist with the album ownership and user album functions. Excluding the owner roles may be useful
+        /// in reducing the clutter when an administrator is viewing the list of roles, as it hides those not specifically created
+        /// by the administrator. The roles may be returned from a cache.
+        /// </summary>
+        /// <param name="includeOwnerRoles">If set to <c>true</c> include all roles that serve as an album owner role.
+        /// When <c>false</c>, exclude owner roles from the result set.</param>
+        /// <returns>
+        /// Returns the Gallery Server roles, optionally excluding owner roles.
+        /// </returns>
+        public IGalleryServerRoleCollection GetGalleryServerRoles()
         {
-            throw new NotImplementedException();
+            return _roleController.GetGalleryServerRoles();
         }
 
-        public bool UnlockUser(string userName)
+        /// <summary>
+        /// Delete the specified role. Both components of the role are deleted: the IGalleryServerRole and ASP.NET role.
+        /// </summary>
+        /// <param name="roleName">Name of the role. Must match an existing <see cref="IGalleryServerRole.RoleName"/>. If no match
+        /// if found, no action is taken.</param>
+        /// <exception cref="GallerySecurityException">Thrown when the role cannot be deleted because doing so violates one of the business rules.</exception>
+        public void DeleteGalleryServerProRole(string roleName)
         {
-            throw new NotImplementedException();
-        }
-
-        public bool DeleteUser(string userName, bool deleteAllRelatedData)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void UpdateUser(MembershipUser userInDb)
-        {
-            throw new NotImplementedException();
-        }
-
-        public string ResetPassword(string userName, string answer)
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool ValidateUser(string userUserName, string userPassword)
-        {
-            throw new NotImplementedException();
+            _roleController.DeleteGalleryServerProRole(roleName);
         }
     }
 }

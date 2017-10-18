@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
@@ -19,9 +20,22 @@ namespace GalleryServer.Web.Controller
     /// but when a task involves multiple steps or the functionality does not exist in the business layer, the methods here are
     /// used.
     /// </summary>
-    public static class AlbumController
+    public class AlbumController
     {
-        #region Public Static Methods
+        private readonly HtmlController _htmlController;
+        private readonly UrlController _urlController;
+        private readonly UserController _userController;
+        private readonly GalleryObjectController _galleryObjectController;
+
+        public AlbumController(HtmlController htmlController, UrlController urlController, UserController userController, GalleryObjectController galleryObjectController)
+        {
+            _htmlController = htmlController;
+            _urlController = urlController;
+            _userController = userController;
+            _galleryObjectController = galleryObjectController;
+        }
+
+        #region Public Methods
 
         /// <overloads>
         /// Generate an <see cref="IAlbum" /> instance.
@@ -37,7 +51,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>Returns an instance implementing <see cref="IAlbum" />.</returns>
         /// <exception cref="InvalidAlbumException">Thrown when an album with the specified <paramref name = "albumId" /> 
         /// is not found in the data store.</exception>
-        public static IAlbum LoadAlbumInstance(int albumId)
+        public IAlbum LoadAlbumInstance(int albumId)
         {
             return LoadAlbumInstance(new AlbumLoadOptions(albumId));
         }
@@ -51,7 +65,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>An instance implementing <see cref="IAlbum" />.</returns>
         /// <exception cref="InvalidAlbumException">Thrown when the <see cref="AlbumLoadOptions.AlbumId" /> property of <paramref name="options" />
         /// does not represent a valid album.</exception>
-        public static IAlbum LoadAlbumInstance(AlbumLoadOptions options)
+        public IAlbum LoadAlbumInstance(AlbumLoadOptions options)
         {
             IAlbum album = Factory.LoadAlbumInstance(options);
 
@@ -74,7 +88,7 @@ namespace GalleryServer.Web.Controller
         /// That is, returns null if <see cref="IGallerySettings.UserAlbumParentAlbumId" />
         /// does not match an existing album.
         /// </returns>
-        public static IAlbum CreateUserAlbum(string userName, int galleryId)
+        public async Task<IAlbum> CreateUserAlbum(string userName, int galleryId)
         {
             IGallerySettings gallerySetting = Factory.LoadGallerySetting(galleryId);
 
@@ -83,12 +97,12 @@ namespace GalleryServer.Web.Controller
             IAlbum parentAlbum;
             try
             {
-                parentAlbum = AlbumController.LoadAlbumInstance(gallerySetting.UserAlbumParentAlbumId);
+                parentAlbum = LoadAlbumInstance(gallerySetting.UserAlbumParentAlbumId);
             }
             catch (InvalidAlbumException ex)
             {
                 // The parent album does not exist. Record the error and return null.
-                string galleryDescription = Utils.HtmlEncode(Factory.LoadGallery(gallerySetting.GalleryId).Description);
+                string galleryDescription = _htmlController.HtmlEncode(Factory.LoadGallery(gallerySetting.GalleryId).Description);
                 string msg = $"User Album Parent Invalid: The gallery '{galleryDescription}' has an album ID specified ({gallerySetting.UserAlbumParentAlbumId}) as the user album container that does not match an existing album. Review this setting in the administration area.";
                 AppEventController.LogError(new WebException(msg, ex), galleryId);
                 return null;
@@ -102,7 +116,7 @@ namespace GalleryServer.Web.Controller
             //newAlbum.ThumbnailMediaObjectId = 0; // not needed
             album.Parent = parentAlbum;
             album.IsPrivate = parentAlbum.IsPrivate;
-            GalleryObjectController.SaveGalleryObject(album, userName);
+            await _galleryObjectController.SaveGalleryObject(album, userName);
 
             SaveAlbumIdToProfile(album.Id, userName, album.GalleryId);
 
@@ -115,13 +129,13 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="galleryId">The ID of the gallery.</param>
         /// <returns>Returns a reference to the highest level album the user has permission to add albums to.</returns>
-        public static async Task<IAlbum> GetHighestLevelAlbumWithCreatePermission(int galleryId)
+        public async Task<IAlbum> GetHighestLevelAlbumWithCreatePermission(int galleryId)
         {
             // Step 1: Loop through the roles and compile a list of album IDs where the role has create album permission.
             IGallery gallery = Factory.LoadGallery(galleryId);
             List<int> rootAlbumIdsWithCreatePermission = new List<int>();
 
-            foreach (IGalleryServerRole role in await RoleController.GetGalleryServerRolesForUser())
+            foreach (IGalleryServerRole role in await _userController.GetGalleryServerRolesForUser())
             {
                 if (role.Galleries.Contains(gallery))
                 {
@@ -141,7 +155,7 @@ namespace GalleryServer.Web.Controller
             List<int> albumIdsToRemove = new List<int>();
             foreach (int albumIdWithCreatePermission in rootAlbumIdsWithCreatePermission)
             {
-                IGalleryObject album = AlbumController.LoadAlbumInstance(albumIdWithCreatePermission);
+                IGalleryObject album = LoadAlbumInstance(albumIdWithCreatePermission);
 
                 if (album.GalleryId != galleryId)
                 {
@@ -188,7 +202,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>
         /// Returns a reference to the highest level album the user has permission to add albums and/or media objects to.
         /// </returns>
-        public static async Task<IAlbum> GetHighestLevelAlbumWithAddPermission(bool verifyAddAlbumPermissionExists, bool verifyAddMediaObjectPermissionExists, int galleryId)
+        public async Task<IAlbum> GetHighestLevelAlbumWithAddPermission(bool verifyAddAlbumPermissionExists, bool verifyAddMediaObjectPermissionExists, int galleryId)
         {
             // Step 1: Loop through the roles and compile a list of album IDs where the role has the required permission.
             // If the verifyAddAlbumPermissionExists parameter is true, then the user must have permission to add child albums.
@@ -197,7 +211,7 @@ namespace GalleryServer.Web.Controller
             IGallery gallery = Factory.LoadGallery(galleryId);
 
             List<int> rootAlbumIdsWithPermission = new List<int>();
-            foreach (IGalleryServerRole role in await RoleController.GetGalleryServerRolesForUser())
+            foreach (IGalleryServerRole role in await _userController.GetGalleryServerRolesForUser())
             {
                 if (role.Galleries.Contains(gallery))
                 {
@@ -221,7 +235,7 @@ namespace GalleryServer.Web.Controller
             List<int> albumIdsToRemove = new List<int>();
             foreach (int albumIdWithPermission in rootAlbumIdsWithPermission)
             {
-                IGalleryObject album = AlbumController.LoadAlbumInstance(albumIdWithPermission);
+                IGalleryObject album = LoadAlbumInstance(albumIdWithPermission);
 
                 if (album.GalleryId != galleryId)
                 {
@@ -263,12 +277,12 @@ namespace GalleryServer.Web.Controller
         /// <returns></returns>
         /// <exception cref="GallerySecurityException">Thrown when the 
         /// user does not have view permission to the specified album.</exception>
-        public static async Task<MetaItem[]> GetMetaItemsForAlbum(int id)
+        public async Task<MetaItem[]> GetMetaItemsForAlbum(int id)
         {
             IAlbum album = Factory.LoadAlbumInstance(id);
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await _userController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, _userController.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
 
-            return GalleryObjectController.ToMetaItems(album.MetadataItems.GetVisibleItems(), album);
+            return _galleryObjectController.ToMetaItems(album.MetadataItems.GetVisibleItems(), album);
         }
 
         /// <summary>
@@ -279,7 +293,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="options">The options.</param>
         /// <returns>An enumerable collection of <see cref="Entity.Album" /> instances.</returns>
         /// <exception cref="System.ArgumentNullException">Thrown when <paramref name="albums" /> is null.</exception>
-        public static async Task<Album[]> ToAlbumEntities(IList<IGalleryObject> albums, Entity.GalleryDataLoadOptions options)
+        public async Task<Album[]> ToAlbumEntities(IList<IGalleryObject> albums, Entity.GalleryDataLoadOptions options)
         {
             if (albums == null)
                 throw new ArgumentNullException(nameof(albums));
@@ -307,11 +321,11 @@ namespace GalleryServer.Web.Controller
         /// <overloads>
         /// Converts the <paramref name="album" /> to an instance of <see cref="Entity.Album" />.
         ///   </overloads>
-        public static async Task<Album> ToAlbumEntity(IAlbum album, Entity.GalleryDataLoadOptions options)
+        public async Task<Album> ToAlbumEntity(IAlbum album, Entity.GalleryDataLoadOptions options)
         {
             try
             {
-                return await ToAlbumEntity(album, await GetPermissionsEntity(album), options);
+                return ToAlbumEntity(album, await GetPermissionsEntity(album), options);
             }
             catch (InvalidAlbumException) { return null; }
             catch (GallerySecurityException) { return null; }
@@ -331,7 +345,7 @@ namespace GalleryServer.Web.Controller
         /// </returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="album" /> is null.</exception>
         /// <exception cref="System.ArgumentNullException"></exception>
-        public static async Task<Album> ToAlbumEntity(IAlbum album, Entity.Permissions perms, Entity.GalleryDataLoadOptions options)
+        public Album ToAlbumEntity(IAlbum album, Entity.Permissions perms, Entity.GalleryDataLoadOptions options)
         {
             if (album == null)
                 throw new ArgumentNullException(nameof(album));
@@ -349,12 +363,12 @@ namespace GalleryServer.Web.Controller
             albumEntity.VirtualType = album.VirtualAlbumType;
             //albumEntity.RssUrl = GetRssUrl(album);
             albumEntity.Permissions = perms;
-            albumEntity.MetaItems = GalleryObjectController.ToMetaItems(album.MetadataItems.GetVisibleItems(), album);
-            albumEntity.NumAlbums = album.GetChildGalleryObjects(GalleryObjectType.Album, !Utils.IsAuthenticated).Count;
+            albumEntity.MetaItems = _galleryObjectController.ToMetaItems(album.MetadataItems.GetVisibleItems(), album);
+            albumEntity.NumAlbums = album.GetChildGalleryObjects(GalleryObjectType.Album, !_userController.IsAuthenticated).Count;
             //albumEntity.BreadCrumbLinks = await GenerateBreadCrumbLinks(album);
 
             // Assign sorting fields from profile if present; otherwise use album sort settings.
-            var albumSortDef = ProfileController.GetProfile().AlbumProfiles.Find(album.Id);
+            var albumSortDef = ProfileController.GetProfile(_userController.UserName).AlbumProfiles.Find(album.Id);
             if (albumSortDef != null)
             {
                 albumEntity.SortById = albumSortDef.SortByMetaName;
@@ -373,31 +387,31 @@ namespace GalleryServer.Web.Controller
                 if (albumSortDef != null)
                 {
                     items = album
-                      .GetChildGalleryObjects(options.Filter, !Utils.IsAuthenticated)
+                      .GetChildGalleryObjects(options.Filter, !_userController.IsAuthenticated)
                       .ToSortedList(albumSortDef.SortByMetaName, albumSortDef.SortAscending, album.GalleryId);
                 }
                 else
                 {
                     if (album.IsVirtualAlbum)
                     {
-                        items = album.GetChildGalleryObjects(options.Filter, !Utils.IsAuthenticated).ToSortedList(album.SortByMetaName, album.SortAscending, album.GalleryId);
+                        items = album.GetChildGalleryObjects(options.Filter, !_userController.IsAuthenticated).ToSortedList(album.SortByMetaName, album.SortAscending, album.GalleryId);
                     }
                     else
                     {
                         // Real (non-virtual) albums are already sorted on their Seq property, so return items based on that.
-                        items = album.GetChildGalleryObjects(options.Filter, !Utils.IsAuthenticated).ToSortedList();
+                        items = album.GetChildGalleryObjects(options.Filter, !_userController.IsAuthenticated).ToSortedList();
                     }
                 }
 
                 if (options.NumGalleryItemsToRetrieve > 0)
                     items = items.Skip(options.NumGalleryItemsToSkip).Take(options.NumGalleryItemsToRetrieve).ToList();
 
-                albumEntity.GalleryItems = GalleryObjectController.ToGalleryItems(items);
+                albumEntity.GalleryItems = _galleryObjectController.ToGalleryItems(items);
                 albumEntity.NumGalleryItems = albumEntity.GalleryItems.Length;
             }
             else
             {
-                albumEntity.NumGalleryItems = album.GetChildGalleryObjects(options.Filter, !Utils.IsAuthenticated).Count;
+                albumEntity.NumGalleryItems = album.GetChildGalleryObjects(options.Filter, !_userController.IsAuthenticated).Count;
             }
 
             // Optionally load media items
@@ -407,110 +421,110 @@ namespace GalleryServer.Web.Controller
                 if (albumSortDef != null)
                 {
                     items = album
-                      .GetChildGalleryObjects(GalleryObjectType.MediaObject, !Utils.IsAuthenticated)
+                      .GetChildGalleryObjects(GalleryObjectType.MediaObject, !_userController.IsAuthenticated)
                       .ToSortedList(albumSortDef.SortByMetaName, albumSortDef.SortAscending, album.GalleryId);
                 }
                 else
                 {
                     if (album.IsVirtualAlbum)
                     {
-                        items = album.GetChildGalleryObjects(GalleryObjectType.MediaObject, !Utils.IsAuthenticated).ToSortedList(album.SortByMetaName, album.SortAscending, album.GalleryId);
+                        items = album.GetChildGalleryObjects(GalleryObjectType.MediaObject, !_userController.IsAuthenticated).ToSortedList(album.SortByMetaName, album.SortAscending, album.GalleryId);
                     }
                     else
                     {
                         // Real (non-virtual) albums are already sorted on their Seq property, so return items based on that.
-                        items = album.GetChildGalleryObjects(GalleryObjectType.MediaObject, !Utils.IsAuthenticated).ToSortedList();
+                        items = album.GetChildGalleryObjects(GalleryObjectType.MediaObject, !_userController.IsAuthenticated).ToSortedList();
                     }
                 }
 
                 //IList<IGalleryObject> items = album.GetChildGalleryObjects(GalleryObjectType.MediaObject, !Utils.IsAuthenticated).ToSortedList();
                 albumEntity.NumMediaItems = items.Count;
-                albumEntity.MediaItems = GalleryObjectController.ToMediaItems(items);
+                albumEntity.MediaItems = _galleryObjectController.ToMediaItems(items);
             }
             else
             {
-                albumEntity.NumMediaItems = album.GetChildGalleryObjects(GalleryObjectType.MediaObject, !Utils.IsAuthenticated).Count;
+                albumEntity.NumMediaItems = album.GetChildGalleryObjects(GalleryObjectType.MediaObject, !_userController.IsAuthenticated).Count;
             }
 
             return albumEntity;
         }
 
-        /// <summary>
-        /// Generate the HTML for the breadcrumb menu. The HTML includes the hierarchy of all albums the user has access to, including the specified
-        /// <paramref name="album" />.
-        /// </summary>
-        /// <param name="album">The album.</param>
-        /// <returns>A <see cref="System.String" /> containing HTML for the album breadcrumb menu.</returns>
-        private static async Task<string> GenerateBreadCrumbLinks(IAlbum album)
-        {
-            // Ex (w/o HTML): ALL ALBUMS » Photos » Animals » Insects
-            // Ex (w/ HTML): <a href="/gs/default.aspx?aid=1">ALL ALBUMS</a> &#187; <a href="/gs/default.aspx?aid=2368">Photos</a> &#187; <a href="/gs/default.aspx?aid=2369">Animals</a> &#187; <a id="currentAlbumLink" href="/dev/gs/default.aspx?aid=2371">Insects</a>
-            string menuString = string.Empty;
+        ///// <summary>
+        ///// Generate the HTML for the breadcrumb menu. The HTML includes the hierarchy of all albums the user has access to, including the specified
+        ///// <paramref name="album" />.
+        ///// </summary>
+        ///// <param name="album">The album.</param>
+        ///// <returns>A <see cref="System.String" /> containing HTML for the album breadcrumb menu.</returns>
+        //private async Task<string> GenerateBreadCrumbLinks(IAlbum album)
+        //{
+        //    // Ex (w/o HTML): ALL ALBUMS » Photos » Animals » Insects
+        //    // Ex (w/ HTML): <a href="/gs/default.aspx?aid=1">ALL ALBUMS</a> &#187; <a href="/gs/default.aspx?aid=2368">Photos</a> &#187; <a href="/gs/default.aspx?aid=2369">Animals</a> &#187; <a id="currentAlbumLink" href="/dev/gs/default.aspx?aid=2371">Insects</a>
+        //    string menuString = string.Empty;
 
-            IGalleryServerRoleCollection roles = await RoleController.GetGalleryServerRolesForUser();
-            string dividerText = "&#187;";
-            bool foundTopAlbum = false;
-            bool foundBottomAlbum = false;
-            while (!foundTopAlbum)
-            {
-                // Iterate through each album and it's parents, working the way toward the top. For each album, build up a breadcrumb menu item.
-                // Eventually we will reach one of three situations: (1) a virtual album that contains the child albums, (2) an album the current
-                // user does not have permission to view, or (3) the actual top-level album.
-                if (album.IsVirtualAlbum)
-                {
-                    menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a href=\"{1}\">{2}</a>", dividerText, AlbumController.GetUrl(album), album.Title));
+        //    IGalleryServerRoleCollection roles = await RoleController.GetGalleryServerRolesForUser();
+        //    string dividerText = "&#187;";
+        //    bool foundTopAlbum = false;
+        //    bool foundBottomAlbum = false;
+        //    while (!foundTopAlbum)
+        //    {
+        //        // Iterate through each album and it's parents, working the way toward the top. For each album, build up a breadcrumb menu item.
+        //        // Eventually we will reach one of three situations: (1) a virtual album that contains the child albums, (2) an album the current
+        //        // user does not have permission to view, or (3) the actual top-level album.
+        //        if (album.IsVirtualAlbum)
+        //        {
+        //            menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a href=\"{1}\">{2}</a>", dividerText, AlbumController.GetUrl(album), album.Title));
 
-                    var searchVirtualAlbumTypes = new[] { VirtualAlbumType.Tag, VirtualAlbumType.People, VirtualAlbumType.Search, VirtualAlbumType.TitleOrCaption, VirtualAlbumType.MostRecentlyAdded, VirtualAlbumType.Rated };
-                    var isAlbumSearchResult = searchVirtualAlbumTypes.Contains(album.VirtualAlbumType);
+        //            var searchVirtualAlbumTypes = new[] { VirtualAlbumType.Tag, VirtualAlbumType.People, VirtualAlbumType.Search, VirtualAlbumType.TitleOrCaption, VirtualAlbumType.MostRecentlyAdded, VirtualAlbumType.Rated };
+        //            var isAlbumSearchResult = searchVirtualAlbumTypes.Contains(album.VirtualAlbumType);
 
-                    if (isAlbumSearchResult)
-                    {
-                        // Add one more link to represent the root album.  
-                        menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a href=\"{1}\">{2}</a>", dividerText, Utils.GetCurrentPageUrl(), GlobalConstants.RootAlbumTitle));
-                    }
+        //            if (isAlbumSearchResult)
+        //            {
+        //                // Add one more link to represent the root album.  
+        //                menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a href=\"{1}\">{2}</a>", dividerText, Utils.GetCurrentPageUrl(), GlobalConstants.RootAlbumTitle));
+        //            }
 
-                    foundTopAlbum = true;
-                }
-                else if (!Utils.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, roles, album.Id, album.GalleryId, album.IsPrivate, album.IsVirtualAlbum))
-                {
-                    // User is not authorized to view this album. If the user has permission to view more than one top-level album, then we want
-                    // to display an "All albums" link. To determine this, load the root album. If a virtual album is returned, then we know the
-                    // user has access to more than one top-level album. If it is an actual album (with a real ID and persisted in the data store),
-                    // that means that album is the only top-level album the user can view, and thus we do not need to create a link that is one
-                    // "higher" than that album.
-                    IAlbum rootAlbum = Factory.LoadRootAlbum(album.GalleryId, roles, Utils.IsAuthenticated);
-                    if (rootAlbum.IsVirtualAlbum)
-                    {
-                        menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a href=\"{1}\">{2}</a>", dividerText, Utils.GetCurrentPageUrl(), GlobalConstants.RootAlbumTitle));
-                    }
-                    foundTopAlbum = true;
-                }
-                else
-                {
-                    // Regular album somewhere in the hierarchy. Create a breadcrumb link.
-                    string hyperlinkIdString = string.Empty;
-                    if (!foundBottomAlbum)
-                    {
-                        hyperlinkIdString = " id=\"currentAlbumLink\""; // ID is referenced when inline editing an album's title
-                        foundBottomAlbum = true;
-                    }
+        //            foundTopAlbum = true;
+        //        }
+        //        else if (!UserController.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, roles, album.Id, album.GalleryId, album.IsPrivate, album.IsVirtualAlbum))
+        //        {
+        //            // User is not authorized to view this album. If the user has permission to view more than one top-level album, then we want
+        //            // to display an "All albums" link. To determine this, load the root album. If a virtual album is returned, then we know the
+        //            // user has access to more than one top-level album. If it is an actual album (with a real ID and persisted in the data store),
+        //            // that means that album is the only top-level album the user can view, and thus we do not need to create a link that is one
+        //            // "higher" than that album.
+        //            IAlbum rootAlbum = Factory.LoadRootAlbum(album.GalleryId, roles, Utils.IsAuthenticated);
+        //            if (rootAlbum.IsVirtualAlbum)
+        //            {
+        //                menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a href=\"{1}\">{2}</a>", dividerText, Utils.GetCurrentPageUrl(), GlobalConstants.RootAlbumTitle));
+        //            }
+        //            foundTopAlbum = true;
+        //        }
+        //        else
+        //        {
+        //            // Regular album somewhere in the hierarchy. Create a breadcrumb link.
+        //            string hyperlinkIdString = string.Empty;
+        //            if (!foundBottomAlbum)
+        //            {
+        //                hyperlinkIdString = " id=\"currentAlbumLink\""; // ID is referenced when inline editing an album's title
+        //                foundBottomAlbum = true;
+        //            }
 
-                    menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a{1} href=\"{2}\">{3}</a>", dividerText, hyperlinkIdString, AlbumController.GetUrl(album), Utils.RemoveHtmlTags(album.Title)));
-                }
+        //            menuString = menuString.Insert(0, string.Format(CultureInfo.CurrentCulture, " {0} <a{1} href=\"{2}\">{3}</a>", dividerText, hyperlinkIdString, AlbumController.GetUrl(album), Utils.RemoveHtmlTags(album.Title)));
+        //        }
 
-                if (album.Parent is NullGalleryObject)
-                    foundTopAlbum = true;
-                else
-                    album = (IAlbum)album.Parent;
-            }
+        //        if (album.Parent is NullGalleryObject)
+        //            foundTopAlbum = true;
+        //        else
+        //            album = (IAlbum)album.Parent;
+        //    }
 
-            if (menuString.Length > (dividerText.Length + 2))
-            {
-                menuString = menuString.Substring(dividerText.Length + 2); // Remove the first divider character
-            }
+        //    if (menuString.Length > (dividerText.Length + 2))
+        //    {
+        //        menuString = menuString.Substring(dividerText.Length + 2); // Remove the first divider character
+        //    }
 
-            return menuString;
-        }
+        //    return menuString;
+        //}
 
         /// <summary>
         /// Create an album based on <paramref name="album" />. The only properties used in the <paramref name="album" /> parameter are
@@ -523,7 +537,7 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to create an album.</exception>
         /// <exception cref="InvalidAlbumException">Thrown when the album is missing a title or an album doesn't exist for the specified 
         /// <see cref="Entity.Album.ParentId" /> property of <paramref name="album" />.</exception>
-        public static async Task<int> CreateAlbum(Entity.Album album)
+        public async Task<int> CreateAlbum(Entity.Album album)
         {
             if (album == null)
                 throw new ArgumentNullException(nameof(album));
@@ -531,7 +545,7 @@ namespace GalleryServer.Web.Controller
             var parentAlbum = Factory.LoadAlbumInstance(new AlbumLoadOptions(album.ParentId) { InflateChildObjects = true, IsWritable = true });
 
             // Verify user has add child album permission.
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddChildAlbum, await RoleController.GetGalleryServerRolesForUser(), parentAlbum.Id, parentAlbum.GalleryId, Utils.IsAuthenticated, parentAlbum.IsPrivate, parentAlbum.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddChildAlbum, await _userController.GetGalleryServerRolesForUser(), parentAlbum.Id, parentAlbum.GalleryId, _userController.IsAuthenticated, parentAlbum.IsPrivate, parentAlbum.IsVirtualAlbum);
 
             IAlbum newAlbum = Factory.CreateEmptyAlbumInstance(parentAlbum.GalleryId, true);
 
@@ -545,7 +559,7 @@ namespace GalleryServer.Web.Controller
             //newAlbum.ThumbnailMediaObjectId = 0; // not needed
             newAlbum.Parent = parentAlbum;
             newAlbum.IsPrivate = parentAlbum.IsPrivate;
-            GalleryObjectController.SaveGalleryObject(newAlbum);
+            await _galleryObjectController.SaveGalleryObject(newAlbum);
 
             // Assign properties back to entity, which will make its way back to the client.
             album.Id = newAlbum.Id;
@@ -555,7 +569,7 @@ namespace GalleryServer.Web.Controller
             album.IsPrivate = newAlbum.IsPrivate;
 
             // Re-sort the items in the album. This will put the media object in the right position relative to its neighbors.
-            ((IAlbum)newAlbum.Parent).Sort(true, Utils.UserName);
+            ((IAlbum)newAlbum.Parent).Sort(true, _userController.UserName);
 
             return newAlbum.Id;
         }
@@ -568,15 +582,15 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="album" /> is null.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the 
         /// user does not have edit permission to the specified album.</exception>
-        public static async Task UpdateAlbum(Entity.Album album)
+        public async Task UpdateAlbum(Entity.Album album)
         {
             if (album == null)
                 throw new ArgumentNullException(nameof(album));
 
-            var alb = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(album.Id) { IsWritable = true });
+            var alb = LoadAlbumInstance(new AlbumLoadOptions(album.Id) { IsWritable = true });
 
             // Update remaining properties if user has edit album permission.
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await RoleController.GetGalleryServerRolesForUser(), alb.Id, alb.GalleryId, Utils.IsAuthenticated, alb.IsPrivate, alb.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await _userController.GetGalleryServerRolesForUser(), alb.Id, alb.GalleryId, _userController.IsAuthenticated, alb.IsPrivate, alb.IsVirtualAlbum);
 
             alb.SortByMetaName = (MetadataItemName)album.SortById;
             alb.SortAscending = album.SortUp;
@@ -589,11 +603,11 @@ namespace GalleryServer.Web.Controller
                 }
                 alb.IsPrivate = album.IsPrivate;
 
-                var userName = Utils.UserName;
+                var userName = _userController.UserName;
                 Task.Factory.StartNew(() => SynchIsPrivatePropertyOnChildGalleryObjects(alb, userName));
             }
 
-            GalleryObjectController.SaveGalleryObject(alb);
+            await _galleryObjectController.SaveGalleryObject(alb);
         }
 
         /// <overloads>
@@ -610,15 +624,14 @@ namespace GalleryServer.Web.Controller
         /// parent album and user albums are enabled.</exception>
         /// <exception cref="InvalidAlbumException">Thrown when <paramref name="albumId" /> does not represent an existing album.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to delete the album.</exception>
-        public static void DeleteAlbum(int albumId)
+        public async Task DeleteAlbum(int albumId)
         {
-            DeleteAlbum(AlbumController.LoadAlbumInstance(albumId));
+            await DeleteAlbum(LoadAlbumInstance(albumId));
         }
 
         /// <summary>
         /// Permanently delete this album from the data store and optionally the hard drive. Validation is performed prior to deletion to ensure
-        /// current user has delete permission and the album can be safely deleted. The validation is contained in the method 
-        /// <see cref="ValidateBeforeAlbumDelete"/> and may be invoked separately if desired.
+        /// current user has delete permission and the album can be safely deleted.
         /// </summary>
         /// <param name="album">The album to delete. If null, the function returns without taking any action.</param>
         /// <param name="deleteFromFileSystem">if set to <c>true</c> the files and directories associated with the album
@@ -627,12 +640,12 @@ namespace GalleryServer.Web.Controller
         /// This includes detecting when the media objects path is read only and when the album is or contains the user album
         /// parent album and user albums are enabled.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to delete the album.</exception>
-        public static void DeleteAlbum(IAlbum album, bool deleteFromFileSystem = true)
+        public async Task DeleteAlbum(IAlbum album, bool deleteFromFileSystem = true)
         {
             if (album == null)
                 return;
 
-            ValidateBeforeAlbumDelete(album);
+            await ValidateBeforeAlbumDelete(album);
 
             OnBeforeAlbumDelete(album);
 
@@ -644,6 +657,7 @@ namespace GalleryServer.Web.Controller
             {
                 album.DeleteFromGallery();
             }
+
         }
 
         /// <summary>
@@ -659,19 +673,19 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="CannotDeleteAlbumException">Thrown when the album does not meet the 
         /// requirements for safe deletion.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to delete the album.</exception>
-        public static async Task ValidateBeforeAlbumDelete(IAlbum albumToDelete)
+        public async Task ValidateBeforeAlbumDelete(IAlbum albumToDelete)
         {
             if (albumToDelete == null)
                 throw new ArgumentNullException(nameof(albumToDelete));
 
-            var userAlbum = UserController.GetUserAlbum(Utils.UserName, albumToDelete.GalleryId);
+            var userAlbum = await GetUserAlbum(_userController.UserName, albumToDelete.GalleryId);
             var curUserDeletingOwnUserAlbum = (userAlbum != null && userAlbum.Id == albumToDelete.Id);
             // Skip security check when user is deleting their own user album. Normally this won't happen (the menu action for deleting will be 
             // disabled), but it will happen when they delete their user album or their account on the account page, and this is one situation 
             // where it is OK for them to delete their album.
             if (!curUserDeletingOwnUserAlbum)
             {
-                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.DeleteAlbum, await RoleController.GetGalleryServerRolesForUser(), albumToDelete.Id, albumToDelete.GalleryId, Utils.IsAuthenticated, albumToDelete.IsPrivate, albumToDelete.IsVirtualAlbum);
+                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.DeleteAlbum, await _userController.GetGalleryServerRolesForUser(), albumToDelete.Id, albumToDelete.GalleryId, _userController.IsAuthenticated, albumToDelete.IsPrivate, albumToDelete.IsVirtualAlbum);
             }
 
             if (Factory.LoadGallerySetting(albumToDelete.GalleryId).MediaObjectPathIsReadOnly)
@@ -711,38 +725,162 @@ namespace GalleryServer.Web.Controller
         }
 
         /// <summary>
+        /// Gets the ID of the album for the specified user's personal album (that is, this is the album that was created when the
+        /// user's account was created). If user albums are disabled or the UserAlbumId property is not found in the profile,
+        /// this function returns int.MinValue. This function executes faster than <see cref="GetUserAlbum(int)"/> and 
+        /// <see cref="GetUserAlbum(string, int)"/> but it does not validate that the album exists.
+        /// </summary>
+        /// <param name="userName">The account name for the user.</param>
+        /// <param name="galleryId">The gallery ID.</param>
+        /// <returns>
+        /// Returns the ID of the album for the current user's personal album.
+        /// </returns>
+        public static int GetUserAlbumId(string userName, int galleryId)
+        {
+            return ProfileController.GetUserAlbumId(userName, galleryId);
+        }
+
+        /// <overloads>
+        /// Gets the personal album for a user.
+        /// </overloads>
+        /// <summary>
+        /// Gets the album for the current user's personal album and <paramref name="galleryId" /> (that is, get the 
+        /// album that was created when the user's account was created). The album is created if it does not exist. 
+        /// If user albums are disabled or the user has disabled their own album, this function returns null. It also 
+        /// returns null if the UserAlbumId property is not found in the profile (this should not typically occur).
+        /// </summary>
+        /// <param name="galleryId">The gallery ID.</param>
+        /// <returns>Returns the album for the current user's personal album.</returns>
+        public Task<IAlbum> GetUserAlbum(int galleryId)
+        {
+            return GetUserAlbum(_userController.UserName, galleryId);
+        }
+
+        /// <summary>
+        /// Gets the personal album for the specified <paramref name="userName"/> and <paramref name="galleryId" /> 
+        /// (that is, get the album that was created when the user's account was created). The album is created if it 
+        /// does not exist. If user albums are disabled or the user has disabled their own album, this function returns 
+        /// null. It also returns null if the UserAlbumId property is not found in the profile (this should not typically occur).
+        /// </summary>
+        /// <param name="userName">The account name for the user.</param>
+        /// <param name="galleryId">The gallery ID.</param>
+        /// <returns>
+        /// Returns the personal album for the specified <paramref name="userName"/>.
+        /// </returns>
+        public Task<IAlbum> GetUserAlbum(string userName, int galleryId)
+        {
+            return ValidateUserAlbum(userName, galleryId);
+        }
+
+        /// <summary>
+        /// Verifies the user album for the specified <paramref name="userName">user</paramref> exists if it is supposed to exist
+        /// (creating it if necessary), or does not exist if not (that is, deleting it if necessary). Returns a reference to the user
+        /// album if a user album exists or has just been created; otherwise returns null. Also returns null if user albums are
+        /// disabled at the application level or <see cref="IGallerySettings.UserAlbumParentAlbumId" /> does not match an existing album.
+        /// A user album is created if user albums are enabled but none for the user exists. If user albums are enabled at the
+        /// application level but the user has disabled them in his profile, the album is deleted if it exists.
+        /// </summary>
+        /// <param name="userName">Name of the user.</param>
+        /// <param name="galleryId">The gallery ID for the gallery where the user album is to be validated. This value is required.</param>
+        /// <returns>
+        /// Returns a reference to the user album for the specified <paramref name="userName">user</paramref>, or null
+        /// if user albums are disabled or <see cref="IGallerySettings.UserAlbumParentAlbumId" /> does not match an existing album.
+        /// </returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is null or empty.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="galleryId"/> is <see cref="Int32.MinValue" />.</exception>
+        public async Task<IAlbum> ValidateUserAlbum(string userName, int galleryId)
+        {
+            if (String.IsNullOrEmpty(userName))
+                throw new ArgumentException("Parameter cannot be null or an empty string.", nameof(userName));
+
+            if (!Factory.LoadGallerySetting(galleryId).EnableUserAlbum)
+                return null;
+
+            if (galleryId == Int32.MinValue)
+            {
+                // If we get here then user albums are enabled but an invalid gallery ID has been passed. This function can't do 
+                // its job without the ID, so throw an error.
+                throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "A valid gallery ID must be passed to the UserController.ValidateUserAlbum function when user albums are enabled. Instead, the value {0} was passed for the gallery ID.", galleryId));
+            }
+
+            bool userAlbumExists = false;
+            bool userAlbumShouldExist = ProfileController.GetProfileForGallery(userName, galleryId).EnableUserAlbum;
+
+            IAlbum album = null;
+
+            int albumId = GetUserAlbumId(userName, galleryId);
+
+            if (albumId > Int32.MinValue)
+            {
+                try
+                {
+                    // Try loading the album.
+                    album = Factory.LoadAlbumInstance(new AlbumLoadOptions(albumId) { IsWritable = true });
+
+                    userAlbumExists = true;
+                }
+                catch (InvalidAlbumException) { }
+            }
+
+            // Delete or create if necessary. Deleting should only be needed if 
+            if (userAlbumExists && !userAlbumShouldExist)
+            {
+                try
+                {
+                    await DeleteAlbum(album);
+                }
+                catch (Exception ex)
+                {
+                    // Log any errors that happen but don't let them bubble up.
+                    AppEventController.LogError(ex, galleryId);
+                }
+                finally
+                {
+                    album = null;
+                }
+            }
+            else if (!userAlbumExists && userAlbumShouldExist)
+            {
+                album = await CreateUserAlbum(userName, galleryId);
+            }
+
+            return album;
+        }
+
+        /// <summary>
         /// Gets the URL to the specified <paramref name="album" />.
         /// </summary>
         /// <param name="album">The album.</param>
         /// <returns>System.String.</returns>
         /// <exception cref="System.InvalidOperationException">Thrown when the function encounters a virtual album
         /// type it was not designed to handle.</exception>
-        public static string GetUrl(IAlbum album)
+        public string GetUrl(IAlbum album)
         {
-            var appPath = Utils.GetCurrentPageUrl();
+            return $"/album/{album.Id}";
+            //var appPath = Utils.GetCurrentPageUrl();
 
-            switch (album.VirtualAlbumType)
-            {
-                case VirtualAlbumType.NotSpecified:
-                case VirtualAlbumType.NotVirtual:
-                    return Utils.GetUrl(PageId.album, "aid={0}", album.Id);
-                case VirtualAlbumType.Root:
-                    return appPath;
-                case VirtualAlbumType.TitleOrCaption:
-                    return Utils.GetUrl(PageId.album, "title={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("title")));
-                case VirtualAlbumType.Tag:
-                    return Utils.GetUrl(PageId.album, "tag={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("tag")));
-                case VirtualAlbumType.People:
-                    return Utils.GetUrl(PageId.album, "people={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("people")));
-                case VirtualAlbumType.Search:
-                    return Utils.GetUrl(PageId.album, "search={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("search")));
-                case VirtualAlbumType.MostRecentlyAdded:
-                    return Utils.GetUrl(PageId.album, "latest={0}", Utils.GetQueryStringParameterInt32("latest"));
-                case VirtualAlbumType.Rated:
-                    return Utils.GetUrl(PageId.album, "rating={0}&top={1}", Utils.GetQueryStringParameterString("rating"), Utils.GetQueryStringParameterInt32("top"));
-                default:
-                    throw new InvalidOperationException(String.Format("The method AlbumController.GetUrl() encountered a VirtualAlbumType ({0}) it was not designed to handle. The developer must update this method.", album.VirtualAlbumType));
-            }
+            //switch (album.VirtualAlbumType)
+            //{
+            //    case VirtualAlbumType.NotSpecified:
+            //    case VirtualAlbumType.NotVirtual:
+            //        return Utils.GetUrl(PageId.album, "aid={0}", album.Id);
+            //    case VirtualAlbumType.Root:
+            //        return appPath;
+            //    case VirtualAlbumType.TitleOrCaption:
+            //        return Utils.GetUrl(PageId.album, "title={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("title")));
+            //    case VirtualAlbumType.Tag:
+            //        return Utils.GetUrl(PageId.album, "tag={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("tag")));
+            //    case VirtualAlbumType.People:
+            //        return Utils.GetUrl(PageId.album, "people={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("people")));
+            //    case VirtualAlbumType.Search:
+            //        return Utils.GetUrl(PageId.album, "search={0}", Utils.UrlEncode(Utils.GetQueryStringParameterString("search")));
+            //    case VirtualAlbumType.MostRecentlyAdded:
+            //        return Utils.GetUrl(PageId.album, "latest={0}", Utils.GetQueryStringParameterInt32("latest"));
+            //    case VirtualAlbumType.Rated:
+            //        return Utils.GetUrl(PageId.album, "rating={0}&top={1}", Utils.GetQueryStringParameterString("rating"), Utils.GetQueryStringParameterInt32("top"));
+            //    default:
+            //        throw new InvalidOperationException(String.Format("The method AlbumController.GetUrl() encountered a VirtualAlbumType ({0}) it was not designed to handle. The developer must update this method.", album.VirtualAlbumType));
+            //}
         }
 
         /// <summary>
@@ -752,7 +890,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="album">The album.</param>
         /// <returns>System.String.</returns>
-        public static string GetRssUrl(IAlbum album)
+        public string GetRssUrl(IAlbum album)
         {
             if (AppSetting.Instance.License.LicenseType < LicenseLevel.Enterprise)
             {
@@ -762,19 +900,19 @@ namespace GalleryServer.Web.Controller
             switch (album.VirtualAlbumType)
             {
                 case VirtualAlbumType.NotVirtual:
-                    return String.Concat(Utils.AppRoot, "/api/feed/album?id=", album.Id);
+                    return String.Concat(_urlController.GetAppRoot(), "/api/feed/album?id=", album.Id);
                 case VirtualAlbumType.TitleOrCaption:
-                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/title?q={1}&galleryid={2}", Utils.AppRoot, Utils.UrlEncode(Utils.GetQueryStringParameterString("title")), album.GalleryId);
+                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/title?q={1}&galleryid={2}", _urlController.GetAppRoot(), _urlController.UrlEncode(_urlController.GetQueryStringParameterString("title")), album.GalleryId);
                 case VirtualAlbumType.Search:
-                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/search?q={1}&galleryid={2}", Utils.AppRoot, Utils.UrlEncode(Utils.GetQueryStringParameterString("search")), album.GalleryId);
+                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/search?q={1}&galleryid={2}", _urlController.GetAppRoot(), _urlController.UrlEncode(_urlController.GetQueryStringParameterString("search")), album.GalleryId);
                 case VirtualAlbumType.Tag:
-                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/tag?q={1}&galleryid={2}", Utils.AppRoot, Utils.UrlEncode(Utils.GetQueryStringParameterString("tag")), album.GalleryId);
+                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/tag?q={1}&galleryid={2}", _urlController.GetAppRoot(), _urlController.UrlEncode(_urlController.GetQueryStringParameterString("tag")), album.GalleryId);
                 case VirtualAlbumType.People:
-                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/people?q={1}&galleryid={2}", Utils.AppRoot, Utils.UrlEncode(Utils.GetQueryStringParameterString("people")), album.GalleryId);
+                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/people?q={1}&galleryid={2}", _urlController.GetAppRoot(), _urlController.UrlEncode(_urlController.GetQueryStringParameterString("people")), album.GalleryId);
                 case VirtualAlbumType.MostRecentlyAdded:
-                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/latest?galleryid={1}", Utils.AppRoot, album.GalleryId);
+                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/latest?galleryid={1}", _urlController.GetAppRoot(), album.GalleryId);
                 case VirtualAlbumType.Rated:
-                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/rating?rating={1}&top={2}&galleryid={3}", Utils.AppRoot, Utils.UrlEncode(Utils.GetQueryStringParameterString("rating")), Utils.GetQueryStringParameterInt32("top"), album.GalleryId);
+                    return String.Format(CultureInfo.InvariantCulture, "{0}/api/feed/rating?rating={1}&top={2}&galleryid={3}", _urlController.GetAppRoot(), _urlController.UrlEncode(_urlController.GetQueryStringParameterString("rating")), _urlController.GetQueryStringParameterInt32("top"), album.GalleryId);
                 default:
                     return null;
             }
@@ -788,7 +926,7 @@ namespace GalleryServer.Web.Controller
         /// sequence. Only <see cref="Entity.GalleryItem.Id" /> and <see cref="Entity.GalleryItem.ItemType" /> need be
         /// populated.</param>
         /// <param name="userName">Name of the logged on user.</param>
-        public static void Sort(GalleryItem[] galleryItems, string userName)
+        public void Sort(GalleryItem[] galleryItems, string userName)
         {
             if (galleryItems == null || galleryItems.Length == 0)
             {
@@ -826,7 +964,7 @@ namespace GalleryServer.Web.Controller
                     }
 
                     galleryObject.Sequence = seq;
-                    GalleryObjectController.SaveGalleryObject(galleryObject, userName);
+                    _galleryObjectController.SaveGalleryObject(galleryObject, userName);
                     seq++;
                 }
             }
@@ -847,11 +985,11 @@ namespace GalleryServer.Web.Controller
         /// <param name="sortAscending">If set to <c>true</c> sort in ascending order.</param>
         /// <exception cref="GallerySecurityException">Thrown when the user does not have EditAlbum permission.</exception>
         /// <exception cref="InvalidAlbumException">Thrown when the requested album does not exist in the data store.</exception>
-        public static async Task Sort(int albumId, MetadataItemName sortByMetaNameId, bool sortAscending)
+        public async Task Sort(int albumId, MetadataItemName sortByMetaNameId, bool sortAscending)
         {
             var album = LoadAlbumInstance(new AlbumLoadOptions(albumId) { IsWritable = true, InflateChildObjects = true });
 
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await _userController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, _userController.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
 
             var oldSortByMetaName = album.SortByMetaName;
             var oldSortAscending = album.SortAscending;
@@ -861,9 +999,9 @@ namespace GalleryServer.Web.Controller
 
             ReverseCustomSortIfNeeded(album, oldSortByMetaName, oldSortAscending);
 
-            album.Sort(true, Utils.UserName);
+            album.Sort(true, _userController.UserName);
 
-            GalleryObjectController.SaveGalleryObject(album);
+            await _galleryObjectController.SaveGalleryObject(album);
 
             RemoveAlbumFromUserProfileIfPresent(albumId);
         }
@@ -890,7 +1028,7 @@ namespace GalleryServer.Web.Controller
         /// that is not allowed in the gallery containing the <paramref name="destinationAlbumId" />.</exception>
         /// <exception cref="System.IO.FileNotFoundException">Thrown when one of the <paramref name="itemsToTransfer" /> is a media object whose
         /// original file no longer exists.</exception>
-        public static IAlbum TransferToAlbum(int destinationAlbumId, GalleryItem[] itemsToTransfer, GalleryAssetTransferType transferType, out GalleryItem[] createdGalleryItems)
+        public IAlbum TransferToAlbum(int destinationAlbumId, GalleryItem[] itemsToTransfer, GalleryAssetTransferType transferType, out GalleryItem[] createdGalleryItems)
         {
             throw new NotImplementedException();
             //var destinationAlbum = LoadAlbumInstance(new AlbumLoadOptions(destinationAlbumId) { IsWritable = true });
@@ -940,7 +1078,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="galleryItem">The gallery item. It is expected to be an album (<see cref="GalleryItem.IsAlbum" /> == <c>true</c>).
         /// It is updated with the calculated file size value.</param>
-        public static async Task CalculateOriginalFileSize(GalleryItem galleryItem)
+        public async Task CalculateOriginalFileSize(GalleryItem galleryItem)
         {
             if (galleryItem == null)
                 throw new ArgumentNullException(nameof(galleryItem));
@@ -966,7 +1104,7 @@ namespace GalleryServer.Web.Controller
             {
                 var album = LoadAlbumInstance(galleryItem.Id);
 
-                if (SecurityManager.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum))
+                if (SecurityManager.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, await _userController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, _userController.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum))
                 {
                     dType.FileSizeKB = album.GetFileSizeKbAllOriginalFilesInAlbum();
                 }
@@ -985,7 +1123,7 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="InvalidMediaObjectException">Thrown when the thumbnail media object is not found in the data store.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the user does not have edit permission to <paramref name="albumId" /> 
         /// or view permission to the thumbnail media object associated with <paramref name="galleryItem" />.</exception>
-        public static async Task<IAlbum> AssignThumbnail(GalleryItem galleryItem, int albumId)
+        public async Task<IAlbum> AssignThumbnail(GalleryItem galleryItem, int albumId)
         {
             var album = LoadAlbumInstance(new AlbumLoadOptions(albumId) { IsWritable = true });
 
@@ -993,7 +1131,7 @@ namespace GalleryServer.Web.Controller
                 return album;
 
             // 1. Verify user has edit permission to album
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, Utils.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await _userController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, _userController.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
 
             // 2. Get the media ID
             var mediaObject = RetrieveMediaObjectForThumbnailAssignment(galleryItem);
@@ -1001,13 +1139,13 @@ namespace GalleryServer.Web.Controller
             // 3. Verify user has view permission to it
             if (mediaObject != null)
             {
-                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, Utils.IsAuthenticated, mediaObject.Parent.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
+                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await _userController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, _userController.IsAuthenticated, mediaObject.Parent.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
             }
 
             // 4. Assign thumbnail
             album.ThumbnailMediaObjectId = mediaObject?.Id ?? 0;
 
-            GalleryObjectController.SaveGalleryObject(album);
+            await _galleryObjectController.SaveGalleryObject(album);
 
             return album;
         }
@@ -1023,7 +1161,7 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="InvalidAlbumException">Thrown when an album is not found in the data store.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the user does not have admin gallery or admin site permission to the gallery
         /// that album <paramref name="albumId" /> belongs to..</exception>
-        public static IAlbum ChangeOwner(int albumId, string ownerName, out string oldOwnerName)
+        public IAlbum ChangeOwner(int albumId, string ownerName, out string oldOwnerName)
         {
             throw new NotImplementedException();
             //var album = LoadAlbumInstance(new AlbumLoadOptions(albumId) { IsWritable = true });
@@ -1069,7 +1207,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>An instance of <see cref="ActionResult" />.</returns>
         /// <exception cref="GallerySecurityException">Thrown when the user does not have view permission to one or more
         /// <paramref name="galleryItems" /> or a setting prevents the user from downloading a ZIP archive.</exception>
-        public static async Task<ActionResult> PrepareZipDownload(GalleryItem[] galleryItems, DisplayObjectType mediaSize)
+        public async Task<ActionResult> PrepareZipDownload(GalleryItem[] galleryItems, DisplayObjectType mediaSize)
         {
             List<int> albumIds;
             List<int> mediaIds;
@@ -1077,7 +1215,7 @@ namespace GalleryServer.Web.Controller
 
             ValidateZipDownloadSecurity(galleryItems, mediaSize, out albumIds, out mediaIds, out parentAlbumId);
 
-            var zip = new ZipUtility(Utils.UserName, await RoleController.GetGalleryServerRolesForUser());
+            var zip = new ZipUtility(_userController.UserName, await _userController.GetGalleryServerRolesForUser());
             var fileName = System.IO.Path.GetFileName(zip.CreateZipFile(parentAlbumId, albumIds, mediaIds, mediaSize));
 
             return new ActionResult
@@ -1095,16 +1233,16 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="album">The album.</param>
         /// <returns>Returns <see cref="Entity.Permissions" /> object containing permission information.</returns>
-        public static async Task<Permissions> GetPermissionsEntity(IAlbum album)
+        public async Task<Permissions> GetPermissionsEntity(IAlbum album)
         {
             int albumId = album.Id;
             int galleryId = album.GalleryId;
             bool isPrivate = album.IsPrivate;
             bool isVirtual = album.IsVirtualAlbum;
             var rootAlbum = Factory.LoadRootAlbumInstance(album.GalleryId);
-            IGalleryServerRoleCollection roles = await RoleController.GetGalleryServerRolesForUser();
-            var isAdmin = Utils.IsUserAuthorized(SecurityActions.AdministerSite, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, isVirtual);
-            var isGalleryAdmin = isAdmin || Utils.IsUserAuthorized(SecurityActions.AdministerGallery, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, isVirtual);
+            IGalleryServerRoleCollection roles = await _userController.GetGalleryServerRolesForUser();
+            var isAdmin = _userController.IsUserAuthorized(SecurityActions.AdministerSite, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, isVirtual);
+            var isGalleryAdmin = isAdmin || _userController.IsUserAuthorized(SecurityActions.AdministerGallery, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, isVirtual);
             var isGalleryWritable = !Factory.LoadGallerySetting(galleryId).MediaObjectPathIsReadOnly;
 
             var perms = new Entity.Permissions();
@@ -1115,31 +1253,31 @@ namespace GalleryServer.Web.Controller
             if (album.IsVirtualAlbum)
             {
                 // When we have a virtual album we use the permissions assigned to the root album. 
-                perms.ViewAlbumOrMediaObject = isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
-                perms.ViewOriginalMediaObject = isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.ViewOriginalMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
-                perms.AddChildAlbum = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.AddChildAlbum, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
-                perms.AddMediaObject = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.AddMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
+                perms.ViewAlbumOrMediaObject = isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
+                perms.ViewOriginalMediaObject = isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.ViewOriginalMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
+                perms.AddChildAlbum = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.AddChildAlbum, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
+                perms.AddMediaObject = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.AddMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
                 perms.EditAlbum = false;
-                perms.EditMediaObject = (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.EditMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
-                perms.DeleteAlbum = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.DeleteAlbum, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
-                perms.DeleteChildAlbum = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.DeleteChildAlbum, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
-                perms.DeleteMediaObject = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.DeleteMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
-                perms.Synchronize = isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.Synchronize, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
-                perms.HideWatermark = Utils.IsUserAuthorized(SecurityActions.HideWatermark, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
+                perms.EditMediaObject = (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.EditMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
+                perms.DeleteAlbum = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.DeleteAlbum, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
+                perms.DeleteChildAlbum = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.DeleteChildAlbum, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
+                perms.DeleteMediaObject = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.DeleteMediaObject, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum));
+                perms.Synchronize = isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.Synchronize, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
+                perms.HideWatermark = _userController.IsUserAuthorized(SecurityActions.HideWatermark, roles, rootAlbum.Id, galleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum);
             }
             else
             {
-                perms.ViewAlbumOrMediaObject = isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, roles, albumId, galleryId, isPrivate, isVirtual);
-                perms.ViewOriginalMediaObject = isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.ViewOriginalMediaObject, roles, albumId, galleryId, isPrivate, isVirtual);
-                perms.AddChildAlbum = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.AddChildAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
-                perms.AddMediaObject = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.AddMediaObject, roles, albumId, galleryId, isPrivate, isVirtual));
-                perms.EditAlbum = (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.EditAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
-                perms.EditMediaObject = (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.EditMediaObject, roles, albumId, galleryId, isPrivate, isVirtual));
-                perms.DeleteAlbum = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.DeleteAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
-                perms.DeleteChildAlbum = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.DeleteChildAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
-                perms.DeleteMediaObject = isGalleryWritable && (isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.DeleteMediaObject, roles, albumId, galleryId, isPrivate, isVirtual));
-                perms.Synchronize = isGalleryAdmin || Utils.IsUserAuthorized(SecurityActions.Synchronize, roles, albumId, galleryId, isPrivate, isVirtual);
-                perms.HideWatermark = Utils.IsUserAuthorized(SecurityActions.HideWatermark, roles, albumId, galleryId, isPrivate, isVirtual);
+                perms.ViewAlbumOrMediaObject = isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, roles, albumId, galleryId, isPrivate, isVirtual);
+                perms.ViewOriginalMediaObject = isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.ViewOriginalMediaObject, roles, albumId, galleryId, isPrivate, isVirtual);
+                perms.AddChildAlbum = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.AddChildAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
+                perms.AddMediaObject = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.AddMediaObject, roles, albumId, galleryId, isPrivate, isVirtual));
+                perms.EditAlbum = (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.EditAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
+                perms.EditMediaObject = (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.EditMediaObject, roles, albumId, galleryId, isPrivate, isVirtual));
+                perms.DeleteAlbum = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.DeleteAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
+                perms.DeleteChildAlbum = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.DeleteChildAlbum, roles, albumId, galleryId, isPrivate, isVirtual));
+                perms.DeleteMediaObject = isGalleryWritable && (isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.DeleteMediaObject, roles, albumId, galleryId, isPrivate, isVirtual));
+                perms.Synchronize = isGalleryAdmin || _userController.IsUserAuthorized(SecurityActions.Synchronize, roles, albumId, galleryId, isPrivate, isVirtual);
+                perms.HideWatermark = _userController.IsUserAuthorized(SecurityActions.HideWatermark, roles, albumId, galleryId, isPrivate, isVirtual);
             }
 
             return perms;
@@ -1147,7 +1285,7 @@ namespace GalleryServer.Web.Controller
 
         #endregion
 
-        #region Private Static Methods
+        #region Private Methods
 
         /// <summary>
         /// Verify the specified <paramref name="galleryItems" /> can be downloaded in a ZIP archive and generate a few variables that will be 
@@ -1162,7 +1300,7 @@ namespace GalleryServer.Web.Controller
         /// this value is the root album ID. Returns <see cref="int.MinValue" /> when none of the <paramref name="galleryItems" /> exist in the data store.</param>
         /// <exception cref="GallerySecurityException">Thrown when the user does not have view permission to one or more
         /// <paramref name="galleryItems" /> or a setting prevents the user from downloading a ZIP archive.</exception>
-        private static void ValidateZipDownloadSecurity(IEnumerable<GalleryItem> galleryItems, DisplayObjectType mediaSize, out List<int> albumIds, out List<int> mediaIds, out int parentAlbumId)
+        private void ValidateZipDownloadSecurity(IEnumerable<GalleryItem> galleryItems, DisplayObjectType mediaSize, out List<int> albumIds, out List<int> mediaIds, out int parentAlbumId)
         {
             throw new NotImplementedException();
             //// Check several things:
@@ -1244,7 +1382,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>An instance of <see cref="IGalleryObject" /> or null.</returns>
         /// <exception cref="InvalidAlbumException">Thrown when <paramref name="galleryItem" /> is an album but not found in the data store.</exception>
         /// <exception cref="InvalidMediaObjectException">Thrown when the thumbnail media object is not found in the data store.</exception>
-        private static IGalleryObject RetrieveMediaObjectForThumbnailAssignment(GalleryItem galleryItem)
+        private IGalleryObject RetrieveMediaObjectForThumbnailAssignment(GalleryItem galleryItem)
         {
             var moid = (galleryItem.IsAlbum ? LoadAlbumInstance(galleryItem.Id).ThumbnailMediaObjectId : galleryItem.Id);
 
@@ -1258,16 +1396,16 @@ namespace GalleryServer.Web.Controller
         /// itself to make sure all child albums are processed.
         /// </summary>
         /// <param name="album">The album to be deleted, or one of its child albums.</param>
-        private static void OnBeforeAlbumDelete(IAlbum album)
+        private void OnBeforeAlbumDelete(IAlbum album)
         {
             // If there is an owner role associated with this album, and the role is not assigned to any other albums, delete it.
             if (!String.IsNullOrEmpty(album.OwnerRoleName))
             {
-                IGalleryServerRole role = RoleController.GetGalleryServerRoles().GetRole(album.OwnerRoleName);
+                IGalleryServerRole role = _userController.GetGalleryServerRoles().GetRole(album.OwnerRoleName);
 
                 if ((role != null) && (role.AllAlbumIds.Count == 1) && role.AllAlbumIds.Contains(album.Id))
                 {
-                    RoleController.DeleteGalleryServerProRole(role.RoleName);
+                    _userController.DeleteGalleryServerProRole(role.RoleName);
                 }
             }
 
@@ -1299,7 +1437,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="albumIds">Contains the IDs of the albums to search for.</param>
         /// <returns>Returns the first album within the heirarchy of the specified <paramref name="album"/> whose ID is in 
         /// <paramref name="albumIds"/>.</returns>
-        private static IAlbum FindFirstMatchingAlbumRecursive(IAlbum album, ICollection<int> albumIds)
+        private IAlbum FindFirstMatchingAlbumRecursive(IAlbum album, ICollection<int> albumIds)
         {
             // Is the current album in the list?
             if (albumIds.Contains(album.Id))
@@ -1333,7 +1471,7 @@ namespace GalleryServer.Web.Controller
             return albumToSelect; // Returns null if no matching album is found
         }
 
-        private static void SaveAlbumIdToProfile(int albumId, string userName, int galleryId)
+        private void SaveAlbumIdToProfile(int albumId, string userName, int galleryId)
         {
             IUserProfile profile = ProfileController.GetProfile(userName);
 
@@ -1350,7 +1488,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="album">The album whose child objects are to be updated to have the same IsPrivate value.</param>
         /// <param name="userName">Name of the current user.</param>
-        private static void SynchIsPrivatePropertyOnChildGalleryObjects(IAlbum album, string userName)
+        private void SynchIsPrivatePropertyOnChildGalleryObjects(IAlbum album, string userName)
         {
             try
             {
@@ -1368,21 +1506,21 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="album">The album whose child objects are to be updated to have the same IsPrivate value.</param>
         /// <param name="userName">Name of the current user.</param>
-        private static void SynchIsPrivatePropertyOnChildGalleryObjectsRecursive(IAlbum album, string userName)
+        private async Task SynchIsPrivatePropertyOnChildGalleryObjectsRecursive(IAlbum album, string userName)
         {
             album.Inflate(true);
             foreach (IAlbum childAlbum in album.GetChildGalleryObjects(GalleryObjectType.Album))
             {
                 childAlbum.Inflate(true); // The above Inflate() does not inflate child albums, so we need to explicitly inflate it.
                 childAlbum.IsPrivate = album.IsPrivate;
-                GalleryObjectController.SaveGalleryObject(childAlbum, userName);
-                SynchIsPrivatePropertyOnChildGalleryObjectsRecursive(childAlbum, userName);
+                await _galleryObjectController.SaveGalleryObject(childAlbum, userName);
+                await SynchIsPrivatePropertyOnChildGalleryObjectsRecursive(childAlbum, userName);
             }
 
             foreach (IGalleryObject childGalleryObject in album.GetChildGalleryObjects(GalleryObjectType.MediaObject))
             {
                 childGalleryObject.IsPrivate = album.IsPrivate;
-                GalleryObjectController.SaveGalleryObject(childGalleryObject, userName);
+                await _galleryObjectController.SaveGalleryObject(childGalleryObject, userName);
             }
         }
 
@@ -1391,20 +1529,20 @@ namespace GalleryServer.Web.Controller
         /// If not, the property is cleared out (which also clears out the <see cref="IAlbum.OwnerRoleName" /> property).
         /// </summary>
         /// <param name="album">The album to inspect.</param>
-        private static async Task ValidateAlbumOwner(IAlbum album)
+        private async Task ValidateAlbumOwner(IAlbum album)
         {
-            if ((!String.IsNullOrEmpty(album.OwnerUserName)) && (!UserController.GetAllUsers().Contains(album.OwnerUserName)))
+            if ((!String.IsNullOrEmpty(album.OwnerUserName)) && (!_userController.GetAllUsers().Contains(album.OwnerUserName)))
             {
-                if (!(await RoleController.GetUsersInRole(album.OwnerRoleName)).Any())
+                if (!(await _userController.GetUsersInRole(album.OwnerRoleName)).Any())
                 {
-                    RoleController.DeleteGalleryServerProRole(album.OwnerRoleName);
+                    _userController.DeleteGalleryServerProRole(album.OwnerRoleName);
                 }
 
                 if (album.IsWritable)
                 {
                     album.OwnerUserName = String.Empty; // This will also clear out the OwnerRoleName property.
 
-                    GalleryObjectController.SaveGalleryObject(album);
+                    await _galleryObjectController.SaveGalleryObject(album);
                 }
                 else
                 {
@@ -1412,7 +1550,7 @@ namespace GalleryServer.Web.Controller
 
                     albumToSave.OwnerUserName = String.Empty; // This will also clear out the OwnerRoleName property.
 
-                    GalleryObjectController.SaveGalleryObject(albumToSave);
+                    await _galleryObjectController.SaveGalleryObject(albumToSave);
                 }
             }
         }
@@ -1425,7 +1563,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="galleryItem">A gallery item. The object must have the <see cref="GalleryItem.Id" /> and 
         /// <see cref="GalleryItem.ItemType" /> properties specified; the others are optional.</param>
         /// <returns>An instance of <see cref="IGalleryObjectCollection" />.</returns>
-        private static IGalleryObjectCollection GetWritableSiblingGalleryObjects(GalleryItem galleryItem)
+        private IGalleryObjectCollection GetWritableSiblingGalleryObjects(GalleryItem galleryItem)
         {
             IGalleryObject parentAlbum;
 
@@ -1464,7 +1602,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="album">The album whose items are to be sorted.</param>
         /// <param name="previousSortByMetaName">The name of the metadata property the album was previously sorted on.</param>
         /// <param name="previousSortAscending">Indicates whether the album was previously sorted in ascending order.</param>
-        private static void ReverseCustomSortIfNeeded(IAlbum album, MetadataItemName previousSortByMetaName, bool previousSortAscending)
+        private void ReverseCustomSortIfNeeded(IAlbum album, MetadataItemName previousSortByMetaName, bool previousSortAscending)
         {
             var albumIsCustomSortedAndUserIsChangingSortDirection = ((album.SortByMetaName == MetadataItemName.NotSpecified)
               && (album.SortByMetaName == previousSortByMetaName)
@@ -1500,7 +1638,7 @@ namespace GalleryServer.Web.Controller
         /// destination album is in a read-only gallery (<see cref="IGallerySettings.MediaObjectPathIsReadOnly" /> = <c>true</c>).</exception>
         /// <exception cref="CannotTransferAlbumToNestedDirectoryException">Thrown when one or more of the <paramref name="itemsToMoveOrCopy" /> has a file extension
         /// that is not allowed in the gallery containing the <paramref name="destinationAlbum" />.</exception>
-        private static async Task<IGalleryObjectCollection> ThrowIfItemsCannotBeMovedOrCopied(GalleryItem[] itemsToMoveOrCopy, IAlbum destinationAlbum, GalleryAssetTransferType transferType)
+        private async Task<IGalleryObjectCollection> ThrowIfItemsCannotBeMovedOrCopied(GalleryItem[] itemsToMoveOrCopy, IAlbum destinationAlbum, GalleryAssetTransferType transferType)
         {
             bool movingOrCopyingAtLeastOneAlbum = false;
             bool movingOrCopyingAtLeastOneMediaObject = false;
@@ -1522,7 +1660,7 @@ namespace GalleryServer.Web.Controller
                 IGalleryObject galleryObject;
                 try
                 {
-                    galleryObject = GalleryObjectController.ToWritableGalleryObject(galleryItem);
+                    galleryObject = _galleryObjectController.ToWritableGalleryObject(galleryItem);
 
                     assetsToMoveOrCopy.Add(galleryObject);
                 }
@@ -1548,7 +1686,7 @@ namespace GalleryServer.Web.Controller
                     {
                         if (transferType == GalleryAssetTransferType.Move)
                         {
-                            ValidateSecurityForAlbumOrMediaObject(galleryObject, SecurityActions.DeleteAlbum);
+                            await ValidateSecurityForAlbumOrMediaObject(galleryObject, SecurityActions.DeleteAlbum);
                         }
                         securityCheckCompleteForAlbum = true;
                     }
@@ -1573,7 +1711,7 @@ namespace GalleryServer.Web.Controller
                     {
                         if (transferType == GalleryAssetTransferType.Move)
                         {
-                            ValidateSecurityForAlbumOrMediaObject(galleryObject.Parent, SecurityActions.DeleteMediaObject);
+                            await ValidateSecurityForAlbumOrMediaObject(galleryObject.Parent, SecurityActions.DeleteMediaObject);
                         }
                         securityCheckCompleteForMediaObject = true;
                     }
@@ -1599,7 +1737,7 @@ namespace GalleryServer.Web.Controller
                 // User is transferring objects to another gallery. Make sure the user is an admin for the gallery
                 // and that it is writable.
                 var isReadOnly = Factory.LoadGallerySetting(destinationAlbum.GalleryId).MediaObjectPathIsReadOnly;
-                var userIsNotAdmin = (await UserController.GetGalleriesCurrentUserCanAdminister()).All(g => g.GalleryId != destinationAlbum.GalleryId);
+                var userIsNotAdmin = (await _userController.GetGalleriesCurrentUserCanAdminister()).All(g => g.GalleryId != destinationAlbum.GalleryId);
 
                 if (isReadOnly || userIsNotAdmin)
                 {
@@ -1607,14 +1745,14 @@ namespace GalleryServer.Web.Controller
                 }
             }
 
-            if (movingOrCopyingAtLeastOneAlbum && (!Utils.IsUserAuthorized(SecurityActions.AddChildAlbum, await RoleController.GetGalleryServerRolesForUser(), destinationAlbum.Id, destinationAlbum.GalleryId, destinationAlbum.IsPrivate, destinationAlbum.IsVirtualAlbum)))
+            if (movingOrCopyingAtLeastOneAlbum && (!_userController.IsUserAuthorized(SecurityActions.AddChildAlbum, await _userController.GetGalleryServerRolesForUser(), destinationAlbum.Id, destinationAlbum.GalleryId, destinationAlbum.IsPrivate, destinationAlbum.IsVirtualAlbum)))
             {
-                throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "User '{0}' does not have permission '{1}' for album ID {2}.", Utils.UserName, SecurityActions.AddChildAlbum, destinationAlbum.Id));
+                throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "User '{0}' does not have permission '{1}' for album ID {2}.", _userController.UserName, SecurityActions.AddChildAlbum, destinationAlbum.Id));
             }
 
-            if (movingOrCopyingAtLeastOneMediaObject && (!Utils.IsUserAuthorized(SecurityActions.AddMediaObject, await RoleController.GetGalleryServerRolesForUser(), destinationAlbum.Id, destinationAlbum.GalleryId, destinationAlbum.IsPrivate, destinationAlbum.IsVirtualAlbum)))
+            if (movingOrCopyingAtLeastOneMediaObject && (!_userController.IsUserAuthorized(SecurityActions.AddMediaObject, await _userController.GetGalleryServerRolesForUser(), destinationAlbum.Id, destinationAlbum.GalleryId, destinationAlbum.IsPrivate, destinationAlbum.IsVirtualAlbum)))
             {
-                throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "User '{0}' does not have permission '{1}' for album ID {2}.", Utils.UserName, SecurityActions.AddMediaObject, destinationAlbum.Id));
+                throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "User '{0}' does not have permission '{1}' for album ID {2}.", _userController.UserName, SecurityActions.AddMediaObject, destinationAlbum.Id));
             }
 
             #endregion
@@ -1629,7 +1767,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="destinationAlbum">The album one wishes to move or copy <paramref name="albumToMoveOrCopy" /> to.</param>
         /// <exception cref="CannotTransferAlbumToNestedDirectoryException">Thrown when the user tries to move or copy an album to itself
         /// or one of its children albums.</exception>
-        private static void ThrowIfMovingOrCopyingAlbumToItselfOrChildAlbum(IAlbum albumToMoveOrCopy, IAlbum destinationAlbum)
+        private void ThrowIfMovingOrCopyingAlbumToItselfOrChildAlbum(IAlbum albumToMoveOrCopy, IAlbum destinationAlbum)
         {
             IAlbum albumParent = destinationAlbum;
 
@@ -1655,11 +1793,11 @@ namespace GalleryServer.Web.Controller
         /// <param name="securityActions">The security permission to validate.</param>
         /// <exception cref="GallerySecurityException">Thrown when the logged on 
         /// user does not belong to a role that authorizes the specified security action.</exception>
-        private static async Task ValidateSecurityForAlbumOrMediaObject(IGalleryObject galleryObjectToMoveOrCopy, SecurityActions securityActions)
+        private async Task ValidateSecurityForAlbumOrMediaObject(IGalleryObject galleryObjectToMoveOrCopy, SecurityActions securityActions)
         {
-            if (!await Utils.IsUserAuthorized(securityActions, galleryObjectToMoveOrCopy.Id, galleryObjectToMoveOrCopy.GalleryId, galleryObjectToMoveOrCopy.IsPrivate, ((IAlbum)galleryObjectToMoveOrCopy).IsVirtualAlbum))
+            if (!_userController.IsUserAuthorized(securityActions, await _userController.GetGalleryServerRolesForUser(), galleryObjectToMoveOrCopy.Id, galleryObjectToMoveOrCopy.GalleryId, galleryObjectToMoveOrCopy.IsPrivate, ((IAlbum)galleryObjectToMoveOrCopy).IsVirtualAlbum))
             {
-                throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "User '{0}' does not have permission '{1}' for album ID {2}.", Utils.UserName, securityActions, galleryObjectToMoveOrCopy.Id));
+                throw new GallerySecurityException(String.Format(CultureInfo.CurrentCulture, "User '{0}' does not have permission '{1}' for album ID {2}.", _userController.UserName, securityActions, galleryObjectToMoveOrCopy.Id));
             }
         }
 
@@ -1669,9 +1807,9 @@ namespace GalleryServer.Web.Controller
         /// setting since this user should see the album sorted on the album sort property from now on.
         /// </summary>
         /// <param name="albumId">The album identifier.</param>
-        private static void RemoveAlbumFromUserProfileIfPresent(int albumId)
+        private void RemoveAlbumFromUserProfileIfPresent(int albumId)
         {
-            var profile = ProfileController.GetProfile();
+            var profile = ProfileController.GetProfile(_userController.UserName);
 
             var aProfile = profile.AlbumProfiles.Find(albumId);
 

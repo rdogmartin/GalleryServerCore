@@ -1,23 +1,30 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Net.Mail;
-using System.Threading;
-using System.Threading.Tasks;
 using GalleryServer.Business;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Events.CustomExceptions;
 using GalleryServer.Web.Entity;
+using Microsoft.AspNetCore.Hosting;
+using System;
+using System.IO;
+using System.Net.Mail;
+using System.Threading.Tasks;
 
 namespace GalleryServer.Web.Controller
 {
-	/// <summary>
-	/// Contains e-mail related functionality.
-	/// </summary>
-	public static class EmailController
+    /// <summary>
+    /// Contains e-mail related functionality.
+    /// </summary>
+    public class EmailController
 	{
-		#region Public Static Methods
+	    private readonly UrlController _urlController;
+	    private readonly IHostingEnvironment _env;
+
+	    public EmailController(UrlController urlController, IHostingEnvironment env)
+	    {
+	        _urlController = urlController;
+	        _env = env;
+	    }
+
+		#region Public Methods
 
 		///// <summary>
 		///// Send a plain text email with the specified properties. The email will appear to come from the name and email specified in the
@@ -42,7 +49,7 @@ namespace GalleryServer.Web.Controller
 		///// or the operation timed out. (Not thrown when <paramref name="sendOnBackgroundThread"/> is true.)</exception>
 		///// <exception cref="SmtpFailedRecipientsException">The message could not be delivered to one or more
 		///// recipients. (Not thrown when <paramref name="sendOnBackgroundThread"/> is true.)</exception>
-		//public static void SendEmail(string subject, string body, int galleryId, bool sendOnBackgroundThread)
+		//public void SendEmail(string subject, string body, int galleryId, bool sendOnBackgroundThread)
 		//{
 		//  MailAddress recipient = new MailAddress(Config.GetCore().EmailToAddress, Config.GetCore().EmailToName);
 
@@ -63,7 +70,7 @@ namespace GalleryServer.Web.Controller
 		/// <param name="subject">The text to appear in the subject of the email.</param>
 		/// <param name="body">The body of the email. Must be plain text.</param>
 		/// <exception cref="ArgumentNullException">Thrown when <paramref name="user" /> is null.</exception>
-		public static void SendEmail(IUserAccount user, string subject, string body)
+		public void SendEmail(IUserAccount user, string subject, string body)
 		{
 			if (user == null)
 				throw new ArgumentNullException("user");
@@ -85,7 +92,7 @@ namespace GalleryServer.Web.Controller
 		/// <param name="subject">The text to appear in the subject of the email.</param>
 		/// <param name="body">The body of the email. Must be plain text.</param>
 		/// <param name="galleryId">The gallery ID containing the e-mail configuration settings to use.</param>
-		public static void SendEmail(MailAddress emailRecipient, string subject, string body, int galleryId)
+		public void SendEmail(MailAddress emailRecipient, string subject, string body, int galleryId)
 		{
 			MailAddressCollection mailAddresses = new MailAddressCollection();
 			mailAddresses.Add(emailRecipient);
@@ -112,7 +119,7 @@ namespace GalleryServer.Web.Controller
 		/// or the operation timed out. (Not thrown when <paramref name="sendOnBackgroundThread"/> is true.)</exception>
 		/// <exception cref="SmtpFailedRecipientsException">The message could not be delivered to of the <paramref name="emailRecipient"/>.
 		/// (Not thrown when <paramref name="sendOnBackgroundThread"/> is true.)</exception>
-		public static void SendEmail(MailAddress emailRecipient, string subject, string body, bool sendOnBackgroundThread)
+		public void SendEmail(MailAddress emailRecipient, string subject, string body, bool sendOnBackgroundThread)
 		{
 			MailAddressCollection mailAddresses = new MailAddressCollection();
 			mailAddresses.Add(emailRecipient);
@@ -142,7 +149,7 @@ namespace GalleryServer.Web.Controller
 		/// <exception cref="SmtpFailedRecipientsException">The message could not be delivered to one or more of the
 		/// <paramref name="emailRecipients"/>. (Not thrown when <paramref name="sendOnBackgroundThread"/> is true.)</exception>
 		/// <exception cref="ArgumentNullException">Thrown when <paramref name="emailRecipients" /> is null.</exception>
-		public static void SendEmail(MailAddressCollection emailRecipients, string subject, string body, bool isBodyHtml, bool sendOnBackgroundThread)
+		public void SendEmail(MailAddressCollection emailRecipients, string subject, string body, bool isBodyHtml, bool sendOnBackgroundThread)
 		{
 			if (emailRecipients == null)
 				throw new ArgumentNullException("emailRecipients");
@@ -197,7 +204,7 @@ namespace GalleryServer.Web.Controller
 		/// <param name="template">The template to retrieve.</param>
 		/// <param name="user">The user associated with the template.</param>
 		/// <returns>Returns an e-mail template.</returns>
-		public static EmailTemplate GetEmailTemplate(EmailTemplateForm template, IUserAccount user)
+		public EmailTemplate GetEmailTemplate(EmailTemplateForm template, IUserAccount user)
 		{
 			return GetEmailTemplate(template, user.UserName, user.Email);
 		}
@@ -210,12 +217,13 @@ namespace GalleryServer.Web.Controller
 		/// <param name="userName">The name of the user associated with the template.</param>
 		/// <param name="email">The email of the user associated with the template.</param>
 		/// <returns>Returns an e-mail template.</returns>
-		private static EmailTemplate GetEmailTemplate(EmailTemplateForm template, string userName, string email)
+		private EmailTemplate GetEmailTemplate(EmailTemplateForm template, string userName, string email)
 		{
 			EmailTemplate emailTemplate = new EmailTemplate();
 			emailTemplate.EmailTemplateId = template;
 
-			string filePath = Utils.GetPath(String.Format(CultureInfo.InvariantCulture, "/templates/{0}.txt", template));
+			//string filePath = Utils.GetPath(String.Format(CultureInfo.InvariantCulture, "/templates/{0}.txt", template));
+		    var filePath = $"{_env.ContentRootPath}/templates/{template}.txt";
 
 			// Step 1: Get subject and body from text file and assign to fields.
 			using (StreamReader sr = File.OpenText(filePath))
@@ -233,7 +241,7 @@ namespace GalleryServer.Web.Controller
 			}
 
 			// Step 2: Update replacement parameters with real values.
-			emailTemplate.Body = emailTemplate.Body.Replace("{CurrentPageUrlFull}", Utils.GetCurrentPageUrlFull());
+			emailTemplate.Body = emailTemplate.Body.Replace("{CurrentPageUrlFull}", _urlController.GetAppUrl());
 			emailTemplate.Body = emailTemplate.Body.Replace("{UserName}", userName);
 			emailTemplate.Body = emailTemplate.Body.Replace("{Email}", String.IsNullOrEmpty(email) ? "<no e-mail>" : email);
 
@@ -242,7 +250,8 @@ namespace GalleryServer.Web.Controller
 				emailTemplate.Body = emailTemplate.Body.Replace("{VerificationUrl}", GenerateVerificationLink(userName));
 
 			if (emailTemplate.Body.Contains("{Password}"))
-				emailTemplate.Body = emailTemplate.Body.Replace("{Password}", UserController.GetPassword(userName));
+                throw new NotImplementedException();
+				//emailTemplate.Body = emailTemplate.Body.Replace("{Password}", UserController.GetPassword(userName));
 
 			if (emailTemplate.Body.Contains("{ManageUserUrl}"))
 				emailTemplate.Body = emailTemplate.Body.Replace("{ManageUserUrl}", GenerateManageUserLink(userName));
@@ -258,7 +267,7 @@ namespace GalleryServer.Web.Controller
 		/// </summary>
 		/// <param name="user">The user to receive the e-mail.</param>
 		/// <param name="templateForm">The template form specifying the type of e-mail to send.</param>
-		public static void SendNotificationEmail(IUserAccount user, EmailTemplateForm templateForm)
+		public void SendNotificationEmail(IUserAccount user, EmailTemplateForm templateForm)
 		{
 			SendNotificationEmail(user.UserName, user.Email, templateForm, true);
 		}
@@ -280,7 +289,7 @@ namespace GalleryServer.Web.Controller
 		/// such as when testing the e-mail function in the Site Administration area, set to <c>false</c>.</param>
 		/// <exception cref="System.ArgumentNullException">userName</exception>
 		/// <exception cref="ArgumentNullException">Thrown when <paramref name="userName" /> is null.</exception>
-		public static void SendNotificationEmail(string userName, string email, EmailTemplateForm templateForm, bool sendOnBackgroundThread)
+		public void SendNotificationEmail(string userName, string email, EmailTemplateForm templateForm, bool sendOnBackgroundThread)
 		{
 			if (userName == null)
 				throw new ArgumentNullException("userName");
@@ -297,7 +306,7 @@ namespace GalleryServer.Web.Controller
 
 		#endregion
 
-		#region Private Static Methods
+		#region Private Methods
 
 		/// <summary>
 		/// Sends the e-mail. If <paramref name="suppressException"/> is <c>true</c>, record any exception that occurs but do not
@@ -307,7 +316,7 @@ namespace GalleryServer.Web.Controller
 		/// <param name="mail">The mail message to send.</param>
 		/// <param name="suppressException">If <c>true</c>, record any exception that occurs but do not
 		/// let it propagate out of this function. When <c>false</c>, record the exception and re-throw it.</param>
-		private static void SendEmail(MailMessage mail, bool suppressException)
+		private void SendEmail(MailMessage mail, bool suppressException)
 		{
 			try
 			{
@@ -354,14 +363,16 @@ namespace GalleryServer.Web.Controller
 			}
 		}
 
-		private static string GenerateVerificationLink(string userName)
+		private string GenerateVerificationLink(string userName)
 		{
-			return String.Concat(Utils.GetHostUrl(), Utils.GetUrl(PageId.createaccount, "verify={0}", Utils.UrlEncode(HelperFunctions.Encrypt(userName))));
+            throw new NotImplementedException();
+			//return String.Concat(Utils.GetHostUrl(), Utils.GetUrl(PageId.createaccount, "verify={0}", Utils.UrlEncode(HelperFunctions.Encrypt(userName))));
 		}
 
-		private static string GenerateManageUserLink(string userName)
+		private string GenerateManageUserLink(string userName)
 		{
-			return String.Concat(Utils.GetHostUrl(), Utils.GetUrl(PageId.admin_manageusers));
+            throw new NotImplementedException();
+			//return String.Concat(Utils.GetHostUrl(), Utils.GetUrl(PageId.admin_manageusers));
 		}
 
 		#endregion

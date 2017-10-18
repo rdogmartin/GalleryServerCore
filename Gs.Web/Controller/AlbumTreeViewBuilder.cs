@@ -1,15 +1,13 @@
-﻿using System;
+﻿using GalleryServer.Business;
+using GalleryServer.Business.Interfaces;
+using GalleryServer.Business.NullObjects;
+using GalleryServer.Events.CustomExceptions;
+using GalleryServer.Web.Entity;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using GalleryServer.Business;
-using GalleryServer.Business.Interfaces;
-using GalleryServer.Business.NullObjects;
-using GalleryServer.Events.CustomExceptions;
-using GalleryServer.Web.Controller;
-using GalleryServer.Web.Entity;
-using Microsoft.Extensions.Options;
 
 namespace GalleryServer.Web.Controller
 {
@@ -29,7 +27,7 @@ namespace GalleryServer.Web.Controller
         /// <summary>
         /// Gets the options that specified the <see cref="TreeView" /> look and behavior.
         /// </summary>
-        private TreeViewOptions Options { get; }
+        private TreeViewOptions Options { get; set; }
 
         /// <summary>
         /// Gets the tree this instance is constructing.
@@ -41,7 +39,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         private async Task<IGalleryServerRoleCollection> GetRoles()
         {
-            return _roles ?? (_roles = await RoleController.GetGalleryServerRolesForUser());
+            return _roles ?? (_roles = await Options.UserController.GetGalleryServerRolesForUser());
         }
 
         #endregion
@@ -49,14 +47,12 @@ namespace GalleryServer.Web.Controller
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AlbumTreeViewBuilder"/> class.
+        /// Initializes a new instance of the <see cref="AlbumTreeViewBuilder" /> class.
         /// </summary>
-        /// <param name="tvOptions">The treeview options.</param>
-        private AlbumTreeViewBuilder(TreeViewOptions tvOptions)
+        public AlbumTreeViewBuilder()
         {
-            Options = tvOptions;
             Tree = new TreeView();
-        }
+       }
 
         #endregion
 
@@ -67,9 +63,9 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="tvOptions">The treeview options.</param>
         /// <returns>An instance of <see cref="TreeView" />.</returns>
-        public static async Task<TreeView> GetAlbumsAsTreeView(TreeViewOptions tvOptions)
+        public async Task<TreeView> GetAlbumsAsTreeView(TreeViewOptions tvOptions)
         {
-            return await new AlbumTreeViewBuilder(tvOptions).Generate();
+            return await Generate(tvOptions);
         }
 
         #endregion
@@ -79,13 +75,16 @@ namespace GalleryServer.Web.Controller
         /// <summary>
         /// Render the treeview with the first two levels of albums that are viewable to the logged on user.
         /// </summary>
-        private async Task<TreeView> Generate()
+        /// <param name="tvOptions">The treeview options.</param>
+        /// <returns>Task&lt;TreeView&gt;.</returns>
+        private async Task<TreeView> Generate(TreeViewOptions tvOptions)
         {
+            Options = tvOptions;
             Tree.EnableCheckBoxPlugin = Options.EnableCheckboxPlugin;
 
             foreach (IAlbum rootAlbum in await GetTopAlbums())
             {
-                if (!await Utils.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, rootAlbum.Id, rootAlbum.GalleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum))
+                if (!Options.UserController.IsUserAuthorized(SecurityActions.ViewAlbumOrMediaObject, await Options.UserController.GetGalleryServerRolesForUser(), rootAlbum.Id, rootAlbum.GalleryId, rootAlbum.IsPrivate, rootAlbum.IsVirtualAlbum))
                 {
                     continue;
                 }
@@ -115,7 +114,7 @@ namespace GalleryServer.Web.Controller
                 // If it has a nav URL, it's always selectable & won't have a checkbox. If not, then it's selectable if the user has permission
                 if (string.IsNullOrEmpty(rootNode.NavigateUrl))
                 {
-                    rootNode.Selectable = !rootAlbum.IsVirtualAlbum && Utils.IsUserAuthorized(Options.RequiredSecurityPermissions, await RoleController.GetGalleryServerRolesForUser(), rootAlbum.Id, rootAlbum.GalleryId, rootAlbum.IsPrivate, SecurityActionsOption.RequireOne, rootAlbum.IsVirtualAlbum);
+                    rootNode.Selectable = !rootAlbum.IsVirtualAlbum && Options.UserController.IsUserAuthorized(Options.RequiredSecurityPermissions, await GetRoles(), rootAlbum.Id, rootAlbum.GalleryId, rootAlbum.IsPrivate, SecurityActionsOption.RequireOne, rootAlbum.IsVirtualAlbum);
 
                     if (Options.EnableCheckboxPlugin)
                     {
@@ -136,7 +135,7 @@ namespace GalleryServer.Web.Controller
                 Tree.Nodes.Add(rootNode);
 
                 // Add the first level of albums below the root album.
-                var childAlbums = rootAlbum.GetChildGalleryObjects(GalleryObjectType.Album, !Utils.IsAuthenticated);
+                var childAlbums = rootAlbum.GetChildGalleryObjects(GalleryObjectType.Album, !Options.UserController.IsAuthenticated);
 
                 if (Options.NumberOfLevels == 1)
                 {
@@ -159,9 +158,9 @@ namespace GalleryServer.Web.Controller
             {
                 foreach (var albumId in Options.SelectedAlbumIds.Where(id => id > int.MinValue))
                 {
-                    var album = AlbumController.LoadAlbumInstance(albumId);
+                    var album = Factory.LoadAlbumInstance(new AlbumLoadOptions(albumId));
 
-                    if (Utils.IsUserAuthorized(Options.RequiredSecurityPermissions, await GetRoles(), album.Id, album.GalleryId, album.IsPrivate, SecurityActionsOption.RequireOne, album.IsVirtualAlbum))
+                    if (Options.UserController.IsUserAuthorized(Options.RequiredSecurityPermissions, await GetRoles(), album.Id, album.GalleryId, album.IsPrivate, SecurityActionsOption.RequireOne, album.IsVirtualAlbum))
                     {
                         BindSpecificAlbumToTreeview(album);
                     }
@@ -208,7 +207,7 @@ namespace GalleryServer.Web.Controller
                 // If it has a nav URL, it's always selectable & won't have a checkbox. If not, then it's selectable if the user has permission
                 if (string.IsNullOrEmpty(node.NavigateUrl))
                 {
-                    node.Selectable = !album.IsVirtualAlbum && Utils.IsUserAuthorized(Options.RequiredSecurityPermissions, await RoleController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, album.IsPrivate, SecurityActionsOption.RequireOne, album.IsVirtualAlbum);
+                    node.Selectable = !album.IsVirtualAlbum && Options.UserController.IsUserAuthorized(Options.RequiredSecurityPermissions, await GetRoles(), album.Id, album.GalleryId, album.IsPrivate, SecurityActionsOption.RequireOne, album.IsVirtualAlbum);
 
                     if (Options.EnableCheckboxPlugin && !parentNode.ShowCheckBox)
                     {
@@ -220,7 +219,7 @@ namespace GalleryServer.Web.Controller
                     node.Selectable = true;
                 }
 
-                if (album.GetChildGalleryObjects(GalleryObjectType.Album, !Utils.IsAuthenticated).Any())
+                if (album.GetChildGalleryObjects(GalleryObjectType.Album, !Options.UserController.IsAuthenticated).Any())
                 {
                     node.HasChildren = true;
                 }
@@ -231,7 +230,7 @@ namespace GalleryServer.Web.Controller
                     node.Expanded = true;
                     node.Selected = true;
                     // Expand the child of the selected album.
-                    BindAlbumToTreeview(album.GetChildGalleryObjects(GalleryObjectType.Album, !Utils.IsAuthenticated).ToSortedList(), node, false);
+                    await BindAlbumToTreeview(album.GetChildGalleryObjects(GalleryObjectType.Album, !Options.UserController.IsAuthenticated).ToSortedList(), node, false);
                 }
 
                 parentNode.Nodes.Add(node);
@@ -267,7 +266,7 @@ namespace GalleryServer.Web.Controller
         /// <param name="existingParentNode">The treeview node to add the first album in the stack to.</param>
         /// <param name="albumParents">A list of albums where the first album should be a child of the specified treeview
         /// node, and each subsequent album is a child of the previous album.</param>
-        private void BindSpecificAlbumToTreeview(TreeNode existingParentNode, Stack<IAlbum> albumParents)
+        private async Task BindSpecificAlbumToTreeview(TreeNode existingParentNode, Stack<IAlbum> albumParents)
         {
             // Assumption: The first album in the stack is a child of the existingParentNode node.
             existingParentNode.Expanded = true;
@@ -279,8 +278,8 @@ namespace GalleryServer.Web.Controller
                 if (existingParentNode.Nodes.Count == 0)
                 {
                     // Add all the album's siblings to the treeview.
-                    var childAlbums = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(Convert.ToInt32(existingParentNode.DataId, CultureInfo.InvariantCulture)) { InflateChildObjects = true }).GetChildGalleryObjects(GalleryObjectType.Album, !Utils.IsAuthenticated).ToSortedList();
-                    BindAlbumToTreeview(childAlbums, existingParentNode, false);
+                    var childAlbums = Factory.LoadAlbumInstance(new AlbumLoadOptions(Convert.ToInt32(existingParentNode.DataId, CultureInfo.InvariantCulture)) { InflateChildObjects = true }).GetChildGalleryObjects(GalleryObjectType.Album, !Options.UserController.IsAuthenticated).ToSortedList();
+                    await BindAlbumToTreeview(childAlbums, existingParentNode, false);
                 }
 
                 // Now find the album in the siblings we just added that matches the current album in the stack.
@@ -357,21 +356,21 @@ namespace GalleryServer.Web.Controller
 
             if (Options.AlbumId > 0)
             {
-                var album = AlbumController.LoadAlbumInstance(new AlbumLoadOptions(Options.AlbumId) { InflateChildObjects = true });
+                var album = Factory.LoadAlbumInstance(new AlbumLoadOptions(Options.AlbumId) { InflateChildObjects = true });
                 if (Options.IncludeAlbum)
                 {
                     rootAlbums.Add(album);
                 }
                 else
                 {
-                    rootAlbums.AddRange(album.GetChildGalleryObjects(GalleryObjectType.Album, !Utils.IsAuthenticated).ToSortedList().Cast<IAlbum>());
+                    rootAlbums.AddRange(album.GetChildGalleryObjects(GalleryObjectType.Album, !Options.UserController.IsAuthenticated).ToSortedList().Cast<IAlbum>());
                 }
             }
             else if (Options.Galleries != null)
             {
                 foreach (IGallery gallery in Options.Galleries)
                 {
-                    var rootAlbum = Factory.LoadRootAlbum(gallery.GalleryId, await GetRoles(), Utils.IsAuthenticated);
+                    var rootAlbum = Factory.LoadRootAlbum(gallery.GalleryId, await GetRoles(), Options.UserController.IsAuthenticated);
 
                     if (rootAlbum != null)
                         rootAlbums.Add(rootAlbum);

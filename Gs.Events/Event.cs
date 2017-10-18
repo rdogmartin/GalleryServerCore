@@ -308,7 +308,7 @@ namespace GalleryServer.Events
 
             ExtractVersion();
 
-            ExtractHttpContextInfo();
+            //ExtractHttpContextInfo();
         }
 
         /// <summary>
@@ -417,7 +417,7 @@ namespace GalleryServer.Events
 
             ExtractVersion();
 
-            ExtractHttpContextInfo();
+            //ExtractHttpContextInfo();
         }
 
         /// <summary>
@@ -636,78 +636,78 @@ namespace GalleryServer.Events
 
         #region Private Methods
 
-        /// <summary>
-        ///   Extract information from the current HTTP context and assign to member variables.
-        /// </summary>
-        private void ExtractHttpContextInfo()
-        {
-            var httpContext = DiHelper.HttpContext;
+        ///// <summary>
+        /////   Extract information from the current HTTP context and assign to member variables.
+        ///// </summary>
+        //private void ExtractHttpContextInfo()
+        //{
+        //    var httpContext = DiHelper.HttpContext;
 
-            if (httpContext == null)
-            {
-                _url = "Not Available";
-                return;
-            }
+        //    if (httpContext == null)
+        //    {
+        //        _url = "Not Available";
+        //        return;
+        //    }
 
-            try
-            {
-                //_url = HttpContext.Current.Request.Url.AbsoluteUri;
-                _url = httpContext.Request.GetUri().AbsoluteUri;
-            }
-            catch (Exception)
-            {
-                _url = "Not Available";
-                return;
-            }
+        //    try
+        //    {
+        //        //_url = HttpContext.Current.Request.Url.AbsoluteUri;
+        //        _url = httpContext.Request.GetUri().AbsoluteUri;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        _url = "Not Available";
+        //        return;
+        //    }
 
-            try
-            {
-                var form = httpContext.Request.Form;
-                foreach (var key in form.Keys)
-                {
-                    if (key.IndexOf("password", StringComparison.OrdinalIgnoreCase) < 0) // Don't include any form variables containing the string password. This prevents sensitive data from being recorded.
-                    {
-                        _formVariables.Add(new KeyValuePair<string, string>(key, form[key]));
-                    }
-                }
-            }
-            catch (InvalidOperationException) { }
+        //    try
+        //    {
+        //        var form = httpContext.Request.Form;
+        //        foreach (var key in form.Keys)
+        //        {
+        //            if (key.IndexOf("password", StringComparison.OrdinalIgnoreCase) < 0) // Don't include any form variables containing the string password. This prevents sensitive data from being recorded.
+        //            {
+        //                _formVariables.Add(new KeyValuePair<string, string>(key, form[key]));
+        //            }
+        //        }
+        //    }
+        //    catch (InvalidOperationException) { }
 
-            var cookies = httpContext.Request.Cookies;
-            foreach (var cookie in cookies)
-            {
-                _cookies.Add(new KeyValuePair<string, string>(cookie.Key, cookie.Value));
-            }
+        //    var cookies = httpContext.Request.Cookies;
+        //    foreach (var cookie in cookies)
+        //    {
+        //        _cookies.Add(new KeyValuePair<string, string>(cookie.Key, cookie.Value));
+        //    }
 
-            try
-            {
-                var session = httpContext.Session;
-                if (session != null)
-                {
-                    foreach (var key in session.Keys)
-                    {
-                        _sessionVariables.Add(new KeyValuePair<string, string>(key, session.Get(key).ToString()));
-                    }
-                }
-            }
-            catch (InvalidOperationException) { }
+        //    try
+        //    {
+        //        var session = httpContext.Session;
+        //        if (session != null)
+        //        {
+        //            foreach (var key in session.Keys)
+        //            {
+        //                _sessionVariables.Add(new KeyValuePair<string, string>(key, session.Get(key).ToString()));
+        //            }
+        //        }
+        //    }
+        //    catch (InvalidOperationException) { }
 
 
-            // No ServerVariables in .NET Core 2.0
-            //var serverVariables = _httpContextAccessor.HttpContext.Request.ServerVariables;
-            //for (var i = 0; i < serverVariables.Count; i++)
-            //{
-            //    var key = serverVariables.Keys[i];
-            //    var value = serverVariables[i];
-            //    var serverVarsToSkip = new[] { "ALL_HTTP", "ALL_RAW" };
+        //    // No ServerVariables in .NET Core 2.0
+        //    //var serverVariables = _httpContextAccessor.HttpContext.Request.ServerVariables;
+        //    //for (var i = 0; i < serverVariables.Count; i++)
+        //    //{
+        //    //    var key = serverVariables.Keys[i];
+        //    //    var value = serverVariables[i];
+        //    //    var serverVarsToSkip = new[] { "ALL_HTTP", "ALL_RAW" };
 
-            //    // Skip empty values & "ALL_HTTP" & "ALL_RAW" because their values are itemized in the rest of the collection
-            //    if (String.IsNullOrWhiteSpace(value) || Array.IndexOf(serverVarsToSkip, key) >= 0)
-            //        continue;
+        //    //    // Skip empty values & "ALL_HTTP" & "ALL_RAW" because their values are itemized in the rest of the collection
+        //    //    if (String.IsNullOrWhiteSpace(value) || Array.IndexOf(serverVarsToSkip, key) >= 0)
+        //    //        continue;
 
-            //    _serverVariables.Add(new KeyValuePair<string, string>(serverVariables.Keys[i], value));
-            //}
-        }
+        //    //    _serverVariables.Add(new KeyValuePair<string, string>(serverVariables.Keys[i], value));
+        //    //}
+        //}
 
         /// <summary>
         /// Formats the specified <paramref name="item" /> into an HTML paragraph tag with a class attribute of
