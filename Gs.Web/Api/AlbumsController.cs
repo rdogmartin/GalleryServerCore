@@ -6,24 +6,36 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
+using GalleryServer.Business.Metadata;
+using GalleryServer.Web.Security;
 
 namespace GalleryServer.Web.Api
 {
+    /// <summary>
+    /// Contains methods for Web API access to albums.
+    /// </summary>
     //[Route("api/[controller]/[action]")]
-    [AllowAnonymous]
+    //[AllowAnonymous]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] // (AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)
     public class AlbumsController : Microsoft.AspNetCore.Mvc.Controller
     {
         private readonly AlbumController _albumController;
+        private readonly GalleryObjectController _galleryObjectController;
         private readonly UserController _userController;
         private readonly ExceptionController _exController;
+        private readonly IAuthorizationService _authorizationService;
 
-        public AlbumsController(AlbumController albumController, UserController userController, ExceptionController exController)
+        public AlbumsController(AlbumController albumController, GalleryObjectController galleryObjectController, UserController userController, ExceptionController exController, IAuthorizationService authorizationService)
         {
             _albumController = albumController;
+            _galleryObjectController = galleryObjectController;
             _userController = userController;
             _exController = exController;
+            _authorizationService = authorizationService;
         }
 
         /// <summary>
@@ -33,8 +45,8 @@ namespace GalleryServer.Web.Api
         /// </summary>
         /// <param name="id">The album ID.</param>
         /// <returns>An instance of <see cref="IActionResult" />.</returns>
-        [HttpGet] //("{id:int}")
         [AllowAnonymous]
+        [HttpGet] //("{id:int}")
         //[Authorize(Policy = GlobalConstants.PolicyViewAlbumOrAsset)]
         public async Task<IActionResult> Get(int id)
         {
@@ -89,8 +101,8 @@ namespace GalleryServer.Web.Api
         /// <param name="top">Specifies the number of child gallery objects to retrieve. Specify 0 to retrieve all items.</param>
         /// <param name="skip">Specifies the number of child gallery objects to skip.</param>
         /// <returns>An instance of <see cref="Entity.GalleryData" />.</returns>
-        [HttpGet,ActionName("Inflated")]
         [AllowAnonymous]
+        [HttpGet, ActionName("Inflated")]
         public async Task<IActionResult> GetInflatedAlbum(int id, int top = 0, int skip = 0)
         {
             // GET /api/albums/inflated/12 // Return data for album # 12
@@ -128,19 +140,66 @@ namespace GalleryServer.Web.Api
         }
 
         /// <summary>
+        /// Gets the gallery items for the specified album, optionally sorting the results.
+        /// </summary>
+        /// <param name="id">The album ID.</param>
+        /// <param name="sortByMetaNameId">The name of the metadata item to sort on.</param>
+        /// <param name="sortAscending">If set to <c>true</c> sort in ascending order.</param>
+        /// <returns>IQueryable{Entity.GalleryItem}.</returns>
+        [AllowAnonymous]
+        [HttpGet, ActionName("GalleryItems")]
+        public async Task<IActionResult> GetGalleryItemsForAlbumId(int id, int sortByMetaNameId = int.MinValue, bool sortAscending = true)
+        {
+            // GET /api/albums/galleryitems/12?sortByMetaNameId=11&sortAscending=true - Gets gallery items for album #12
+            try
+            {
+                return new JsonResult(await _galleryObjectController.GetGalleryItemsInAlbum(id, (MetadataItemName)sortByMetaNameId, sortAscending));
+            }
+            catch (InvalidAlbumException)
+            {
+                return NotFound($"Could not find album with ID {id}.");
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+        /// <summary>
         /// Persists the <paramref name="album" /> to the data store. Only the following properties are persisted: 
         /// <see cref="Entity.Album.SortById" />, <see cref="Entity.Album.SortUp" />, <see cref="Entity.Album.IsPrivate" />
         /// </summary>
         /// <param name="album">The album to persist.</param>
         [HttpPost]
+        //[Authorize(Policy = GlobalConstants.PolicyOperationAuthorization)]
         public async Task<IActionResult> Post([FromBody]Entity.Album album)
         {
             // POST api/albums/post
+            if (album == null)
+                throw new ArgumentNullException(nameof(album));
+
             try
             {
-                await _albumController.UpdateAlbum(album);
+                var alb = Factory.LoadAlbumInstance(new AlbumLoadOptions(album.Id) { IsWritable = true });
 
-                return Ok("Album saved...");
+                if ((await _authorizationService.AuthorizeAsync(User, alb, Operations.EditAlbum)).Succeeded)
+                {
+                    await _albumController.UpdateAlbum(album);
+
+                    return Ok($"Album {alb.Id} saved...");
+                }
+                else
+                {
+                    throw new GallerySecurityException($"You do not have permission '{Operations.EditAlbum.RequestedPermission}' for album ID {album.Id}.");
+                }
             }
             catch (InvalidAlbumException)
             {

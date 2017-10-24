@@ -597,12 +597,12 @@ namespace GalleryServer.Web.Controller
         /// <returns>
         /// Returns an <see cref="IGalleryServerRoleCollection" /> representing the roles for the currently logged-on user.
         /// </returns>
-        public async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
+        public Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
         {
             //var userName = DiHelper.HttpContext.User.Claims.SingleOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
             //return await GetGalleryServerRolesForUser(userName);
-            var roleNames = _httpContextAccessor.HttpContext.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value);
-            return await GetGalleryServerRoles(roleNames);
+            //var roleNames = _httpContextAccessor.HttpContext.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value);
+            return GetGalleryServerRoles(_httpContextAccessor.HttpContext.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value));
         }
 
         /// <summary>

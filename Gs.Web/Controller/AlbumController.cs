@@ -622,11 +622,10 @@ namespace GalleryServer.Web.Controller
         /// <summary>
         /// Update the album with the specified properties in the <paramref name="album" /> parameter. Only the following properties are
         /// persisted: <see cref="Entity.Album.SortById" />, <see cref="Entity.Album.SortUp" />, <see cref="Entity.Album.IsPrivate" />
+        /// No security check is performed. The caller must authorize user.
         /// </summary>
         /// <param name="album">An <see cref="Entity.Album" /> instance containing data to be persisted to the data store.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="album" /> is null.</exception>
-        /// <exception cref="GallerySecurityException">Thrown when the 
-        /// user does not have edit permission to the specified album.</exception>
         public async Task UpdateAlbum(Entity.Album album)
         {
             if (album == null)
@@ -635,7 +634,7 @@ namespace GalleryServer.Web.Controller
             var alb = LoadAlbumInstance(new AlbumLoadOptions(album.Id) { IsWritable = true });
 
             // Update remaining properties if user has edit album permission.
-            SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await _userController.GetGalleryServerRolesForUser(), alb.Id, alb.GalleryId, _userController.IsAuthenticated, alb.IsPrivate, alb.IsVirtualAlbum);
+            //SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.EditAlbum, await _userController.GetGalleryServerRolesForUser(), alb.Id, alb.GalleryId, _userController.IsAuthenticated, alb.IsPrivate, alb.IsVirtualAlbum);
 
             alb.SortByMetaName = (MetadataItemName)album.SortById;
             alb.SortAscending = album.SortUp;

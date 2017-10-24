@@ -68,7 +68,8 @@ namespace Gs.Web
                 //    policy.Requirements.Add(new ViewAlbumOrAssetRequirement());
                 //});
                 options.AddPolicy(GlobalConstants.PolicyAdministrator, policy => policy.Requirements.Add(new AdminRequirement()));
-                //options.AddPolicy("Administrator", policy => policy.RequireClaim("EmployeeNumber", "1", "2", "3", "4", "5"));
+                options.AddPolicy(GlobalConstants.PolicyOperationAuthorization, policy => policy.Requirements.Add(new OperationAuthorizationRequirement()));
+                //options.AddPolicy(GlobalConstants.PolicyEditAlbumOrAsset, policy => policy.RequireClaim("EmployeeNumber", "1", "2", "3", "4", "5"));
             });
 
             // Register no-op EmailSender used by account confirmation and password reset during development
@@ -94,6 +95,7 @@ namespace Gs.Web
             //services.AddSingleton<IAuthorizationHandler, ViewAlbumOrAssetHandler>();
             services.AddScoped<IAuthorizationHandler, SiteAdminHandler>();
             services.AddScoped<IAuthorizationHandler, GalleryAdminHandler>();
+            services.AddScoped<IAuthorizationHandler, AlbumAuthorizationHandler>();
 
             //services.AddCors();
 

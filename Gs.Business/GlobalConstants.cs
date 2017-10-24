@@ -161,5 +161,7 @@ namespace GalleryServer.Business
         public const string PolicyAdministrator = "Administrator";
 
         public const string PolicyViewAlbumOrAsset = "ViewAlbumOrAsset";
+
+        public const string PolicyOperationAuthorization = "OperationAuthorization";
     }
 }

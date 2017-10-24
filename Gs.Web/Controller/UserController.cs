@@ -684,9 +684,9 @@ namespace GalleryServer.Web.Controller
         /// <returns>
         /// Returns an <see cref="IGalleryServerRoleCollection" /> representing the roles for the currently logged-on user.
         /// </returns>
-        public async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
+        public Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser()
         {
-            return await _roleController.GetGalleryServerRolesForUser();
+            return _roleController.GetGalleryServerRolesForUser();
         }
 
         /// <summary>
@@ -699,9 +699,9 @@ namespace GalleryServer.Web.Controller
         /// </returns>
         /// <remarks>This method may run on a background thread and is therefore tolerant of the inability to access HTTP context 
         /// or the current user's session.</remarks>
-        public async Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser(string userName)
+        public Task<IGalleryServerRoleCollection> GetGalleryServerRolesForUser(string userName)
         {
-            return await _roleController.GetGalleryServerRolesForUser(userName);
+            return _roleController.GetGalleryServerRolesForUser(userName);
         }
 
         /// <summary>
@@ -712,9 +712,9 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <param name="album">The album to validate for album ownership. If a null value is passed, the function
         /// returns without error or taking any action.</param>
-        internal async Task ValidateRoleExistsForAlbumOwner(IAlbum album)
+        internal Task ValidateRoleExistsForAlbumOwner(IAlbum album)
         {
-            await _roleController.ValidateRoleExistsForAlbumOwner(album);
+            return _roleController.ValidateRoleExistsForAlbumOwner(album);
         }
 
         #endregion
