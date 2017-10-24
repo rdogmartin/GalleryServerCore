@@ -95,7 +95,7 @@ namespace Gs.Web
             //services.AddSingleton<IAuthorizationHandler, ViewAlbumOrAssetHandler>();
             services.AddScoped<IAuthorizationHandler, SiteAdminHandler>();
             services.AddScoped<IAuthorizationHandler, GalleryAdminHandler>();
-            services.AddScoped<IAuthorizationHandler, AlbumAuthorizationHandler>();
+            services.AddScoped<IAuthorizationHandler, AssetAuthorizationHandler>();
 
             //services.AddCors();
 

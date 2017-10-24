@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace GalleryServer.Web.Security
 {
     /// <summary>
-    /// Implements an <see cref="AuthorizationHandler{TRequirement,TResource}" /> handler for album authorization. Uses
+    /// Implements an <see cref="AuthorizationHandler{TRequirement,TResource}" /> handler for asset authorization. Uses
     /// <a href="https://docs.microsoft.com/en-us/aspnet/core/security/authorization/resourcebased">Resource Based Authorization</a>.
     /// </summary>
     /// <seealso cref="Microsoft.AspNetCore.Authorization.AuthorizationHandler{OperationAuthorizationRequirement, IAlbum}" />
@@ -21,21 +21,27 @@ namespace GalleryServer.Web.Security
     /// }
     /// </code>
     /// </example>
-    public class AlbumAuthorizationHandler : AuthorizationHandler<OperationAuthorizationRequirement, IAlbum>
+    public class AssetAuthorizationHandler : AuthorizationHandler<OperationAuthorizationRequirement, IGalleryObject>
     {
         private readonly UserController _userController;
 
-        public AlbumAuthorizationHandler(UserController userController)
+        public AssetAuthorizationHandler(UserController userController)
         {
             _userController = userController;
         }
 
-        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, OperationAuthorizationRequirement requirement, IAlbum album)
+        protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, OperationAuthorizationRequirement requirement, IGalleryObject galleryObject)
         {
             //var roleNames = context.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value);
             var roles = await _userController.GetGalleryServerRolesForUser();
 
-            if (SecurityManager.IsUserAuthorized(requirement.RequestedPermission, roles, album.Id, album.GalleryId, _userController.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum))
+            var album = galleryObject as IAlbum;
+
+            var id = album?.Id ?? galleryObject.Parent.Id;
+            var isPrivate = album?.IsPrivate ?? galleryObject.Parent.IsPrivate;
+            var isVirtualAlbum = album?.IsVirtualAlbum ?? ((IAlbum) galleryObject.Parent).IsVirtualAlbum;
+
+            if (SecurityManager.IsUserAuthorized(requirement.RequestedPermission, roles, id, galleryObject.GalleryId, _userController.IsAuthenticated, isPrivate, isVirtualAlbum))
             {
                 context.Succeed(requirement);
             }
