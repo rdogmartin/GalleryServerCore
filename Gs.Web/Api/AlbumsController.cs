@@ -11,6 +11,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using GalleryServer.Business.Metadata;
+using GalleryServer.Web.Entity;
 using GalleryServer.Web.Security;
 
 namespace GalleryServer.Web.Api
@@ -174,10 +175,79 @@ namespace GalleryServer.Web.Api
         }
 
         /// <summary>
-        /// Persists the <paramref name="album" /> to the data store. Only the following properties are persisted: 
+        /// Gets the media items for the specified album.
+        /// </summary>
+        /// <param name="id">The album ID.</param>
+        /// <param name="sortByMetaNameId">The name of the metadata item to sort on.</param>
+        /// <param name="sortAscending">If set to <c>true</c> sort in ascending order.</param>
+        /// <returns>IQueryable{Entity.MediaItem}.</returns>
+        [AllowAnonymous]
+        [HttpGet, ActionName("MediaItems")]
+        public async Task<IActionResult> GetMediaItemsForAlbumId(int id, int sortByMetaNameId = int.MinValue, bool sortAscending = true)
+        {
+            // GET /api/albums/mediaitems/12 - Gets media items for album #12
+            try
+            {
+                return new JsonResult(await _galleryObjectController.GetMediaItemsInAlbum(id, (MetadataItemName) sortByMetaNameId, sortAscending));
+            }
+            catch (InvalidAlbumException)
+            {
+                return NotFound($"Could not find album with ID {id}.");
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+        /// <summary>
+        /// Gets the meta items for the specified album <paramref name="id" />.
+        /// </summary>
+        /// <param name="id">The album ID.</param>
+        /// <returns>IQueryable&lt;Entity.MetaItem&gt;.</returns>
+        /// <exception cref="StringContent"></exception>
+        [AllowAnonymous]
+        [HttpGet, ActionName("Meta")]
+        public async Task<IActionResult> GetMetaItemsForAlbumId(int id)
+        {
+            // GET /api/albums/meta/12 - Gets metadata items for album #12
+            try
+            {
+                return new JsonResult(await _albumController.GetMetaItemsForAlbum(id));
+            }
+            catch (InvalidAlbumException)
+            {
+                return NotFound($"Could not find album with ID {id}.");
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+        /// <summary>
+        /// Persists the <paramref name="album" /> to the data store. Only the following properties are persisted:
         /// <see cref="Entity.Album.SortById" />, <see cref="Entity.Album.SortUp" />, <see cref="Entity.Album.IsPrivate" />
         /// </summary>
         /// <param name="album">The album to persist.</param>
+        /// <returns>Task&lt;IActionResult&gt;.</returns>
+        /// <exception cref="ArgumentNullException">album</exception>
         [HttpPost]
         //[Authorize(Policy = GlobalConstants.PolicyOperationAuthorization)]
         public async Task<IActionResult> Post([FromBody]Entity.Album album)
@@ -218,6 +288,233 @@ namespace GalleryServer.Web.Api
             catch (Exception ex)
             {
                 AppEventController.LogError(ex, album?.GalleryId);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+        /// <summary>
+        /// Create an album based on <paramref name="album" />. The only properties used in the <paramref name="album" /> parameter are
+        /// <see cref="Entity.Album.Title" /> and <see cref="Entity.Album.ParentId" />. If <see cref="Entity.Album.GalleryId" /> is 
+        /// specified and an error occurs, it is used to help with error logging. Other properties are ignored, but if they need to be
+        /// persisted in the future, this method can be modified to persist them. The parent album is resorted after the album is added.
+        /// </summary>
+        /// <param name="album">An <see cref="Entity.Album" /> instance containing data to be persisted to the data store.</param>
+        /// <returns>The ID of the newly created album.</returns>
+        [HttpPut, ActionName("CreateAlbum")]
+        public async Task<IActionResult> Put(Entity.Album album)
+        {
+            try
+            {
+                await _albumController.CreateAlbum(album);
+
+                return new JsonResult(new Business.ActionResult
+                {
+                    Status = ActionResultStatus.Success.ToString(),
+                    Title = $"Successfully created album {album.Title}",
+                    Message = string.Empty,
+                    ActionTarget = album
+                });
+            }
+            catch (InvalidAlbumException ex)
+            {
+                return new JsonResult(new Business.ActionResult()
+                {
+                    Status = ActionResultStatus.Error.ToString(),
+                    Title = "Cannot Create Album",
+                    Message = ex.Message
+                });
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex, album.GalleryId);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+        /// <summary>
+        /// Deletes the album with the specified <paramref name="id" /> from the data store.
+        /// </summary>
+        /// <param name="id">The ID of the album to delete.</param>
+        [HttpDelete]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                await _albumController.DeleteAlbum(id);
+
+                return Ok($"Album {id} deleted...");
+            }
+            catch (InvalidAlbumException)
+            {
+                // HTTP specification says the DELETE method must be idempotent, so deleting a nonexistent item must have 
+                // the same effect as deleting an existing one. So we simply return HttpStatusCode.OK.
+                return Ok($"Album with ID = {id} does not exist.");
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (CannotDeleteAlbumException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+
+        /// <summary>
+        /// Sorts the <paramref name="album" /> by the <see cref="Entity.Album.SortById" /> and <see cref="Entity.Album.SortUp" /> properties,
+        /// optionally updating the album with this sort preference. When <paramref name="persistToAlbum" /> is <c>true</c>, a physical album
+        /// must be specified (ID > 0). When <c>false</c> and the album is virtual, the <see cref="Entity.Album.GalleryItems" /> property must 
+        /// be specified.
+        /// </summary>
+        /// <param name="album">The album to be sorted.</param>
+        /// <param name="persistToAlbum">if set to <c>true</c> the album is updated to use the specified sort preferences for all users.</param>
+        /// <returns>IQueryable&lt;Entity.GalleryItem&gt;.</returns>
+        [HttpPost, ActionName("SortAlbum")]
+        public async Task<IActionResult> Sort(Entity.Album album, bool persistToAlbum)
+        {
+            try
+            {
+                if (persistToAlbum)
+                {
+                    // Change the sort of an existing album for all users.
+                    if (album.Id <= 0)
+                    {
+                        throw new ArgumentException("An album ID must be specified when calling the AlbumsController.Sort() Web.API method with the persistToAlbum parameter set to true.");
+                    }
+
+                    await _albumController.Sort(album.Id, album.SortById, album.SortUp);
+
+                    return new JsonResult(_galleryObjectController.ToGalleryItems(_albumController.LoadAlbumInstance(album.Id).GetChildGalleryObjects().ToSortedList()));
+                }
+                else
+                {
+                    return new JsonResult(_galleryObjectController.SortGalleryItems(album));
+                }
+            }
+            catch (InvalidAlbumException)
+            {
+                return NotFound($"Could not find album with ID {album.Id}. It may have been deleted by another user.");
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+        /// <summary>
+        /// Moves the <paramref name="itemsToMove" /> to the <paramref name="destinationAlbumId" />.
+        /// </summary>
+        /// <param name="destinationAlbumId">The ID of the destination album.</param>
+        /// <param name="itemsToMove">The items to transfer.</param>
+        /// <returns>An instance of <see cref="IActionResult" />.</returns>
+        [HttpPost, ActionName("MoveToAlbum")]
+        public IActionResult MoveTo(int destinationAlbumId, Entity.GalleryItem[] itemsToMove)
+        {
+            // POST /api/albums/movetoalbum?destinationAlbumId=99
+            return TransferTo(destinationAlbumId, itemsToMove, GalleryAssetTransferType.Move);
+        }
+
+        /// <summary>
+        /// Copies the <paramref name="itemsToCopy" /> to the <paramref name="destinationAlbumId" />.
+        /// </summary>
+        /// <param name="destinationAlbumId">The ID of the destination album.</param>
+        /// <param name="itemsToCopy">The items to transfer.</param>
+        /// <returns>An instance of <see cref="IActionResult" />.</returns>
+        [HttpPost, ActionName("CopyToAlbum")]
+        public IActionResult CopyTo(int destinationAlbumId, Entity.GalleryItem[] itemsToCopy)
+        {
+            // POST /api/albums/copytoalbum?destinationAlbumId=99
+            return TransferTo(destinationAlbumId, itemsToCopy, GalleryAssetTransferType.Copy);
+        }
+
+        /// <summary>
+        /// Moves or copies the <paramref name="itemsToTransfer" /> to the <paramref name="destinationAlbumId" />.
+        /// </summary>
+        /// <param name="destinationAlbumId">The ID of the destination album.</param>
+        /// <param name="itemsToTransfer">The items to transfer.</param>
+        /// <param name="transferType">Type of the transfer.</param>
+        /// <returns>An instance of <see cref="IActionResult" />.</returns>
+        private IActionResult TransferTo(int destinationAlbumId, Entity.GalleryItem[] itemsToTransfer, GalleryAssetTransferType transferType)
+        {
+            try
+            {
+                //TODO: Need to implement TransferToAlbum()
+                var destinationAlbum = _albumController.TransferToAlbum(destinationAlbumId, itemsToTransfer, transferType, out var createdGalleryItems);
+
+                return new JsonResult(new Business.ActionResult()
+                {
+                    Status = ActionResultStatus.Success.ToString(),
+                    Title = $"{transferType} Successful",
+                    Message = "The items were transferred.",
+                    ActionTarget = createdGalleryItems
+                });
+            }
+            catch (GallerySecurityException)
+            {
+                return new JsonResult(new Business.ActionResult()
+                {
+                    Status = ActionResultStatus.Error.ToString(),
+                    Title = "Transfer Aborted - Invalid Selection",
+                    Message = "You do not have permission to move or copy media assets to the selected album or you selected an album in a read-only gallery. Review your selection."
+                });
+            }
+            catch (InvalidAlbumException ex)
+            {
+                return new JsonResult(new Business.ActionResult()
+                {
+                    Status = ActionResultStatus.Error.ToString(),
+                    Title = "Transfer Aborted - Invalid Selection",
+                    Message = ex.Message
+                });
+            }
+            catch (CannotTransferAlbumToNestedDirectoryException ex)
+            {
+                return new JsonResult(new Business.ActionResult()
+                {
+                    Status = ActionResultStatus.Error.ToString(),
+                    Title = "Transfer Aborted - Invalid Selection",
+                    Message = ex.Message
+                });
+            }
+            catch (UnsupportedMediaObjectTypeException ex)
+            {
+                return new JsonResult(new Business.ActionResult()
+                {
+                    Status = ActionResultStatus.Error.ToString(),
+                    Title = "Transfer Aborted - Disabled File Type",
+                    Message = $"One or more media assets you selected is a disabled file type ({System.IO.Path.GetExtension(ex.MediaObjectFilePath)}). An administrator can enable this file type on the File Types page."
+                });
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex);
 
                 return StatusCode(500, _exController.GetExString(ex));
             }

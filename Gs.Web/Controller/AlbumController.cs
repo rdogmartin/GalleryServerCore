@@ -668,9 +668,9 @@ namespace GalleryServer.Web.Controller
         /// parent album and user albums are enabled.</exception>
         /// <exception cref="InvalidAlbumException">Thrown when <paramref name="albumId" /> does not represent an existing album.</exception>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have permission to delete the album.</exception>
-        public async Task DeleteAlbum(int albumId)
+        public Task DeleteAlbum(int albumId)
         {
-            await DeleteAlbum(LoadAlbumInstance(albumId));
+            return DeleteAlbum(LoadAlbumInstance(albumId));
         }
 
         /// <summary>
