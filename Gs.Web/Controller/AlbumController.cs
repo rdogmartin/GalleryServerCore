@@ -22,13 +22,15 @@ namespace GalleryServer.Web.Controller
     /// </summary>
     public class AlbumController
     {
+        private readonly AppController _appController;
         private readonly HtmlController _htmlController;
         private readonly UrlController _urlController;
         private readonly UserController _userController;
         private readonly GalleryObjectController _galleryObjectController;
 
-        public AlbumController(HtmlController htmlController, UrlController urlController, UserController userController, GalleryObjectController galleryObjectController)
+        public AlbumController(AppController appController, HtmlController htmlController, UrlController urlController, UserController userController, GalleryObjectController galleryObjectController)
         {
+            _appController = appController;
             _htmlController = htmlController;
             _urlController = urlController;
             _userController = userController;
@@ -72,6 +74,49 @@ namespace GalleryServer.Web.Controller
             ValidateAlbumOwner(album);
 
             return album;
+        }
+
+        /// <summary>
+        /// Gets the gallery data for the specified <paramref name="album" />.
+        /// <see cref="GalleryData.MediaItem" /> is set to null since no particular media object
+        /// is in context. <see cref="GalleryData.Settings" /> is also set to null because those values
+        /// are calculated from control-specific properties that are not known at this time (it is 
+        /// expected that that property is assigned by subsequent code - including javascript - 
+        /// when that data is able to be calculated). Guaranteed to not return null.
+        /// </summary>
+        /// <param name="album">The album.</param>
+        /// <param name="options">Specifies options for configuring the return data. To use default
+        /// settings, specify an empty instance with properties left at default values.</param>
+        /// <returns>Returns an instance of <see cref="GalleryData" />.</returns>
+        /// <exception cref="GallerySecurityException">Thrown when the current user does not have
+        /// permission to access the <paramref name="album" />.</exception>
+        public async Task<GalleryData> GetGalleryDataForAlbum(IAlbum album, GalleryDataLoadOptions options)
+        {
+            var data = new GalleryData
+            {
+                App = _appController.GetAppEntity(),
+                Settings = null,
+                Album = await ToAlbumEntity(album, options),
+                MediaItem = null,
+                ActiveMetaItems = null, // Assigned on client
+                ActiveGalleryItems = null, // Assigned on client
+                                           //Resource = ResourceController.GetResourceEntity()
+            };
+
+            // Assign user, but only grab the required fields. We do this to prevent unnecessary user data from traveling the wire.
+            var user = await _userController.GetUserEntity(_userController.UserName, album.GalleryId);
+            data.User = new User()
+            {
+                UserName = user.UserName,
+                IsAuthenticated = user.IsAuthenticated,
+                CanAddAlbumToAtLeastOneAlbum = user.CanAddAlbumToAtLeastOneAlbum,
+                CanAddMediaToAtLeastOneAlbum = user.CanAddMediaToAtLeastOneAlbum,
+                CanEditAtLeastOneAlbum = user.CanEditAtLeastOneAlbum,
+                CanEditAtLeastOneMediaAsset = user.CanEditAtLeastOneMediaAsset,
+                UserAlbumId = user.UserAlbumId
+            };
+
+            return data;
         }
 
         /// <summary>

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace GalleryServer.Web.Api
 {
-    [Route("api/[controller]")]
+    //[Route("api/[controller]/[action]")]
     [AllowAnonymous]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] // (AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)
     public class AlbumsController : Microsoft.AspNetCore.Mvc.Controller
@@ -33,11 +33,12 @@ namespace GalleryServer.Web.Api
         /// </summary>
         /// <param name="id">The album ID.</param>
         /// <returns>An instance of <see cref="IActionResult" />.</returns>
-        [HttpGet("{id:int}")]
+        [HttpGet] //("{id:int}")
         [AllowAnonymous]
         //[Authorize(Policy = GlobalConstants.PolicyViewAlbumOrAsset)]
         public async Task<IActionResult> Get(int id)
         {
+            // GET /api/albums/get/12 // Return data for album # 12
             IAlbum album = null;
             try
             {
@@ -78,6 +79,88 @@ namespace GalleryServer.Web.Api
                 //    Content = Utils.GetExStringContent(ex),
                 //    ReasonPhrase = "Server Error"
                 //});
+            }
+        }
+
+        /// <summary>
+        /// Gets a comprehensive set of data about the specified album.
+        /// </summary>
+        /// <param name="id">The album ID.</param>
+        /// <param name="top">Specifies the number of child gallery objects to retrieve. Specify 0 to retrieve all items.</param>
+        /// <param name="skip">Specifies the number of child gallery objects to skip.</param>
+        /// <returns>An instance of <see cref="Entity.GalleryData" />.</returns>
+        [HttpGet,ActionName("Inflated")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetInflatedAlbum(int id, int top = 0, int skip = 0)
+        {
+            // GET /api/albums/inflated/12 // Return data for album # 12
+            IAlbum album = null;
+            try
+            {
+                album = Factory.LoadAlbumInstance(new AlbumLoadOptions(id) { InflateChildObjects = true });
+                var loadOptions = new Entity.GalleryDataLoadOptions
+                {
+                    LoadGalleryItems = true,
+                    NumGalleryItemsToRetrieve = top,
+                    NumGalleryItemsToSkip = skip
+                };
+
+                SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await _userController.GetGalleryServerRolesForUser(), album.Id, album.GalleryId, _userController.IsAuthenticated, album.IsPrivate, album.IsVirtualAlbum);
+
+                return new JsonResult(await _albumController.GetGalleryDataForAlbum(album, loadOptions));
+            }
+            catch (InvalidAlbumException)
+            {
+                return NotFound($"Could not find album with ID {id}.");
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex, album?.GalleryId);
+
+                return StatusCode(500, _exController.GetExString(ex));
+            }
+        }
+
+        /// <summary>
+        /// Persists the <paramref name="album" /> to the data store. Only the following properties are persisted: 
+        /// <see cref="Entity.Album.SortById" />, <see cref="Entity.Album.SortUp" />, <see cref="Entity.Album.IsPrivate" />
+        /// </summary>
+        /// <param name="album">The album to persist.</param>
+        [HttpPost]
+        public async Task<IActionResult> Post([FromBody]Entity.Album album)
+        {
+            // POST api/albums/post
+            try
+            {
+                await _albumController.UpdateAlbum(album);
+
+                return Ok("Album saved...");
+            }
+            catch (InvalidAlbumException)
+            {
+                return NotFound($"Could not find album with ID {album.Id}.");
+            }
+            catch (GallerySecurityException ex)
+            {
+                AppEventController.LogError(ex);
+
+                return Forbid();
+            }
+            catch (NotSupportedException ex)
+            {
+                return StatusCode(500, $"Business Rule Violation: {_exController.GetExString(ex)}");
+            }
+            catch (Exception ex)
+            {
+                AppEventController.LogError(ex, album?.GalleryId);
+
+                return StatusCode(500, _exController.GetExString(ex));
             }
         }
     }

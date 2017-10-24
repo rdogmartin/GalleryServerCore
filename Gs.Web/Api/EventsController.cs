@@ -8,7 +8,7 @@ using System;
 
 namespace GalleryServer.Web.Api
 {
-    [Route("api/[controller]")]
+    //[Route("api/[controller]")]
     //[Authorize(AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme + "," + JwtBearerDefaults.AuthenticationScheme)] // 
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)] // (AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)
     public class EventsController : Microsoft.AspNetCore.Mvc.Controller
@@ -36,10 +36,11 @@ namespace GalleryServer.Web.Api
         /// </summary>
         /// <param name="id">The event ID.</param>
         /// <returns>An instance of <see cref="IActionResult" />.</returns>
-        [HttpGet("{id:int}")]
+        [HttpGet]
         [Authorize(Policy = GlobalConstants.PolicyAdministrator)]
         public IActionResult Get(int id)
         {
+            // GET /api/events/get/12
             IEvent appEvent = null;
             try
             {
@@ -90,10 +91,11 @@ namespace GalleryServer.Web.Api
         /// </summary>
         /// <param name="id">The ID of the event to delete.</param>
         /// <returns>An instance of <see cref="IActionResult" />.</returns>
-        [HttpDelete("{id:int}")]
+        [HttpDelete]
         [Authorize(Policy = GlobalConstants.PolicyAdministrator)]
         public IActionResult Delete(int id)
         {
+            // DELETE /api/events/delete/12
             IEvent appEvent = null;
 
             try

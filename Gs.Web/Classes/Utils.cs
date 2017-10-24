@@ -1246,61 +1246,61 @@ namespace GalleryServer.Web
             //return appVersion;
         }
 
-        /// <summary>
-        /// Truncate the specified string to the desired length. Any HTML tags that exist in the beginning portion
-        /// of the string are preserved as long as no HTML tags exist in the part that is truncated.
-        /// </summary>
-        /// <param name="text">The string to be truncated. It may contain HTML tags.</param>
-        /// <param name="maxLength">The maximum length of the string to be returned. If HTML tags are returned,
-        /// their length is not counted - only the length of the "visible" text is counted.</param>
-        /// <returns>Returns a string whose length - not counting HTML tags - does not exceed the specified length.</returns>
-        public static string TruncateTextForWeb(string text, int maxLength)
-        {
-            // Example 1: Because no HTML tags are present in the truncated portion of the string, the HTML at the
-            // beginning is preserved. (We know we won't be splitting up HTML tags, so we don't mind including the HTML.)
-            // text = "Meet my <a href='http://www.cnn.com'>friend</a>. He works at the YMCA."
-            // maxLength = 20
-            // returns: "Meet my <a href='http://www.cnn.com'>friend</a>. He w"
-            //
-            // Example 2: The truncated portion has <b> tags, so all HTML is stripped. (This function isn't smart
-            // enough to know whether it might be truncating in the middle of a tag, so it takes the safe route.)
-            // text = "Meet my <a href='http://www.cnn.com'>friend</a>. He works at the <b>YMCA<b>."
-            // maxLength = 20
-            // returns: "Meet my friend. He w"
-            if (text == null)
-                return String.Empty;
+        ///// <summary>
+        ///// Truncate the specified string to the desired length. Any HTML tags that exist in the beginning portion
+        ///// of the string are preserved as long as no HTML tags exist in the part that is truncated.
+        ///// </summary>
+        ///// <param name="text">The string to be truncated. It may contain HTML tags.</param>
+        ///// <param name="maxLength">The maximum length of the string to be returned. If HTML tags are returned,
+        ///// their length is not counted - only the length of the "visible" text is counted.</param>
+        ///// <returns>Returns a string whose length - not counting HTML tags - does not exceed the specified length.</returns>
+        //public static string TruncateTextForWeb(string text, int maxLength)
+        //{
+        //    // Example 1: Because no HTML tags are present in the truncated portion of the string, the HTML at the
+        //    // beginning is preserved. (We know we won't be splitting up HTML tags, so we don't mind including the HTML.)
+        //    // text = "Meet my <a href='http://www.cnn.com'>friend</a>. He works at the YMCA."
+        //    // maxLength = 20
+        //    // returns: "Meet my <a href='http://www.cnn.com'>friend</a>. He w"
+        //    //
+        //    // Example 2: The truncated portion has <b> tags, so all HTML is stripped. (This function isn't smart
+        //    // enough to know whether it might be truncating in the middle of a tag, so it takes the safe route.)
+        //    // text = "Meet my <a href='http://www.cnn.com'>friend</a>. He works at the <b>YMCA<b>."
+        //    // maxLength = 20
+        //    // returns: "Meet my friend. He w"
+        //    if (text == null)
+        //        return String.Empty;
 
-            if (text.Length < maxLength)
-                return text;
+        //    if (text.Length < maxLength)
+        //        return text;
 
-            // Remove all HTML tags from entire string.
-            string cleanText = RemoveHtmlTags(text);
+        //    // Remove all HTML tags from entire string.
+        //    string cleanText = RemoveHtmlTags(text);
 
-            // If the clean text length is less than our maximum, return the raw text.
-            if (cleanText.Length <= maxLength)
-                return text;
+        //    // If the clean text length is less than our maximum, return the raw text.
+        //    if (cleanText.Length <= maxLength)
+        //        return text;
 
-            // Get the text that will be removed.
-            string cleanTruncatedPortion = cleanText.Substring(maxLength);
+        //    // Get the text that will be removed.
+        //    string cleanTruncatedPortion = cleanText.Substring(maxLength);
 
-            // If the clean truncated text doesn't match the end of the raw text, the raw text must have HTML tags.
-            bool truncatedPortionHasHtml = (!(text.EndsWith(cleanTruncatedPortion, StringComparison.OrdinalIgnoreCase)));
+        //    // If the clean truncated text doesn't match the end of the raw text, the raw text must have HTML tags.
+        //    bool truncatedPortionHasHtml = (!(text.EndsWith(cleanTruncatedPortion, StringComparison.OrdinalIgnoreCase)));
 
-            string truncatedText;
-            if (truncatedPortionHasHtml)
-            {
-                // Since the truncated portion has HTML tags, and we don't want to risk returning malformed HTML,
-                // return text without ANY HTML.
-                truncatedText = cleanText.Substring(0, maxLength);
-            }
-            else
-            {
-                // Since the truncated portion does not have HTML tags, we can safely return the first part of the
-                // string, even if it has HTML tags.
-                truncatedText = text.Substring(0, text.Length - cleanTruncatedPortion.Length);
-            }
-            return truncatedText;
-        }
+        //    string truncatedText;
+        //    if (truncatedPortionHasHtml)
+        //    {
+        //        // Since the truncated portion has HTML tags, and we don't want to risk returning malformed HTML,
+        //        // return text without ANY HTML.
+        //        truncatedText = cleanText.Substring(0, maxLength);
+        //    }
+        //    else
+        //    {
+        //        // Since the truncated portion does not have HTML tags, we can safely return the first part of the
+        //        // string, even if it has HTML tags.
+        //        truncatedText = text.Substring(0, text.Length - cleanTruncatedPortion.Length);
+        //    }
+        //    return truncatedText;
+        //}
 
         /// <summary>
         /// Generates a pseudo-random 24 character string that can be as an encryption key.

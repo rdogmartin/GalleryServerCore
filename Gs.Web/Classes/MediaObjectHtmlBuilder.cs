@@ -21,9 +21,9 @@ namespace GalleryServer.Web
     {
         #region Private Fields
 
-        private readonly UserController _userController;
-        private readonly HtmlController _htmlController;
-        private readonly UrlController _urlController;
+        //private readonly UserController _userController;
+        //private readonly HtmlController _htmlController;
+        //private readonly UrlController _urlController;
         private string _uniquePrefixId;
         private IMediaTemplate _mediaTemplate;
 
@@ -31,12 +31,12 @@ namespace GalleryServer.Web
 
         #region Constructors
 
-        public MediaObjectHtmlBuilder(UserController userController, HtmlController htmlController, UrlController urlController)
-        {
-            _userController = userController;
-            _htmlController = htmlController;
-            _urlController = urlController;
-        }
+        //public MediaObjectHtmlBuilder(UserController userController, HtmlController htmlController, UrlController urlController)
+        //{
+        //    _userController = userController;
+        //    _htmlController = htmlController;
+        //    _urlController = urlController;
+        //}
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MediaObjectHtmlBuilder"/> class.
@@ -296,14 +296,14 @@ namespace GalleryServer.Web
             htmlOutput = htmlOutput.Replace("{Width}", Width.ToString(CultureInfo.InvariantCulture));
             htmlOutput = htmlOutput.Replace("{Height}", Height.ToString(CultureInfo.InvariantCulture));
             htmlOutput = htmlOutput.Replace("{Title}", GalleryObject.Title);
-            htmlOutput = htmlOutput.Replace("{TitleNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Title, true));
+            //htmlOutput = htmlOutput.Replace("{TitleNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Title, true));
             htmlOutput = htmlOutput.Replace("{UniqueId}", UniquePrefixId);
             htmlOutput = htmlOutput.Replace("{Caption}", GalleryObject.Caption);
 
-            if (htmlOutput.Contains("{CaptionNoHtml}"))
-            {
-                htmlOutput = htmlOutput.Replace("{CaptionNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Caption, true));
-            }
+            //if (htmlOutput.Contains("{CaptionNoHtml}"))
+            //{
+            //    htmlOutput = htmlOutput.Replace("{CaptionNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Caption, true));
+            //}
 
             bool autoStartMediaObject = Factory.LoadGallerySetting(GalleryObject.GalleryId).AutoStartMediaObject;
 
@@ -353,14 +353,14 @@ namespace GalleryServer.Web
             scriptOutput = scriptOutput.Replace("{Width}", Width.ToString(CultureInfo.InvariantCulture));
             scriptOutput = scriptOutput.Replace("{Height}", Height.ToString(CultureInfo.InvariantCulture));
             scriptOutput = scriptOutput.Replace("{Title}", GalleryObject.Title);
-            scriptOutput = scriptOutput.Replace("{TitleNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Title, true));
+            //scriptOutput = scriptOutput.Replace("{TitleNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Title, true));
             scriptOutput = scriptOutput.Replace("{UniqueId}", UniquePrefixId);
             scriptOutput = scriptOutput.Replace("{Caption}", GalleryObject.Caption);
 
-            if (scriptOutput.Contains("{CaptionNoHtml}"))
-            {
-                scriptOutput = scriptOutput.Replace("{CaptionNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Caption, true));
-            }
+            //if (scriptOutput.Contains("{CaptionNoHtml}"))
+            //{
+            //    scriptOutput = scriptOutput.Replace("{CaptionNoHtml}", Utils.RemoveHtmlTags(GalleryObject.Caption, true));
+            //}
 
             var autoStartMediaObject = Factory.LoadGallerySetting(GalleryObject.GalleryId).AutoStartMediaObject;
 
@@ -396,7 +396,7 @@ namespace GalleryServer.Web
             // If necessary, encrypt, then URL encode the query string.
             if (AppSetting.Instance.EncryptMediaObjectUrlOnClient)
             {
-                queryString = _urlController.UrlEncode(HelperFunctions.Encrypt(queryString));
+                queryString = UrlEncode(HelperFunctions.Encrypt(queryString));
             }
 
             return String.Concat(HostUrl, GalleryRoot, "/handler/getmedia.ashx?", queryString);
@@ -418,24 +418,24 @@ namespace GalleryServer.Web
             return GetPageUrl(PageId.mediaobject, "moid={0}", GalleryObject.Id);
         }
 
-        /// <summary>
-        /// Generates the HTML to display a nicely formatted thumbnail image, including a
-        /// border, shadows and (possibly) rounded corners.
-        /// </summary>
-        /// <returns>Returns HTML that displays a nicely formatted thumbnail image.</returns>
-        public string GetThumbnailHtml()
-        {
-            return String.Format(CultureInfo.InvariantCulture, @"
-    <div class='gsp_i_c'>
-      <img src='{1}' title='{2}' alt='{2}' style='width:{0}px;height:{3}px;' class='gsp_thmb_img' />
-    </div>
-",
-                                        GalleryObject.Thumbnail.Width, // 0
-                                        GetMediaObjectUrl(), // 1
-                                        _htmlController.HtmlEncode(Utils.RemoveHtmlTags(GalleryObject.Title)), // 2
-                                        GalleryObject.Thumbnail.Height // 3
-              );
-        }
+//        /// <summary>
+//        /// Generates the HTML to display a nicely formatted thumbnail image, including a
+//        /// border, shadows and (possibly) rounded corners.
+//        /// </summary>
+//        /// <returns>Returns HTML that displays a nicely formatted thumbnail image.</returns>
+//        public string GetThumbnailHtml()
+//        {
+//            return String.Format(CultureInfo.InvariantCulture, @"
+//    <div class='gsp_i_c'>
+//      <img src='{1}' title='{2}' alt='{2}' style='width:{0}px;height:{3}px;' class='gsp_thmb_img' />
+//    </div>
+//",
+//                                        GalleryObject.Thumbnail.Width, // 0
+//                                        GetMediaObjectUrl(), // 1
+//                                        _htmlController.HtmlEncode(Utils.RemoveHtmlTags(GalleryObject.Title)), // 2
+//                                        GalleryObject.Thumbnail.Height // 3
+//              );
+//        }
 
         #endregion
 
@@ -484,9 +484,9 @@ namespace GalleryServer.Web
 
             var relativePath = MediaObjectPhysicalPath.Remove(0, appPath.Length).Trim(new[] { System.IO.Path.DirectorySeparatorChar });
 
-            relativePath = _urlController.UrlEncode(relativePath, '\\');
+            relativePath = UrlEncode(relativePath, '\\');
 
-            var directUrl = String.Concat(_urlController.UrlEncode(AppRoot, '/'), "/", relativePath.Replace("\\", "/"));
+            var directUrl = String.Concat(UrlEncode(AppRoot, '/'), "/", relativePath.Replace("\\", "/"));
 
             return htmlOutput.Replace("{MediaObjectAbsoluteUrlNoHandler}", directUrl);
         }
@@ -522,7 +522,7 @@ namespace GalleryServer.Web
 
             var relativePath = MediaObjectPhysicalPath.Remove(0, moPath.Length).Trim(new[] { System.IO.Path.DirectorySeparatorChar });
 
-            relativePath = _urlController.UrlEncode(relativePath, '\\');
+            relativePath = UrlEncode(relativePath, '\\');
 
             var relativeUrl = String.Concat("/", relativePath.Replace("\\", "/"));
 
@@ -639,7 +639,7 @@ namespace GalleryServer.Web
                 {
                     var mediaObject = Factory.LoadMediaObjectInstance(GalleryObject.Thumbnail.MediaObjectId);
 
-                    if ((!mediaObject.Parent.IsPrivate && !mediaObject.IsPrivate) || _userController.IsAuthenticated)
+                    if ((!mediaObject.Parent.IsPrivate && !mediaObject.IsPrivate)) // || _userController.IsAuthenticated >> 2017-10: It's difficult to access IsAuthenticated, so ignore for now. Result is that thumbnail will be hidden for logged on users viewing private albums
                     {
                         return mediaObject.Id;
                     }
@@ -651,6 +651,45 @@ namespace GalleryServer.Web
             }
 
             return 0; // 0 is a signal to getmedia.ashx to generate an empty album thumbnail image
+        }
+
+        /// <overloads>UrlEncodes a string using System.Uri.EscapeDataString().</overloads>
+        /// <summary>
+        /// UrlEncodes a string using System.Uri.EscapeDataString().
+        /// </summary>
+        /// <param name="text">The text to URL encode.</param>
+        /// <returns>Returns <paramref name="text"/> as an URL-encoded string.</returns>
+        private string UrlEncode(string text)
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                return text;
+            }
+
+            return Uri.EscapeDataString(text);
+        }
+
+        /// <summary>
+        /// UrlEncodes a string using System.Uri.EscapeDataString(), excluding the character specified in <paramref name="charNotToEncode"/>.
+        /// This overload is useful for encoding URLs or file paths where the forward or backward slash is not to be encoded.
+        /// </summary>
+        /// <param name="text">The text to URL encode</param>
+        /// <param name="charNotToEncode">The character that, if present in <paramref name="text"/>, is not encoded.</param>
+        /// <returns>Returns <paramref name="text"/> as an URL-encoded string.</returns>
+        private string UrlEncode(string text, char charNotToEncode)
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                return text;
+            }
+
+            string[] tokens = text.Split(new char[] { charNotToEncode });
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                tokens[i] = UrlEncode(tokens[i]);
+            }
+
+            return String.Join(charNotToEncode.ToString(), tokens);
         }
 
         #endregion

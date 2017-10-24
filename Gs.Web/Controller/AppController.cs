@@ -1,31 +1,35 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using GalleryServer.Business;
+using GalleryServer.Business.Interfaces;
+using GalleryServer.Web.Entity;
+using System;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using GalleryServer.Business;
-using GalleryServer.Business.Interfaces;
-using GalleryServer.Events.CustomExceptions;
 
 namespace GalleryServer.Web.Controller
 {
-    public static class AppController
+    public class AppController
     {
-        private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1);
-        private static bool _isInitialized;
-        private static UserController _userController;
+        private readonly GallerySettingController _gallerySettingController;
+        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1);
+        private bool _isInitialized;
+        //private readonly UserController _userController;
 
         /// <summary>
-        /// Gets a value indicating whether the Gallery Server code has been initializaed.
+        /// Gets a value indicating whether the Gallery Server code has been initialized.
         /// The code is initialized by calling <see cref="InitializeGspApplication" />.
         /// </summary>
         /// <value>
         /// 	<c>true</c> if the code is initialized; otherwise, <c>false</c>.
         /// </value>
-        public static bool IsInitialized
+        public bool IsInitialized
         {
             get { return _isInitialized; }
+        }
+
+        public AppController(GallerySettingController gallerySettingController)
+        {
+            _gallerySettingController = gallerySettingController;
         }
 
         /// <summary>
@@ -37,9 +41,8 @@ namespace GalleryServer.Web.Controller
         /// exists. If this function is initially called from a place where an HttpContext doesn't exist, it will automatically be called 
         /// again later, eventually being called from a place where an HttpContext does exist, thus completing app initialization.
         /// </summary>
-        public static async Task InitializeGspApplication(UserController userController)
+        public async Task InitializeGspApplication()
         {
-            _userController = userController;
             //try
             //{
             await _lock.WaitAsync().ConfigureAwait(false);
@@ -50,7 +53,7 @@ namespace GalleryServer.Web.Controller
 
                 InitializeApplication();
 
-                await AddMembershipDataToGallerySettings();
+                await _gallerySettingController.AddMembershipDataToGallerySettings();
 
                 _isInitialized = true;
 
@@ -82,6 +85,30 @@ namespace GalleryServer.Web.Controller
         }
 
         /// <summary>
+        /// Gets a data entity containing application-level properties. The instance can be JSON-parsed and sent to the 
+        /// browser.
+        /// </summary>
+        /// <returns>Returns an instance of <see cref="App" />.</returns>
+        public App GetAppEntity()
+        {
+            return new App();
+            //return new App
+            //{
+            //    GalleryResourcesPath = Utils.GalleryResourcesPath,
+            //    Skin = Utils.Skin,
+            //    SkinPath = Utils.SkinPath,
+            //    CurrentPageUrl = Utils.GetCurrentPageUrl(),
+            //    AppUrl = Utils.GetAppUrl(),
+            //    LatestUrl = Utils.GetLatestUrl(),
+            //    TopRatedUrl = Utils.GetTopRatedUrl(),
+            //    HostUrl = Utils.GetHostUrl(),
+            //    AllowGalleryAdminToManageUsersAndRoles = AppSetting.Instance.AllowGalleryAdminToManageUsersAndRoles,
+            //    License = AppSetting.Instance.License.LicenseType,
+            //    IsDebugEnabled = Utils.IsDebugEnabled
+            //};
+        }
+
+        /// <summary>
         /// Initialize the components of the Gallery Server application that do not require access to an HttpContext.
         /// This method is designed to be run at application startup. The business layer
         /// is initialized with the current trust level and a few configuration settings. The business layer also initializes
@@ -91,11 +118,11 @@ namespace GalleryServer.Web.Controller
         /// handling routine in Gallery.cs. This method wraps its calls in a try..catch that passes any exceptions to
         /// <see cref="AppEventController.HandleGalleryException(Exception, int?)"/>. If that method does not transfer the user to a friendly error page, the exception
         /// is re-thrown.</remarks>
-        private static void InitializeApplication()
+        private void InitializeApplication()
         {
             //string msg = CheckForDbCompactionRequest();
 
-            GallerySettings.GallerySettingsSaved += new EventHandler<GallerySettingsEventArgs>(GallerySettingsSaved);
+            GallerySettings.GallerySettingsSaved += new EventHandler<GallerySettingsEventArgs>(_gallerySettingController.GallerySettingsSaved);
 
             // Set web-related variables in the business layer and initialize the data store.
             InitializeBusinessLayer();
@@ -121,7 +148,7 @@ namespace GalleryServer.Web.Controller
         /// </summary>
         /// <exception cref="CannotWriteToDirectoryException">
         /// Thrown when Gallery Server is unable to write to, or delete from, the media objects directory.</exception>
-        private static void InitializeBusinessLayer()
+        private void InitializeBusinessLayer()
         {
             // Determine the trust level this web application is running in and set to a global variable. This will be used 
             // throughout the application to gracefully degrade when we are not at Full trust.
@@ -140,87 +167,87 @@ namespace GalleryServer.Web.Controller
             //Business.Entity.VersionKey.GenerateEncryptedVersionKeys();
         }
 
-        /// <summary>
-        /// Adds the user account information to gallery settings. Since the business layer does not have a reference to System.Web.dll,
-        /// it could not load membership data when the gallery settings were first initialized. We know that information now, so let's
-        /// populate the user accounts with the user data.
-        /// </summary>
-        private static async Task AddMembershipDataToGallerySettings()
-        {
-            // The UserAccount objects should have been created and initially populated with the UserName property,
-            // so we'll use the user name to retrieve the user's info and populate the rest of the properties on each object.
-            foreach (IGallery gallery in Factory.LoadGalleries())
-            {
-                IGallerySettings gallerySetting = Factory.LoadGallerySetting(gallery.GalleryId);
+        ///// <summary>
+        ///// Adds the user account information to gallery settings. Since the business layer does not have a reference to System.Web.dll,
+        ///// it could not load membership data when the gallery settings were first initialized. We know that information now, so let's
+        ///// populate the user accounts with the user data.
+        ///// </summary>
+        //private async Task AddMembershipDataToGallerySettings(UserController userController)
+        //{
+        //    // The UserAccount objects should have been created and initially populated with the UserName property,
+        //    // so we'll use the user name to retrieve the user's info and populate the rest of the properties on each object.
+        //    foreach (IGallery gallery in Factory.LoadGalleries())
+        //    {
+        //        IGallerySettings gallerySetting = Factory.LoadGallerySetting(gallery.GalleryId);
 
-                // Populate user account objects with membership data
-                foreach (IUserAccount userAccount in gallerySetting.UsersToNotifyWhenAccountIsCreated)
-                {
-                    await _userController.LoadUser(userAccount);
-                }
+        //        // Populate user account objects with membership data
+        //        foreach (IUserAccount userAccount in gallerySetting.UsersToNotifyWhenAccountIsCreated)
+        //        {
+        //            await userController.LoadUser(userAccount);
+        //        }
 
-                foreach (IUserAccount userAccount in gallerySetting.UsersToNotifyWhenErrorOccurs)
-                {
-                    await _userController.LoadUser(userAccount);
-                }
-            }
-        }
+        //        foreach (IUserAccount userAccount in gallerySetting.UsersToNotifyWhenErrorOccurs)
+        //        {
+        //            await userController.LoadUser(userAccount);
+        //        }
+        //    }
+        //}
 
-        /// <summary>
-        /// Handles the <see cref="GallerySettings.GallerySettingsSaved" /> event.
-        /// </summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        private static async void GallerySettingsSaved(object sender, GallerySettingsEventArgs e)
-        {
-            // Finish populating those properties that weren't populated in the business layer.
-            await AddMembershipDataToGallerySettings();
+        ///// <summary>
+        ///// Handles the <see cref="GallerySettings.GallerySettingsSaved" /> event.
+        ///// </summary>
+        ///// <param name="sender">The sender.</param>
+        ///// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        //private async void GallerySettingsSaved(object sender, GallerySettingsEventArgs e)
+        //{
+        //    // Finish populating those properties that weren't populated in the business layer.
+        //    await AddMembershipDataToGallerySettings();
 
-            // If the default roles setting has changed, add or remove users to/from roles on a background thread.
-            if ((e.DefaultRolesForUserAdded != null && e.DefaultRolesForUserAdded.Length > 0) || (e.DefaultRolesForUserRemoved != null && e.DefaultRolesForUserRemoved.Length > 0))
-            {
-                //System.Threading.Tasks.Task.Factory.StartNew(() =>
-                // {
-                //     try
-                //     {
-                // For each added role, find the users *NOT* in the role and add them to the role
-                var allUsers = _userController.GetAllUsers();
-                foreach (var roleName in e.DefaultRolesForUserAdded)
-                {
-                    if (await _userController.RoleExists(roleName))
-                    {
-                        var usersInRole = (await _userController.GetUsersInRole(roleName)).Select(u => u.UserName);
-                        foreach (var userName in allUsers.Select(u => u.UserName).Except(usersInRole))
-                        {
-                            await _userController.AddUserToRole(userName, roleName);
-                        }
+        //    // If the default roles setting has changed, add or remove users to/from roles on a background thread.
+        //    if ((e.DefaultRolesForUserAdded != null && e.DefaultRolesForUserAdded.Length > 0) || (e.DefaultRolesForUserRemoved != null && e.DefaultRolesForUserRemoved.Length > 0))
+        //    {
+        //        //System.Threading.Tasks.Task.Factory.StartNew(() =>
+        //        // {
+        //        //     try
+        //        //     {
+        //        // For each added role, find the users *NOT* in the role and add them to the role
+        //        var allUsers = _userController.GetAllUsers();
+        //        foreach (var roleName in e.DefaultRolesForUserAdded)
+        //        {
+        //            if (await _userController.RoleExists(roleName))
+        //            {
+        //                var usersInRole = (await _userController.GetUsersInRole(roleName)).Select(u => u.UserName);
+        //                foreach (var userName in allUsers.Select(u => u.UserName).Except(usersInRole))
+        //                {
+        //                    await _userController.AddUserToRole(userName, roleName);
+        //                }
 
-                        //RoleController.AddUsersToRole(allUsers.Select(u => u.UserName).Except(RoleController.GetUsersInRole(roleName)).ToArray(), roleName);
-                    }
-                }
+        //                //RoleController.AddUsersToRole(allUsers.Select(u => u.UserName).Except(RoleController.GetUsersInRole(roleName)).ToArray(), roleName);
+        //            }
+        //        }
 
-                // For each removed role, find the users in the role and remove them from the role
-                foreach (var roleName in e.DefaultRolesForUserRemoved)
-                {
-                    if (await _userController.RoleExists(roleName))
-                    {
-                        foreach (var user in await _userController.GetUsersInRole(roleName))
-                        {
-                            await _userController.RemoveUserFromRole(user, roleName);
-                        }
-                        //RoleController.RemoveUsersFromRole(RoleController.GetUsersInRole(roleName), roleName);
-                    }
-                }
+        //        // For each removed role, find the users in the role and remove them from the role
+        //        foreach (var roleName in e.DefaultRolesForUserRemoved)
+        //        {
+        //            if (await _userController.RoleExists(roleName))
+        //            {
+        //                foreach (var user in await _userController.GetUsersInRole(roleName))
+        //                {
+        //                    await _userController.RemoveUserFromRole(user, roleName);
+        //                }
+        //                //RoleController.RemoveUsersFromRole(RoleController.GetUsersInRole(roleName), roleName);
+        //            }
+        //        }
 
-                CacheController.RemoveCache(CacheItem.GalleryServerRoles);
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        AppEventController.LogError(ex, e.GalleryId);
-                //    }
-                //});
-            }
-        }
+        //        CacheController.RemoveCache(CacheItem.GalleryServerRoles);
+        //        //    }
+        //        //    catch (Exception ex)
+        //        //    {
+        //        //        AppEventController.LogError(ex, e.GalleryId);
+        //        //    }
+        //        //});
+        //    }
+        //}
 
     }
 }

@@ -25,7 +25,7 @@ namespace GalleryServer.Web.Controller
         private readonly UserController _userController;
         private readonly AlbumController _albumController;
         private readonly GalleryObjectController _galleryObjectController;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        //private readonly IHttpContextAccessor _httpContextAccessor;
         private const string welcomeMsg = "Welcome to Gallery Server";
 
         #endregion
@@ -46,12 +46,12 @@ namespace GalleryServer.Web.Controller
 
         #endregion
 
-        public GalleryController(UserController userController, AlbumController albumController, GalleryObjectController galleryObjectController, IHttpContextAccessor httpContextAccessor)
+        public GalleryController(UserController userController, AlbumController albumController, GalleryObjectController galleryObjectController)
         {
             _userController = userController;
             _albumController = albumController;
             _galleryObjectController = galleryObjectController;
-            _httpContextAccessor = httpContextAccessor;
+            //_httpContextAccessor = httpContextAccessor;
         }
 
         #region Public Methods

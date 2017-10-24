@@ -76,9 +76,11 @@ namespace Gs.Web
             services.AddSingleton<IEmailSender, EmailSender>();
             services.AddSingleton<IMemoryCache, MemoryCache>();
             //services.AddSingleton<CacheController>();
+            services.AddScoped<AppController>();
             services.AddScoped<UserController>();
             services.AddScoped<RoleController>();
             services.AddScoped<GalleryController>();
+            services.AddScoped<GallerySettingController>();
             services.AddScoped<UrlController>();
             services.AddScoped<HtmlController>();
             services.AddScoped<AlbumController>();
@@ -96,11 +98,16 @@ namespace Gs.Web
             //services.AddCors();
 
             //services.AddMvc();
-            services.AddMvc().AddRazorPagesOptions(options =>
+            services.AddMvc()
+                .AddRazorPagesOptions(options =>
                 {
                     options.Conventions.AuthorizeFolder("/Account/Manage");
                     options.Conventions.AuthorizePage("/Account/Logout");
                 });
+                //.AddJsonOptions(options =>
+                //{
+                //    options.SerializerSettings.ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver();
+                //});
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -131,7 +138,7 @@ namespace Gs.Web
 
             app.UseMvc(routes =>
             {
-                routes.MapRoute(name: "mvc", template: "{controller}/{action=Index}/{id?}");
+                routes.MapRoute(name: "api", template: "api/{controller}/{action}/{id:int?}");
             });
 
             // Handle client side routes
@@ -145,8 +152,9 @@ namespace Gs.Web
 
             using (var scope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope())
             {
-                var userController = scope.ServiceProvider.GetRequiredService<UserController>();
-                Task.Run(() => AppController.InitializeGspApplication(userController)).Wait();
+                //var userController = scope.ServiceProvider.GetRequiredService<UserController>();
+                var appController = scope.ServiceProvider.GetRequiredService<AppController>();
+                Task.Run(() => appController.InitializeGspApplication()).Wait();
             }
 
             //app.UseCors(builder => builder.AllowAnyOrigin()); // https://docs.microsoft.com/en-us/aspnet/core/security/cors
