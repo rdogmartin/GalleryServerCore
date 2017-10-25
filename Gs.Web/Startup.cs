@@ -151,7 +151,7 @@ namespace Gs.Web
                 await context.Response.SendFileAsync(System.IO.Path.Combine(env.WebRootPath, "index.html"));
             });
 
-            DiHelper.Configure(app.ApplicationServices.GetRequiredService<IMemoryCache>());
+            CacheController.SetCacheManager(app.ApplicationServices.GetRequiredService<IMemoryCache>());
 
             using (var scope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope())
             {

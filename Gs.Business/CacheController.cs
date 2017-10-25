@@ -15,16 +15,7 @@ namespace GalleryServer.Business
         #region Fields
 
         //private static ObjectCache _cacheManager;
-        private static readonly IMemoryCache _cache;
-
-        #endregion
-
-        #region Constructors
-
-        static CacheController()
-        {
-            _cache = DiHelper.GetCache();
-        }
+        private static IMemoryCache _cache;
 
         #endregion
 
@@ -42,6 +33,15 @@ namespace GalleryServer.Business
         #endregion
 
         #region Methods
+
+        /// <summary>
+        /// Sets the cache manager.
+        /// </summary>
+        /// <param name="cache">The cache.</param>
+        public static void SetCacheManager(IMemoryCache cache)
+        {
+            _cache = cache;
+        }
 
         /// <summary>
         /// Gets a cache object representing the <see cref="CacheItem.InflatedAlbums" /> item. Returns null when no cache instance exists.
@@ -198,6 +198,9 @@ namespace GalleryServer.Business
             if (!AppSetting.Instance.EnableCache)
                 return;
 
+            if (_cache == null)
+                throw new InvalidOperationException("IMemoryCache object is null. Call CacheController.SetCacheController to set this object before using the cache controller. Typically this is done in Startup.cs or initialization code.");
+
             if (cacheItem != null)
             {
                 _cache.Set(cacheItemId.ToString(), cacheItem, dateTimeOffset);
@@ -258,6 +261,9 @@ namespace GalleryServer.Business
         /// <param name="cacheItemId">The cache item ID for the cache item.</param>
         public static void RemoveCache(CacheItem cacheItemId)
         {
+            if (_cache == null)
+                throw new InvalidOperationException("IMemoryCache object is null. Call CacheController.SetCacheController to set this object before using the cache controller. Typically this is done in Startup.cs or initialization code.");
+
             _cache.Remove(cacheItemId.ToString());
             //CacheManager.Remove(cacheItemId.ToString());
         }
@@ -572,6 +578,9 @@ namespace GalleryServer.Business
         /// <exception cref="InvalidCastException">Thrown when a cache item exists and it cannot be cast to the requested type.</exception>
         private static T GetCache<T>(CacheItem cacheItemId)
         {
+            if (_cache == null)
+                throw new InvalidOperationException("IMemoryCache object is null. Call CacheController.SetCacheController to set this object before using the cache controller. Typically this is done in Startup.cs or initialization code.");
+
             return (T)_cache.Get(cacheItemId.ToString());
         }
 
