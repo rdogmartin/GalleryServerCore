@@ -1282,5 +1282,18 @@ namespace GalleryServer.Web.Controller
         {
             _roleController.DeleteGalleryServerProRole(roleName);
         }
+
+        /// <summary>
+        /// Determine whether the currently logged-on user is a gallery administrator for the specified <paramref name="galleryId"/>. 
+        /// The user is considered a gallery administrator if at least one role has Allow Administer Gallery permission.
+        /// </summary>
+        /// <param name="galleryId">The gallery ID.</param>
+        /// <returns>
+        /// 	<c>true</c> if the user is a gallery administrator; otherwise, <c>false</c>.
+        /// </returns>
+        public Task<bool> IsCurrentUserGalleryAdministrator(int galleryId)
+        {
+            return _roleController.IsCurrentUserGalleryAdministrator(galleryId);
+        }
     }
 }

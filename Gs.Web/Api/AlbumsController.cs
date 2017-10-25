@@ -356,7 +356,7 @@ namespace GalleryServer.Web.Api
             {
                 // HTTP specification says the DELETE method must be idempotent, so deleting a nonexistent item must have 
                 // the same effect as deleting an existing one. So we simply return HttpStatusCode.OK.
-                return Ok($"Album with ID = {id} does not exist.");
+                return Ok($"Album with ID {id} does not exist.");
             }
             catch (GallerySecurityException ex)
             {

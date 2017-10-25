@@ -152,7 +152,15 @@ namespace GalleryServer.Web.Controller
         /// <exception cref="Events.CustomExceptions.GallerySecurityException">Thrown when user is not authorized to add a media object to the album.</exception>
         public Task<List<ActionResult>> AddMediaObject(AddMediaObjectSettings settings)
         {
-            return CreateMediaObjectFromFile(settings);
+            var results = CreateMediaObjectFromFile(settings);
+
+            var fileExt = Path.GetExtension(settings.FileName);
+            if (fileExt != null && fileExt.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                results.ContinueWith(t => LogUploadZipFileResults(t.Result, settings));
+            }
+
+            return results;
         }
 
         /// <summary>
@@ -1967,6 +1975,40 @@ namespace GalleryServer.Web.Controller
             {
                 return false; // Watermarks are never applied to non-image media objects.
             }
+        }
+
+        private static void LogUploadZipFileResults(List<ActionResult> results, AddMediaObjectSettings settings)
+        {
+            var isSuccessful = results.All(r => r.Status == ActionResultStatus.Success.ToString());
+            int? galleryId = null;
+            IAlbum album = null;
+            try
+            {
+                album = Factory.LoadAlbumInstance(settings.AlbumId);
+                galleryId = album.GalleryId;
+            }
+            catch (InvalidAlbumException) { }
+
+            if (isSuccessful)
+            {
+                AppEventController.LogEvent(String.Format(CultureInfo.InvariantCulture, "{0} files were successfully extracted from the file '{1}' and added to album '{2}'.", results.Count, settings.FileName, album != null ? album.Title : "<Unknown>"), galleryId);
+
+                return;
+            }
+
+            // If we get here at least one of the results was an info, warning, error, etc.
+            var succesfulResults = results.Where(m => m.Status == ActionResultStatus.Success.ToString());
+            var unsuccesfulResults = results.Where(m => m.Status != ActionResultStatus.Success.ToString());
+            var msg = String.Format(CultureInfo.InvariantCulture, "{0} items in the uploaded file '{1}' were added to the gallery, but {2} files were skipped. Review the details for additional information. The file was uploaded by user {3}.", succesfulResults.Count(), settings.FileName, unsuccesfulResults.Count(), settings.CurrentUserName);
+            var ex = new UnsupportedMediaObjectTypeException(msg, null);
+
+            var i = 1;
+            foreach (var result in unsuccesfulResults)
+            {
+                ex.Data.Add("File " + i++, String.Format(CultureInfo.InvariantCulture, "{0}: {1}", result.Title, result.Message));
+            }
+
+            AppEventController.LogError(ex, galleryId);
         }
 
         #endregion

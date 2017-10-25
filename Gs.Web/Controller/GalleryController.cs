@@ -373,7 +373,7 @@ namespace GalleryServer.Web.Controller
         /// <returns>Returns an instance of <see cref="GalleryData" />.</returns>
         /// <exception cref="GallerySecurityException">Thrown when the current user does not have
         /// permission to access the <paramref name="mediaObject" />.</exception>
-        public async Task<GalleryData> GetGalleryDataForMediaObject(IGalleryObject mediaObject, IAlbum mediaObjectContainer, GalleryDataLoadOptions options)
+        public GalleryData GetGalleryDataForMediaObject(IGalleryObject mediaObject, IAlbum mediaObjectContainer, GalleryDataLoadOptions options)
         {
             throw new NotImplementedException();
             //SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await RoleController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, Utils.IsAuthenticated, mediaObject.Parent.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
