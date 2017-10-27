@@ -1,22 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using GalleryServer.Business;
+﻿using GalleryServer.Business;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Events.CustomExceptions;
 using GalleryServer.Web.Controller;
-using GalleryServer.Web.Entity;
 using GalleryServer.Web.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ActionResult = GalleryServer.Business.ActionResult;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace GalleryServer.Web.Api
 {
@@ -50,6 +44,7 @@ namespace GalleryServer.Web.Api
         /// <param name="id">The media object ID.</param>
         /// <returns>An instance of <see cref="Entity.MediaItem" />.</returns>
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> Get(int id)
         {
             // GET /api/mediaitems/get/4
@@ -86,6 +81,7 @@ namespace GalleryServer.Web.Api
         /// <param name="mediaSize">Size of the items to include in the ZIP archive.</param>
         /// <returns>An instance of <see cref="Business.ActionResult" />.</returns>
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> PrepareZipDownload(Entity.GalleryItem[] galleryItems, DisplayObjectType mediaSize)
         {
             try
@@ -96,7 +92,7 @@ namespace GalleryServer.Web.Api
             {
                 AppEventController.LogError(ex);
 
-                return new JsonResult(new ActionResult
+                return new JsonResult(new Business.ActionResult
                 {
                     Title = "Cannot Download",
                     Status = ActionResultStatus.Warning.ToString(),
@@ -119,7 +115,8 @@ namespace GalleryServer.Web.Api
         /// </summary>
         /// <param name="filename">The filename. Example: "a5f23059-479e-456f-adac-a90d790d09b3.zip"</param>
         /// <returns>An instance of <see cref="System.Net.Http.HttpResponseMessage" />.</returns>
-        [HttpGet("{filename}")]
+        [HttpGet]
+        [AllowAnonymous]
         public IActionResult DownloadZip(string filename)
         {
             try
@@ -149,6 +146,7 @@ namespace GalleryServer.Web.Api
         /// <param name="id">The media object ID.</param>
         /// <returns>An instance of <see cref="Entity.GalleryData" />.</returns>
         [HttpGet, ActionName("Inflated")]
+        [AllowAnonymous]
         public IActionResult GetInflatedMediaObject(int id)
         {
             try
@@ -179,6 +177,7 @@ namespace GalleryServer.Web.Api
         /// <param name="id">The media object ID.</param>
         /// <returns>IEnumerable{Entity.MetaItem}.</returns>
         [HttpGet, ActionName("Meta")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetMetaItemsForMediaObjectId(int id)
         {
             // GET /api/mediaitems/meta/12 - Gets metadata items for media object #12
@@ -233,9 +232,9 @@ namespace GalleryServer.Web.Api
                     //    //LogUploadZipFileResults(results, settings);
                     //});
 
-                    return new JsonResult(new List<ActionResult>
+                    return new JsonResult(new List<Business.ActionResult>
                     {
-                        new ActionResult
+                        new Business.ActionResult
                         {
                             Title = settings.FileName,
                             Status = ActionResultStatus.Async.ToString()
@@ -284,7 +283,7 @@ namespace GalleryServer.Web.Api
             }
             catch (InvalidMediaObjectException ex)
             {
-                return new JsonResult(new ActionResult()
+                return new JsonResult(new Business.ActionResult()
                 {
                     Status = ActionResultStatus.Error.ToString(),
                     Title = "Cannot Edit Media Asset",
@@ -293,7 +292,7 @@ namespace GalleryServer.Web.Api
             }
             catch (GallerySecurityException ex)
             {
-                return new JsonResult(new ActionResult()
+                return new JsonResult(new Business.ActionResult()
                 {
                     Status = ActionResultStatus.Error.ToString(),
                     Title = "Cannot Edit Media Asset",
@@ -328,7 +327,7 @@ namespace GalleryServer.Web.Api
             }
             catch (InvalidMediaObjectException ex)
             {
-                return new JsonResult(new ActionResult()
+                return new JsonResult(new Business.ActionResult()
                 {
                     Status = ActionResultStatus.Error.ToString(),
                     Title = "Cannot Edit Media Asset",
@@ -337,7 +336,7 @@ namespace GalleryServer.Web.Api
             }
             catch (GallerySecurityException ex)
             {
-                return new JsonResult(new ActionResult()
+                return new JsonResult(new Business.ActionResult()
                 {
                     Status = ActionResultStatus.Error.ToString(),
                     Title = "Cannot Replace Media Asset",
