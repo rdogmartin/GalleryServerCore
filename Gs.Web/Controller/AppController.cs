@@ -1,8 +1,7 @@
 ﻿using GalleryServer.Business;
-using GalleryServer.Business.Interfaces;
 using GalleryServer.Web.Entity;
+using Microsoft.AspNetCore.Hosting;
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +10,7 @@ namespace GalleryServer.Web.Controller
     public class AppController
     {
         private readonly GallerySettingController _gallerySettingController;
+        private readonly IHostingEnvironment _env;
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1);
         private bool _isInitialized;
         //private readonly UserController _userController;
@@ -27,9 +27,10 @@ namespace GalleryServer.Web.Controller
             get { return _isInitialized; }
         }
 
-        public AppController(GallerySettingController gallerySettingController)
+        public AppController(GallerySettingController gallerySettingController, IHostingEnvironment env)
         {
             _gallerySettingController = gallerySettingController;
+            _env = env;
         }
 
         /// <summary>
@@ -37,7 +38,7 @@ namespace GalleryServer.Web.Controller
         /// is initialized with the current trust level and a few configuration settings. The business layer also initializes
         /// the data store, including verifying a minimal level of data integrity, such as at least one record for the root album.
         /// Initialization that requires an HttpContext is also performed. When this method completes, <see cref="IAppSetting.IsInitialized" />
-        /// will be <c>true</c>, but <see cref="GalleryController.IsInitialized" /> will be <c>true</c> only when an HttpContext instance
+        /// will be <c>true</c>, but <see cref="AppController.IsInitialized" /> will be <c>true</c> only when an HttpContext instance
         /// exists. If this function is initially called from a place where an HttpContext doesn't exist, it will automatically be called 
         /// again later, eventually being called from a place where an HttpContext does exist, thus completing app initialization.
         /// </summary>
@@ -158,11 +159,11 @@ namespace GalleryServer.Web.Controller
             // Get the application path so that the business layer (and any dependent layers) has access to it. Don't use 
             // HttpContext.Current.Request.PhysicalApplicationPath because in some cases HttpContext.Current won't be available
             // (for example, when the DotNetNuke search engine indexer causes this code to trigger).
-            string physicalApplicationPath = AppDomain.CurrentDomain.BaseDirectory.Substring(0, AppDomain.CurrentDomain.BaseDirectory.Length - 1);
-            physicalApplicationPath = physicalApplicationPath.Replace("/", "\\");
+            //string physicalApplicationPath = AppDomain.CurrentDomain.BaseDirectory.Substring(0, AppDomain.CurrentDomain.BaseDirectory.Length - 1);
+            //physicalApplicationPath = physicalApplicationPath.Replace("/", "\\");
 
             // Pass these values to our global app settings instance, where the values can be used throughout the application.
-            AppSetting.Instance.Initialize(trustLevel, physicalApplicationPath, Constants.APP_NAME, "/");
+            AppSetting.Instance.Initialize(trustLevel, _env.WebRootPath, Constants.APP_NAME, "/");
 
             //Business.Entity.VersionKey.GenerateEncryptedVersionKeys();
         }

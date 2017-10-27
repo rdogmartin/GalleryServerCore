@@ -83,6 +83,7 @@ namespace Gs.Web
             services.AddScoped<GalleryController>();
             services.AddScoped<GallerySettingController>();
             services.AddScoped<MetadataController>();
+            services.AddScoped<FileStreamController>();
             services.AddScoped<UrlController>();
             services.AddScoped<HtmlController>();
             services.AddScoped<AlbumController>();

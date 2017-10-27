@@ -20,17 +20,19 @@ namespace GalleryServer.Web.Api
         private readonly GalleryController _galleryController;
         private readonly AlbumController _albumController;
         private readonly GalleryObjectController _galleryObjectController;
+        private readonly FileStreamController _streamController;
         private readonly HtmlController _htmlController;
         private readonly UrlController _urlController;
         private readonly UserController _userController;
         private readonly ExceptionController _exController;
         private readonly IAuthorizationService _authorizationService;
 
-        public MediaItemsController(GalleryController galleryController, AlbumController albumController, GalleryObjectController galleryObjectController, HtmlController htmlController, UrlController urlController, UserController userController, ExceptionController exController, IAuthorizationService authorizationService)
+        public MediaItemsController(GalleryController galleryController, AlbumController albumController, GalleryObjectController galleryObjectController, FileStreamController streamController, HtmlController htmlController, UrlController urlController, UserController userController, ExceptionController exController, IAuthorizationService authorizationService)
         {
             _galleryController = galleryController;
             _albumController = albumController;
             _galleryObjectController = galleryObjectController;
+            _streamController = streamController;
             _htmlController = htmlController;
             _urlController = urlController;
             _userController = userController;
@@ -138,6 +140,20 @@ namespace GalleryServer.Web.Api
 
                 return StatusCode(500, _exController.GetExString(ex));
             }
+        }
+
+        /// <summary>
+        /// Return the file for the requested media asset.
+        /// </summary>
+        /// <returns>IActionResult.</returns>
+        [HttpGet, ActionName("File")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetMediaFile(int id, DisplayObjectType dt)
+        {
+            // GET api/mediaitems/file/12?dt=2 // Get the optimized file for media # 12
+            _streamController.SetMedia(id, dt);
+
+            return File(await _streamController.GetStream(), _streamController.ContentType);
         }
 
         /// <summary>
