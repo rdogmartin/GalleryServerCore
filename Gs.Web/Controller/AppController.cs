@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Hosting;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using GalleryServer.Business.Interfaces;
+using GalleryServer.Events.CustomExceptions;
 
 namespace GalleryServer.Web.Controller
 {
@@ -163,7 +165,7 @@ namespace GalleryServer.Web.Controller
             //physicalApplicationPath = physicalApplicationPath.Replace("/", "\\");
 
             // Pass these values to our global app settings instance, where the values can be used throughout the application.
-            AppSetting.Instance.Initialize(trustLevel, _env.WebRootPath, Constants.APP_NAME, "/");
+            AppSetting.Instance.Initialize(trustLevel, _env.WebRootPath, _env.ContentRootPath, Constants.APP_NAME, "/");
 
             //Business.Entity.VersionKey.GenerateEncryptedVersionKeys();
         }

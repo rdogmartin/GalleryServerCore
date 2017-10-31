@@ -287,13 +287,13 @@ namespace GalleryServer.Web.Api
         /// </summary>
         /// <param name="mediaAssetId">The ID of the media asset.</param>
         /// <param name="fileNameOnServer">The full path to the edited file. Ex: "C:\Dev\GS\Dev-Main\Website\App_Data\_Temp\85b74137-d795-40a5-8b93-bf31de0b0ca3.jpg"</param>
-        /// <returns>An instance of <see cref="ActionResult" />.</returns>
+        /// <returns>An instance of <see cref="IActionResult" />.</returns>
         [HttpPost]
         public async Task<IActionResult> ReplaceWithEditedImage(int mediaAssetId, string fileNameOnServer)
         {
             try
             {
-                var filePath = Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.TempUploadDirectory, fileNameOnServer);
+                var filePath = Path.Combine(AppSetting.Instance.ContentRootPath, GlobalConstants.TempUploadDirectory, fileNameOnServer);
 
                 return new JsonResult(await _galleryObjectController.ReplaceWithEditedImage(mediaAssetId, filePath));
             }
@@ -337,7 +337,7 @@ namespace GalleryServer.Web.Api
         {
             try
             {
-                var filePath = Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.TempUploadDirectory, fileNameOnServer);
+                var filePath = Path.Combine(AppSetting.Instance.ContentRootPath, GlobalConstants.TempUploadDirectory, fileNameOnServer);
 
                 return new JsonResult(await _galleryObjectController.ReplaceMediaAssetFile(mediaAssetId, filePath, fileName));
             }

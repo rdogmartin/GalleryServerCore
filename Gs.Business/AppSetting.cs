@@ -42,7 +42,8 @@ namespace GalleryServer.Business
         private string _smtpServerPort;
         private bool _sendEmailUsingSsl;
         private string _tempUploadDirectory;
-        private string _physicalAppPath;
+        private string _webRootPath;
+        private string _contentRootPath;
         private string _applicationName;
         private ApplicationTrustLevel _trustLevel = ApplicationTrustLevel.None;
         private Version _dotNetFrameworkVersion;
@@ -292,7 +293,7 @@ namespace GalleryServer.Business
                     {
                         if (ImageMagickPath.StartsWith("~") || ImageMagickPath.StartsWith("\\") || ImageMagickPath.StartsWith("/"))
                         {
-                            _imageMagickPathResolved = Path.Combine(PhysicalApplicationPath, ImageMagickPath.TrimStart('~', '\\', '/').Replace('/', '\\'), "convert.exe");
+                            _imageMagickPathResolved = Path.Combine(WebRootPath, ImageMagickPath.TrimStart('~', '\\', '/').Replace('/', '\\'), "convert.exe");
                         }
                         else
                         {
@@ -537,26 +538,38 @@ namespace GalleryServer.Business
         /// </summary>
         public string CustomCss { get; set; }
 
-        /// <summary>
-        /// Gets the physical application path of the currently running application. For web applications this will be equal to
-        /// the Request.PhysicalApplicationPath property.
-        /// </summary>
-        public string PhysicalApplicationPath
+        /// <inheritdoc />
+        /// <exception cref="T:GalleryServer.Events.CustomExceptions.ApplicationNotInitializedException"></exception>
+        public string WebRootPath
         {
             get
             {
-                if (string.IsNullOrWhiteSpace(_physicalAppPath))
+                if (string.IsNullOrWhiteSpace(_webRootPath))
                 {
                     throw new Events.CustomExceptions.ApplicationNotInitializedException();
                 }
 
-                return _physicalAppPath;
+                return _webRootPath;
             }
-            protected set
-            {
-                this._physicalAppPath = value;
-            }
+            protected set => this._webRootPath = value;
         }
+
+        /// <inheritdoc />
+        /// <exception cref="Events.CustomExceptions.ApplicationNotInitializedException"></exception>
+        public string ContentRootPath
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_contentRootPath))
+                {
+                    throw new Events.CustomExceptions.ApplicationNotInitializedException();
+                }
+
+                return _contentRootPath;
+            }
+            protected set => _contentRootPath = value;
+        }
+
 
         /// <summary>
         /// Gets the trust level of the currently running application. 
@@ -809,7 +822,7 @@ namespace GalleryServer.Business
         {
             get
             {
-                return Path.Combine(PhysicalApplicationPath, GlobalConstants.AppDataDirectory, GlobalConstants.V4SchemaUpdateRequiredFileName);
+                return Path.Combine(WebRootPath, GlobalConstants.AppDataDirectory, GlobalConstants.V4SchemaUpdateRequiredFileName);
             }
         }
 
@@ -847,28 +860,8 @@ namespace GalleryServer.Business
 
         #region Methods
 
-        /// <summary>
-        /// Assign various application-wide properties to be used during the lifetime of the application. This method
-        /// should be called once when the application first starts.
-        /// </summary>
-        /// <param name="trustLevel">The trust level of the current application.</param>
-        /// <param name="physicalAppPath">The physical path of the currently executing application. For web applications
-        /// this will be equal to the Request.PhysicalApplicationPath property.</param>
-        /// <param name="appName">The name of the currently running application.</param>
-        /// <param name="galleryResourcesPath">The path, relative to the current application, to 
-        /// the directory containing the Gallery Server resources such as images, user controls, 
-        /// scripts, etc. Examples: "gs", "GalleryServer\resources"</param>
-        /// <exception cref="System.InvalidOperationException">Thrown when this method is called more than once during
-        /// the application's lifetime.</exception>
-        /// <exception cref="System.ArgumentOutOfRangeException">Thrown if the trustLevel parameter has the value
-        /// ApplicationTrustLevel.None.</exception>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="physicalAppPath"/> or <paramref name="appName"/>
-        /// is null.</exception>
-        /// <exception cref="CannotWriteToDirectoryException">
-        /// Thrown when Gallery Server is unable to write to, or delete from, a directory. This may be the media objects
-        /// directory, thumbnail or optimized directory, the temporary directory (defined in
-        /// <see cref="GlobalConstants.TempUploadDirectory"/>), or the App_Data directory.</exception>
-        public void Initialize(ApplicationTrustLevel trustLevel, string physicalAppPath, string appName, string galleryResourcesPath)
+        /// <inheritdoc />
+        public void Initialize(ApplicationTrustLevel trustLevel, string webRootPath, string contentRootPath, string appName, string galleryResourcesPath)
         {
             #region Validation
 
@@ -882,8 +875,8 @@ namespace GalleryServer.Business
                 throw new System.ComponentModel.InvalidEnumArgumentException("Invalid ApplicationTrustLevel value. ApplicationTrustLevel.None is not valid. Use ApplicationTrustLevel.Unknown if the trust level cannot be calculated.");
             }
 
-            if (String.IsNullOrEmpty(physicalAppPath))
-                throw new ArgumentNullException("physicalAppPath");
+            if (String.IsNullOrEmpty(webRootPath))
+                throw new ArgumentNullException("webRootPath");
 
             if (String.IsNullOrEmpty(appName))
                 throw new ArgumentNullException("appName");
@@ -891,22 +884,23 @@ namespace GalleryServer.Business
             #endregion
 
             this.AppTrustLevel = trustLevel;
-            this.PhysicalApplicationPath = physicalAppPath;
+            this.WebRootPath = webRootPath;
+            this.ContentRootPath = contentRootPath;
             this.ApplicationName = appName;
             this.GalleryResourcesPath = galleryResourcesPath;
 
-            ConfigureAppDataDirectory(physicalAppPath);
+            ConfigureAppDataDirectory(webRootPath);
 
             //InitializeDataStore();
 
             PopulateAppSettingsFromDataStore();
 
-            ConfigureTempDirectory(physicalAppPath);
+            ConfigureTempDirectory(webRootPath);
 
             this._dotNetFrameworkVersion = GetDotNetFrameworkVersion();
 
 
-            string ffmpegPath = Path.Combine(physicalAppPath, @"bin\ffmpeg.exe");
+            string ffmpegPath = Path.Combine(webRootPath, @"bin\ffmpeg.exe");
             this._ffmpegPath = (File.Exists(ffmpegPath) ? ffmpegPath : String.Empty);
 
             this._isInitialized = true;

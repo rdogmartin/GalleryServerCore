@@ -363,8 +363,8 @@ namespace GalleryServer.Business
       encoderArguments = encoderArguments.Replace(AutoRotateFilterName, GetAutoRotationFilter(MediaConversionQueue.Instance.Get(mediaSettings.MediaQueueId).RotateFlipAmount, encoderArguments));
       encoderArguments = encoderArguments.Replace("{AspectRatio}", Math.Round(mediaSettings.TargetWidth / (double)mediaSettings.TargetHeight, 2).ToString(CultureInfo.InvariantCulture));
       encoderArguments = encoderArguments.Replace("{DestinationFilePath}", mediaSettings.FilePathDestination);
-      encoderArguments = encoderArguments.Replace("{BinPath}", Path.Combine(AppSetting.Instance.PhysicalApplicationPath, "bin"));
-      encoderArguments = encoderArguments.Replace("{GalleryResourcesPath}", Path.Combine(AppSetting.Instance.PhysicalApplicationPath, AppSetting.Instance.GalleryResourcesPath));
+      encoderArguments = encoderArguments.Replace("{BinPath}", Path.Combine(AppSetting.Instance.ContentRootPath, "bin"));
+      encoderArguments = encoderArguments.Replace("{GalleryResourcesPath}", Path.Combine(AppSetting.Instance.WebRootPath, AppSetting.Instance.GalleryResourcesPath));
 
       // If the above changes result in an empty filter setting, remove it altogether.
       encoderArguments = encoderArguments.Replace(@"-vf """"", String.Empty);

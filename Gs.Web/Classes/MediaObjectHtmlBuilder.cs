@@ -477,7 +477,7 @@ namespace GalleryServer.Web
         /// directory is not within the web application directory.</exception>
         private string ReplaceMediaObjectAbsoluteUrlNoHandlerParameter(string htmlOutput)
         {
-            var appPath = AppSetting.Instance.PhysicalApplicationPath;
+            var appPath = AppSetting.Instance.WebRootPath;
 
             if (!MediaObjectPhysicalPath.StartsWith(appPath, StringComparison.OrdinalIgnoreCase))
                 throw new BusinessException(String.Format(CultureInfo.CurrentCulture, "Expected this.MediaObjectPhysicalPath (\"{0}\") to start with AppSetting.Instance.PhysicalApplicationPath (\"{1}\"), but it did not. If the media objects are not stored within the Gallery Server web application, you cannot use the MediaObjectAbsoluteUrlNoHandler replacement parameter. Instead, use MediaObjectRelativeUrlNoHandler and specify the virtual path to your media object directory in the HTML template. For example: HtmlTemplate=\"<a href=\"{{HostUrl}}/media{{MediaObjectRelativeUrlNoHandler}}\">Click to open</a>\"", MediaObjectPhysicalPath, appPath));

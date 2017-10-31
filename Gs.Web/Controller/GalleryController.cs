@@ -911,7 +911,7 @@ namespace GalleryServer.Web.Controller
                     var sampleDirPath = Path.Combine(Factory.LoadGallerySetting(galleryId).FullMediaObjectPath, sampleAlbum.DirectoryName);
                     var sampleAssetFilePath = Path.Combine(sampleDirPath, sampleAssetFileName);
 
-                    var sourceFilePath = Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.AppDataDirectory, sampleAssetFileName);
+                    var sourceFilePath = Path.Combine(AppSetting.Instance.ContentRootPath, GlobalConstants.AppDataDirectory, sampleAssetFileName);
                     if (!File.Exists(sampleAssetFilePath))
                     {
                         if (File.Exists(sourceFilePath))

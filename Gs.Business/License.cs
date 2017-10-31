@@ -76,7 +76,7 @@ namespace GalleryServer.Business
     {
       get
       {
-        return System.IO.Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.AppDataDirectory, GlobalConstants.VersionKeyFileName);
+        return System.IO.Path.Combine(AppSetting.Instance.ContentRootPath, GlobalConstants.AppDataDirectory, GlobalConstants.VersionKeyFileName);
       }
     }
 

@@ -1406,7 +1406,7 @@ namespace GalleryServer.Web.Controller
         /// least check it for null first.</remarks>
         private async Task<List<ActionResult>> CreateMediaObjectFromFile(AddMediaObjectSettings options)
         {
-            string sourceFilePath = Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.TempUploadDirectory, options.FileNameOnServer);
+            string sourceFilePath = Path.Combine(AppSetting.Instance.ContentRootPath, GlobalConstants.TempUploadDirectory, options.FileNameOnServer);
 
             try
             {

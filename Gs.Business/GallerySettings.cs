@@ -1768,7 +1768,7 @@ namespace GalleryServer.Business
       if (!IsTemplate)
       {
         // Setting the FullMediaObjectPath property will throw an exception if the directory does not exist or is not writable.
-        string physicalAppPath = AppSetting.Instance.PhysicalApplicationPath;
+        string physicalAppPath = AppSetting.Instance.WebRootPath;
 
         FullMediaObjectPath = HelperFunctions.CalculateFullPath(physicalAppPath, mediaObjectPath);
 

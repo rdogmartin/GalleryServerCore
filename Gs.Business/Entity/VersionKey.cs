@@ -68,7 +68,7 @@ namespace GalleryServer.Business.Entity
     /// </summary>
     public static void GenerateEncryptedVersionKeys()
     {
-      using (var sw = System.IO.File.CreateText(System.IO.Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.AppDataDirectory, "version_keys.txt")))
+      using (var sw = System.IO.File.CreateText(System.IO.Path.Combine(AppSetting.Instance.WebRootPath, GlobalConstants.AppDataDirectory, "version_keys.txt")))
       {
         foreach (LicenseLevel license in Enum.GetValues(typeof(LicenseLevel)))
         {

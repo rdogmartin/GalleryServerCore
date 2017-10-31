@@ -1810,7 +1810,7 @@ namespace GalleryServer.Web
         {
             foreach (var sampleAssetFileName in Constants.SAMPLE_ASSET_FILENAMES)
             {
-                var sourceFilePath = Path.Combine(AppSetting.Instance.PhysicalApplicationPath, GlobalConstants.AppDataDirectory, sampleAssetFileName);
+                var sourceFilePath = Path.Combine(AppSetting.Instance.WebRootPath, GlobalConstants.AppDataDirectory, sampleAssetFileName);
 
                 try
                 {
