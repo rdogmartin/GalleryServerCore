@@ -22,12 +22,14 @@ namespace GalleryServer.Web.Controller
         private readonly AlbumController _albumController;
         private readonly GalleryObjectController _galleryObjectController;
         private readonly UserController _userController;
+        private readonly HtmlController _htmlController;
 
-        public MetadataController(AlbumController albumController, GalleryObjectController galleryObjectController, UserController userController)
+        public MetadataController(AlbumController albumController, GalleryObjectController galleryObjectController, UserController userController, HtmlController htmlController)
         {
             _albumController = albumController;
             _galleryObjectController = galleryObjectController;
             _userController = userController;
+            _htmlController = htmlController;
         }
 
         #region Methods
@@ -203,7 +205,7 @@ namespace GalleryServer.Web.Controller
 
             string prevValue = md.Value;
 
-            md.Value = Utils.CleanHtmlTags(metaItem.Value, go.GalleryId);
+            md.Value = _htmlController.CleanHtmlTags(metaItem.Value, await _userController.IsCurrentUserGalleryAdministrator(go.GalleryId), go.GalleryId);
 
             if (md.Value != prevValue)
             {
@@ -650,7 +652,7 @@ namespace GalleryServer.Web.Controller
                     var tags = md.Value.Split(new string[] { ", ", "," }, StringSplitOptions.RemoveEmptyEntries).ToList();
                     if (!tags.Contains(galleryItemTag.MetaItem.Value, StringComparer.OrdinalIgnoreCase))
                     {
-                        tags.Add(Utils.CleanHtmlTags(galleryItemTag.MetaItem.Value, galleryObject.GalleryId));
+                        tags.Add(_htmlController.CleanHtmlTags(galleryItemTag.MetaItem.Value, await _userController.IsCurrentUserGalleryAdministrator(galleryObject.GalleryId), galleryObject.GalleryId));
 
                         md.Value = String.Join(", ", tags);
 
@@ -703,7 +705,7 @@ namespace GalleryServer.Web.Controller
                 if (!metaValueHasBeenCleaned)
                 {
                     // Clean just once regardless of how many gallery items we are updating. We expect all gallery items are in the same gallery.
-                    galleryItemMeta.MetaItem.Value = Utils.CleanHtmlTags(galleryItemMeta.MetaItem.Value, galleryObject.GalleryId);
+                    galleryItemMeta.MetaItem.Value = _htmlController.CleanHtmlTags(galleryItemMeta.MetaItem.Value, await _userController.IsCurrentUserGalleryAdministrator(galleryObject.GalleryId), galleryObject.GalleryId);
                     metaValueHasBeenCleaned = true;
                 }
 

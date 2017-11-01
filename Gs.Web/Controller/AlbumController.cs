@@ -593,8 +593,8 @@ namespace GalleryServer.Web.Controller
             SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.AddChildAlbum, await _userController.GetGalleryServerRolesForUser(), parentAlbum.Id, parentAlbum.GalleryId, _userController.IsAuthenticated, parentAlbum.IsPrivate, parentAlbum.IsVirtualAlbum);
 
             IAlbum newAlbum = Factory.CreateEmptyAlbumInstance(parentAlbum.GalleryId, true);
-
-            newAlbum.Title = Utils.CleanHtmlTags(album.Title.Trim(), parentAlbum.GalleryId);
+            
+            newAlbum.Title = _htmlController.CleanHtmlTags(album.Title.Trim(), await _userController.IsCurrentUserGalleryAdministrator(parentAlbum.GalleryId), parentAlbum.GalleryId);
 
             if (string.IsNullOrWhiteSpace(newAlbum.Title))
             {

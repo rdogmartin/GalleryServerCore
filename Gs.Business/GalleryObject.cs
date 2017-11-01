@@ -2069,8 +2069,7 @@ namespace GalleryServer.Business
           // all HTML would be preserved) and whether the setting for user-entered HTML/javascript is enabled (for all other
           // users). However, the clean method has no knowledge of the current user, so it'll strip HTML whenever HTML is disabled,
           // causing the HtmlSource value to lose data.
-          throw new NotImplementedException("Cannot remove HTML/JavaScript from meta value because the HtmlValidator class has not been ported to .NET Core.");
-          //metaValue.FormattedValue = HtmlValidator.Clean(metaValue.FormattedValue, GalleryId);
+          metaValue.FormattedValue = HtmlValidator.Clean(metaValue.FormattedValue, GalleryId);
         }
 
         metaValue = (!String.IsNullOrWhiteSpace(metaValue.FormattedValue) ? metaValue : TryGetFromExisting(metadataName));

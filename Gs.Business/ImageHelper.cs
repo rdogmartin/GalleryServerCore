@@ -53,7 +53,7 @@ namespace GalleryServer.Business
 
                 image.Mutate(x => x.Resize(new SixLabors.Primitives.Size(newSize.Width, newSize.Height)));
 
-                image.Save(destFilePath, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder() { IgnoreMetadata = true, Quality = jpegQuality });
+                image.Save(destFilePath, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder() { IgnoreMetadata = false, Quality = jpegQuality });
 
                 // Just in case the width/height of the generated image may be off by a pixel from the intended width/height, so return the 
                 // actual values rather than a reference to newSize. It's not known if ImageSharp does this but it happened in the GDI world, so let's play it safe.

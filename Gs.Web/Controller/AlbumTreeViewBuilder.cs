@@ -16,6 +16,8 @@ namespace GalleryServer.Web.Controller
     /// </summary>
     public class AlbumTreeViewBuilder
     {
+        private readonly HtmlController _htmlController;
+
         #region Fields
 
         private IGalleryServerRoleCollection _roles;
@@ -49,10 +51,12 @@ namespace GalleryServer.Web.Controller
         /// <summary>
         /// Initializes a new instance of the <see cref="AlbumTreeViewBuilder" /> class.
         /// </summary>
-        public AlbumTreeViewBuilder()
+        /// <param name="htmlController">The HTML controller.</param>
+        public AlbumTreeViewBuilder(HtmlController htmlController)
         {
+            _htmlController = htmlController;
             Tree = new TreeView();
-       }
+        }
 
         #endregion
 
@@ -191,7 +195,7 @@ namespace GalleryServer.Web.Controller
             foreach (IAlbum album in albums)
             {
                 TreeNode node = new TreeNode();
-                string albumTitle = Utils.RemoveHtmlTags(album.Title);
+                string albumTitle = _htmlController.RemoveHtmlTags(album.Title);
                 node.Text = albumTitle;
                 node.ToolTip = albumTitle;
                 node.Id = String.Concat("tv_", album.Id.ToString(CultureInfo.InvariantCulture));
@@ -384,7 +388,7 @@ namespace GalleryServer.Web.Controller
         {
             IGallery gallery = Factory.LoadGallery(rootAlbum.GalleryId);
             string rootAlbumPrefix = Options.RootNodesPrefix.Replace("{GalleryId}", gallery.GalleryId.ToString(CultureInfo.InvariantCulture)).Replace("{GalleryDescription}", gallery.Description);
-            return Utils.RemoveHtmlTags(String.Concat(rootAlbumPrefix, rootAlbum.Title));
+            return _htmlController.RemoveHtmlTags(String.Concat(rootAlbumPrefix, rootAlbum.Title));
         }
 
         #endregion

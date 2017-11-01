@@ -7,8 +7,7 @@ namespace GalleryServer.Business
         /// <summary>
         /// Represents a <see cref="ISize" /> that has Width and Height values set to zero.
         /// </summary>
-        // ReSharper disable once UnassignedReadonlyField
-        public static readonly ISize Empty;
+        public static readonly ISize Empty = new Size();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Size" /> struct.
