@@ -1,20 +1,18 @@
-using System;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Globalization;
-using System.IO;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.Metadata;
 using GalleryServer.Events.CustomExceptions;
+using System;
+using System.Globalization;
+using System.IO;
 
 namespace GalleryServer.Business
 {
-	/// <summary>
-	/// Contains functionality for manipulating the original image files associated with <see cref="Image" /> gallery objects.
-	/// The only time a new original image must be generated is when the user rotates it. This will only
-	/// occur for existing objects.
-	/// </summary>
-	public class ImageOriginalCreator : DisplayObjectCreator
+    /// <summary>
+    /// Contains functionality for manipulating the original image files associated with <see cref="Image" /> gallery objects.
+    /// The only time a new original image must be generated is when the user rotates it. This will only
+    /// occur for existing objects.
+    /// </summary>
+    public class ImageOriginalCreator : DisplayObjectCreator
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ImageOriginalCreator"/> class.

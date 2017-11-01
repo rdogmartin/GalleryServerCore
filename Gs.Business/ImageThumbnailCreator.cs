@@ -1,15 +1,12 @@
 using System;
-using System.Drawing;
 using System.IO;
-using GalleryServer.Business.Interfaces;
-using GalleryServer.Events.CustomExceptions;
 
 namespace GalleryServer.Business
 {
-  /// <summary>
-  /// Provides functionality for creating and saving the thumbnail image files associated with <see cref="Image" /> gallery objects.
-  /// </summary>
-  public class ImageThumbnailCreator : DisplayObjectCreator
+    /// <summary>
+    /// Provides functionality for creating and saving the thumbnail image files associated with <see cref="Image" /> gallery objects.
+    /// </summary>
+    public class ImageThumbnailCreator : DisplayObjectCreator
   {
     /// <summary>
     /// Initializes a new instance of the <see cref="ImageThumbnailCreator"/> class.

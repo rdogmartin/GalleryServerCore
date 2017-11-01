@@ -1,35 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <AssemblyName>GalleryServer.Business</AssemblyName>
-    <RootNamespace>GalleryServer.Business</RootNamespace>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>netcoreapp2.0</TargetFramework>
+        <AssemblyName>GalleryServer.Business</AssemblyName>
+        <RootNamespace>GalleryServer.Business</RootNamespace>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="CoreCompat.System.Drawing.v2" Version="5.2.0-preview1-r131" />
-    <PackageReference Include="SharpZipLib" Version="0.86.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="SharpZipLib" Version="0.86.0" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-beta0001" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Gs.Business.Interfaces\Gs.Business.Interfaces.csproj" />
-    <ProjectReference Include="..\Gs.Data\Gs.Data.csproj" />
-    <ProjectReference Include="..\Gs.Events\Gs.Events.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Gs.Business.Interfaces\Gs.Business.Interfaces.csproj" />
+        <ProjectReference Include="..\Gs.Data\Gs.Data.csproj" />
+        <ProjectReference Include="..\Gs.Events\Gs.Events.csproj" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <Compile Update="Properties\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Update="Properties\Resources.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>Resources.resx</DependentUpon>
+        </Compile>
+    </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-  </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Update="Properties\Resources.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
+    </ItemGroup>
 
 </Project>

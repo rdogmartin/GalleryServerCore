@@ -78,6 +78,59 @@ namespace GalleryServer.Business
         public const string AppDataDirectory = "App_Data";
 
         /// <summary>
+        /// Gets the path, relative to the wwwroot directory, where generic thumbnail image files exist. Ex: "\\images\\thumbs\\"
+        /// </summary>
+        public const string GenericThumbnailDirectory = "\\images\\thumbs\\";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericVideoThumbnailFileName = "GenericThumbnailImage_Video.png";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericAudioThumbnailFileName = "GenericThumbnailImage_Audio.png";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericImageThumbnailFileName = "GenericThumbnailImage_Image.png";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericUnknownThumbnailFileName = "GenericThumbnailImage_Unknown.png";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericDocThumbnailFileName = "GenericThumbnailImage_Doc.png";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericExcelThumbnailFileName = "GenericThumbnailImage_Excel.png";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericPowerPointThumbnailFileName = "GenericThumbnailImage_PowerPoint.png";
+
+        /// <summary>
+        /// Gets the file name for the image to be used as the thumbnail image for videos when using a thumbnail based on a frame from the
+        /// video is not possible. Ex: "GenericThumbnailImage_Video.png"
+        /// </summary>
+        public const string GenericPdfThumbnailFileName = "GenericThumbnailImage_PDF.png";
+
+        /// <summary>
         /// Gets the name of the file that, when present in the App_Data directory, causes the Install Wizard to automatically run.
         /// Ex: "install.txt"
         /// </summary>

@@ -67,7 +67,7 @@ namespace GalleryServer.Business
       {
         bool imageCreated = false;
 
-        var size = System.Drawing.Size.Empty;
+        var size = Size.Empty;
         if (Array.IndexOf<string>(gallerySetting.ImageMagickFileTypes, Path.GetExtension(GalleryObject.Original.FileName).ToLowerInvariant()) >= 0)
         {
           size = GenerateImageUsingImageMagick(newFilePath, gallerySetting.MaxOptimizedLength, gallerySetting.OptimizedImageJpegQuality);
@@ -82,8 +82,8 @@ namespace GalleryServer.Business
 
         if (!size.IsEmpty)
         {
-          GalleryObject.Optimized.Width = (int)size.Width;
-          GalleryObject.Optimized.Height = (int)size.Height;
+          GalleryObject.Optimized.Width = size.Width;
+          GalleryObject.Optimized.Height = size.Height;
         }
 
         GalleryObject.Optimized.FileName = newFilename;

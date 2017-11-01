@@ -2,9 +2,9 @@
 using GalleryServer.Web.Controller;
 using Newtonsoft.Json;
 using System;
-using System.Drawing;
 using System.IO;
 using System.Linq;
+using GalleryServer.Business.Interfaces;
 
 namespace GalleryServer.Web
 {
@@ -1602,8 +1602,8 @@ namespace GalleryServer.Web
         /// <param name="ratio">The width to height ratio. Example: If the ratio is 1.33, the calculated width will 1.33 times longer than the height.</param>
         /// <param name="maxLength">The length (in pixels) of the longest edge. Example: If <paramref name="maxLength" /> is 115 and the <paramref name="ratio" />
         /// is 1.33, the resulting width will be 115 and the height will be 86.</param>
-        /// <returns>An instance of <see cref="System.Drawing.Size" />.</returns>
-        public static Size CalculateSize(float ratio, int maxLength)
+        /// <returns>An instance of <see cref="ISize" />.</returns>
+        public static ISize CalculateSize(float ratio, int maxLength)
         {
             if (ratio > 1)
             {

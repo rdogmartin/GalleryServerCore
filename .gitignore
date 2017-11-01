@@ -260,3 +260,4 @@ paket-files/
 __pycache__/
 *.pyc
 /Gs.Web/wwwroot/gs/mediaobjects
+/nuget.exe

@@ -1,11 +1,7 @@
 using System;
-using System.Drawing;
 using System.Globalization;
-using System.Windows;
-//using System.Windows.Media.Imaging;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Events.CustomExceptions;
-using Microsoft.ApplicationInsights.AspNetCore;
 
 namespace GalleryServer.Business
 {
@@ -518,11 +514,11 @@ namespace GalleryServer.Business
 
 		/// <summary>
 		/// Gets the width and height of this display object. The value is calculated from the physical file. Returns an empty
-		/// <see cref="Size" /> instance if the value cannot be computed or is not applicable to the object
+		/// <see cref="ISize" /> instance if the value cannot be computed or is not applicable to the object
 		/// (for example, for audio files and external media objects).
 		/// </summary>
-		/// <returns><see cref="Size" />.</returns>
-		public Size GetSize()
+		/// <returns><see cref="ISize" />.</returns>
+		public ISize GetSize()
 		{
 			return DisplayObjectCreator.GetSize(this);
 		}

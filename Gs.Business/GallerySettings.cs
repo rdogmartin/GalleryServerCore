@@ -1,21 +1,20 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Drawing;
-using System.Globalization;
-using System.Linq;
-using System.Reflection;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.Metadata;
 using GalleryServer.Data;
 using GalleryServer.Events.CustomExceptions;
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
 
 namespace GalleryServer.Business
 {
-  /// <summary>
-  /// Represents a set of gallery-specific settings.
-  /// </summary>
-  [System.Diagnostics.DebuggerDisplay("Gallery ID = {_galleryId}")]
+    /// <summary>
+    /// Represents a set of gallery-specific settings.
+    /// </summary>
+    [System.Diagnostics.DebuggerDisplay("Gallery ID = {_galleryId}")]
   public class GallerySettings : IGallerySettings
   {
     #region Private Fields

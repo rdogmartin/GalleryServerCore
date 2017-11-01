@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing.Imaging;
+//using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -29,7 +29,8 @@ namespace GalleryServer.Business.Metadata
 
         private const uint MetadataPaddingInBytes = 2048;
 
-        private PropertyItem[] _propertyItems;
+        //private PropertyItem[] _propertyItems;
+        private SixLabors.ImageSharp.MetaData.ImageMetaData _metadata;
         private IWpfMetadata _wpfMetadata;
         private int _width, _height;
         private Dictionary<RawMetadataItemName, MetadataItem> _rawMetadata;
@@ -42,13 +43,21 @@ namespace GalleryServer.Business.Metadata
 
         #region Properties
 
-        /// <summary>
-        /// Gets the property items associated with the image file. Guaranteed to not return null.
-        /// </summary>
-        /// <value>An array of <see cref="PropertyItem" /> instances.</value>
-        private IEnumerable<PropertyItem> PropertyItems
+        ///// <summary>
+        ///// Gets the property items associated with the image file. Guaranteed to not return null.
+        ///// </summary>
+        ///// <value>An array of <see cref="PropertyItem" /> instances.</value>
+        //private IEnumerable<PropertyItem> PropertyItems
+        //{
+        //    get { return _propertyItems ?? (_propertyItems = GetImagePropertyItems(GalleryObject.Original.FileNamePhysicalPath)); }
+        //}
+
+        private SixLabors.ImageSharp.MetaData.ImageMetaData Metadata
         {
-            get { return _propertyItems ?? (_propertyItems = GetImagePropertyItems(GalleryObject.Original.FileNamePhysicalPath)); }
+            get
+            {
+                return _metadata ?? (_metadata = SixLabors.ImageSharp.Image.Load(GalleryObject.Original.FileNamePhysicalPath).MetaData);
+            }
         }
 
         /// <summary>
@@ -199,28 +208,28 @@ namespace GalleryServer.Business.Metadata
 
         #region Static Methods
 
-        /// <summary>
-        /// Extract the property items from the image at <paramref name="imageFilePath" />. The path must refer to an image that can be 
-        /// passed to a <see cref="System.Drawing.Bitmap" /> constructor (when running in medium trust) or 
-        /// <see cref="System.Drawing.Image.FromStream(Stream, bool, bool)" /> (when running in full trust). It will throw an exception 
-        /// if it cannot. Guaranteed to not return null.
-        /// </summary>
-        /// <param name="imageFilePath">The full path to the image file. Ex: "C:\Dev\GS\Dev-Main\Website\gs\mediaobjects\Uploads\Desert.jpg"</param>
-        /// <returns>An array of <see cref="PropertyItem" /> instances.</returns>
-        public static PropertyItem[] GetImagePropertyItems(string imageFilePath)
-        {
-            if (string.IsNullOrWhiteSpace(imageFilePath))
-                return new PropertyItem[0];
+        ///// <summary>
+        ///// Extract the property items from the image at <paramref name="imageFilePath" />. The path must refer to an image that can be 
+        ///// passed to a <see cref="System.Drawing.Bitmap" /> constructor (when running in medium trust) or 
+        ///// <see cref="System.Drawing.Image.FromStream(Stream, bool, bool)" /> (when running in full trust). It will throw an exception 
+        ///// if it cannot. Guaranteed to not return null.
+        ///// </summary>
+        ///// <param name="imageFilePath">The full path to the image file. Ex: "C:\Dev\GS\Dev-Main\Website\gs\mediaobjects\Uploads\Desert.jpg"</param>
+        ///// <returns>An array of <see cref="PropertyItem" /> instances.</returns>
+        //public static PropertyItem[] GetImagePropertyItems(string imageFilePath)
+        //{
+        //    if (string.IsNullOrWhiteSpace(imageFilePath))
+        //        return new PropertyItem[0];
 
-            if (AppSetting.Instance.AppTrustLevel == ApplicationTrustLevel.Full)
-            {
-                return GetPropertyItemsUsingFullTrustTechnique(imageFilePath);
-            }
-            else
-            {
-                return GetPropertyItemsUsingLimitedTrustTechnique(imageFilePath);
-            }
-        }
+        //    if (AppSetting.Instance.AppTrustLevel == ApplicationTrustLevel.Full)
+        //    {
+        //        return GetPropertyItemsUsingFullTrustTechnique(imageFilePath);
+        //    }
+        //    else
+        //    {
+        //        return GetPropertyItemsUsingLimitedTrustTechnique(imageFilePath);
+        //    }
+        //}
 
         #endregion
 
@@ -1230,104 +1239,112 @@ namespace GalleryServer.Business.Metadata
             return dte.ToString("HHmmss");
         }
 
+        private RawMetadataItemName GetRawMetadataItemName(string imagePropertyName)
+        {
+            //TODO: Complete this implementation.
+            switch (imagePropertyName)
+            {
+                case "Width": return RawMetadataItemName.ImageWidth;
+                default:
+                    return RawMetadataItemName.Unknown;
+            }
+        }
+
         /// <summary>
         /// Fill the class-level _rawMetadata dictionary with MetadataItem objects created from the
-        /// PropertyItems property of the image. Skip any items that are not defined in the 
-        /// RawMetadataItemName enumeration. Guaranteed to not return null.
+        /// <see cref="SixLabors.ImageSharp.MetaData.ImageMetaData.Properties" /> property of the image. Skip any items 
+        /// that are not defined in the RawMetadataItemName enumeration. Guaranteed to not return null.
         /// </summary>
         private Dictionary<RawMetadataItemName, MetadataItem> GetRawMetadataDictionary()
         {
             var rawMetadata = new Dictionary<RawMetadataItemName, MetadataItem>();
 
-            foreach (var itemIterator in PropertyItems)
+            foreach (var itemIterator in Metadata.Properties)
             {
-                var metadataName = (RawMetadataItemName)itemIterator.Id;
-                if (Enum.IsDefined(typeof(RawMetadataItemName), metadataName))
+                var metadataName = GetRawMetadataItemName(itemIterator.Name);
+                if (!rawMetadata.ContainsKey(metadataName))
                 {
-                    if (!rawMetadata.ContainsKey(metadataName))
-                    {
-                        var metadataItem = new MetadataItem(itemIterator);
-                        if (metadataItem.Value != null)
-                            rawMetadata.Add(metadataName, metadataItem);
-                    }
+                    var metadataItem = new MetadataItem(itemIterator);
+                    if (metadataItem.Value != null)
+                        rawMetadata.Add(metadataName, metadataItem);
                 }
             }
 
             return rawMetadata;
         }
 
-        private static PropertyItem[] GetPropertyItemsUsingFullTrustTechnique(string imageFilePath)
-        {
-            // This technique is fast but requires full trust. Can only be called when app is running under full trust.
-            if (AppSetting.Instance.AppTrustLevel != ApplicationTrustLevel.Full)
-                throw new InvalidOperationException("The method MediaObjectMetadataExtractor.GetPropertyItemsUsingFullTrustTechnique can only be called when the application is running under full trust. The application should have already checked for this before calling this method. The developer needs to modify the source code to fix this.");
+        //private static PropertyItem[] GetPropertyItemsUsingFullTrustTechnique(string imageFilePath)
+        //{
+        //    // This technique is fast but requires full trust. Can only be called when app is running under full trust.
+        //    if (AppSetting.Instance.AppTrustLevel != ApplicationTrustLevel.Full)
+        //        throw new InvalidOperationException("The method MediaObjectMetadataExtractor.GetPropertyItemsUsingFullTrustTechnique can only be called when the application is running under full trust. The application should have already checked for this before calling this method. The developer needs to modify the source code to fix this.");
 
-            using (Stream stream = new FileStream(imageFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                try
-                {
-                    using (System.Drawing.Image image = System.Drawing.Image.FromStream(stream, true, false))
-                    {
-                        try
-                        {
-                            return image.PropertyItems;
-                        }
-                        catch (NotImplementedException)
-                        {
-                            // Some images, such as wmf, throw this exception. We'll make a note of it and set our field to an empty array.
-                            //if (!ex.Data.Contains("Metadata Extraction Error"))
-                            //{
-                            //	ex.Data.Add("Metadata Extraction Error", String.Format(CultureInfo.CurrentCulture, "Cannot extract metadata from file \"{0}\".", imageFilePath));
-                            //}
+        //    using (Stream stream = new FileStream(imageFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        //    {
+        //        try
+        //        {
+        //            using (System.Drawing.Image image = System.Drawing.Image.FromStream(stream, true, false))
+        //            {
+        //                try
+        //                {
+        //                    return image.PropertyItems;
+        //                }
+        //                catch (NotImplementedException)
+        //                {
+        //                    // Some images, such as wmf, throw this exception. We'll make a note of it and set our field to an empty array.
+        //                    //if (!ex.Data.Contains("Metadata Extraction Error"))
+        //                    //{
+        //                    //	ex.Data.Add("Metadata Extraction Error", String.Format(CultureInfo.CurrentCulture, "Cannot extract metadata from file \"{0}\".", imageFilePath));
+        //                    //}
 
-                            //LogError(ex, GalleryObject.GalleryId);
-                            return new PropertyItem[0];
-                        }
-                    }
-                }
-                catch (ArgumentException)
-                {
-                    //if (!ex.Data.Contains("Metadata Extraction Error"))
-                    //{
-                    //	ex.Data.Add("Metadata Extraction Error", String.Format(CultureInfo.CurrentCulture, "Cannot extract metadata from file \"{0}\".", imageFilePath));
-                    //}
+        //                    //LogError(ex, GalleryObject.GalleryId);
+        //                    return new PropertyItem[0];
+        //                }
+        //            }
+        //        }
+        //        catch (ArgumentException)
+        //        {
+        //            //if (!ex.Data.Contains("Metadata Extraction Error"))
+        //            //{
+        //            //	ex.Data.Add("Metadata Extraction Error", String.Format(CultureInfo.CurrentCulture, "Cannot extract metadata from file \"{0}\".", imageFilePath));
+        //            //}
 
-                    //LogError(ex, GalleryObject.GalleryId);
-                    return new PropertyItem[0];
-                }
-            }
-        }
+        //            //LogError(ex, GalleryObject.GalleryId);
+        //            return new PropertyItem[0];
+        //        }
+        //    }
+        //}
 
-        private static PropertyItem[] GetPropertyItemsUsingLimitedTrustTechnique(string imageFilePath)
-        {
-            // This technique is not as fast as the one in the method GetPropertyItemsUsingFullTrustTechnique() but in works in limited
-            // trust environments.
-            try
-            {
-                using (System.Drawing.Image image = new System.Drawing.Bitmap(imageFilePath))
-                {
-                    try
-                    {
-                        return image.PropertyItems;
-                    }
-                    catch (NotImplementedException)
-                    {
-                        // Some images, such as wmf, throw this exception.
-                        return new PropertyItem[0];
-                    }
-                }
-            }
-            catch (ArgumentException)
-            {
-                return new PropertyItem[0];
-            }
-            catch (System.Runtime.InteropServices.ExternalException)
-            {
-                // Some images throw this. Here is one: "D:\Media samples\user submitted objects\6198 Windpendel Windrad.tif"
-                return new PropertyItem[0];
-            }
+        //private static PropertyItem[] GetPropertyItemsUsingLimitedTrustTechnique(string imageFilePath)
+        //{
+        //    // This technique is not as fast as the one in the method GetPropertyItemsUsingFullTrustTechnique() but in works in limited
+        //    // trust environments.
+        //    try
+        //    {
+        //        using (System.Drawing.Image image = new System.Drawing.Bitmap(imageFilePath))
+        //        {
+        //            try
+        //            {
+        //                return image.PropertyItems;
+        //            }
+        //            catch (NotImplementedException)
+        //            {
+        //                // Some images, such as wmf, throw this exception.
+        //                return new PropertyItem[0];
+        //            }
+        //        }
+        //    }
+        //    catch (ArgumentException)
+        //    {
+        //        return new PropertyItem[0];
+        //    }
+        //    catch (System.Runtime.InteropServices.ExternalException)
+        //    {
+        //        // Some images throw this. Here is one: "D:\Media samples\user submitted objects\6198 Windpendel Windrad.tif"
+        //        return new PropertyItem[0];
+        //    }
 
-        }
+        //}
 
         /// <summary>
         /// Get a reference to the <see cref="BitmapMetadata" /> object for this image file that contains 

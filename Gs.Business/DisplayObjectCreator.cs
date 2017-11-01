@@ -1,15 +1,13 @@
 using System;
-using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography.Xml;
-using System.Windows;
-//using System.Windows.Media;
-//using System.Windows.Media.Imaging;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.Metadata;
 using GalleryServer.Events;
 using GalleryServer.Events.CustomExceptions;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 
 namespace GalleryServer.Business
 {
@@ -62,24 +60,28 @@ namespace GalleryServer.Business
         /// is not applicable to the object (for example, for audio files and external media objects).
         /// </summary>
         /// <param name="displayObject">The display object.</param>
-        /// <returns><see cref="Size" />.</returns>
-        public Size GetSize(IDisplayObject displayObject)
+        /// <returns><see cref="ISize" />.</returns>
+        public ISize GetSize(IDisplayObject displayObject)
         {
-            if (AppSetting.Instance.AppTrustLevel == ApplicationTrustLevel.Full)
+            try
             {
-                //try
-                //{
-                //    return GetSizeUsingWpf(displayObject);
-                //}
-                //catch (NotSupportedException)
-                //{
-                return GetSizeUsingGdi(displayObject);
-                //}
+                var image = SixLabors.ImageSharp.Image.Load(displayObject.FileNamePhysicalPath);
+
+                return new Size(image.Width, image.Height);
             }
-            else
+            catch (ArgumentException)
             {
-                return GetSizeUsingGdi(displayObject);
+                return Size.Empty;
             }
+            catch (ExternalException)
+            {
+                return Size.Empty;
+            }
+            catch (OutOfMemoryException)
+            {
+                return Size.Empty;
+            }
+
         }
 
         /// <summary>
@@ -102,9 +104,7 @@ namespace GalleryServer.Business
         /// <summary>
         ///   Calculate new width and height values of an existing <paramref name="size" /> instance, making the length
         ///   of the longest side equal to <paramref name="maxLength" />. The aspect ratio if preserved. If
-        ///   <paramref
-        ///     name="autoEnlarge" />
-        ///   is <c>true</c>, then increase the size so that the longest side equals <paramref name="maxLength" />
+        ///   <paramref name="autoEnlarge" /> is <c>true</c>, then increase the size so that the longest side equals <paramref name="maxLength" />
         ///   (i.e. enlarge a small image if necessary).
         /// </summary>
         /// <param name="size">The current size of an object.</param>
@@ -114,9 +114,7 @@ namespace GalleryServer.Business
         ///   <paramref name="size" />. If true, the new width and height will be increased if necessary. If false, the original
         ///   width and height are returned when their dimensions are smaller than <paramref name="maxLength" />. This
         ///   parameter has no effect when <paramref name="maxLength" /> is greater than the width and height of
-        ///   <paramref
-        ///     name="size" />
-        ///   .
+        ///   <paramref name="size" />.
         /// </param>
         /// <returns>
         ///   Returns a <see cref="Size" /> instance conforming to the requested parameters.
@@ -151,46 +149,49 @@ namespace GalleryServer.Business
         /// <summary>
         ///   Creates an image file having a max length of <paramref name="maxLength" /> and JPEG quality of
         ///   <paramref name="jpegQuality" /> from the original file of <see cref="GalleryObject" />. The file is saved to the location
-        ///   <paramref name="newFilePath" />. The width and height of the generated image is returned as a <see cref="Size" /> instance.
+        ///   <paramref name="newFilePath" />. The width and height of the generated image is returned as a <see cref="ISize" /> instance.
         /// </summary>
         /// <param name="newFilePath">The full path where the image will be saved.</param>
         /// <param name="maxLength">The maximum length of one side of the image.</param>
         /// <param name="jpegQuality">The JPEG quality.</param>
-        /// <returns>Returns a <see cref="Size" /> instance containing the width and height of the generated image.</returns>
+        /// <returns>Returns a <see cref="ISize" /> instance containing the width and height of the generated image.</returns>
         /// <exception cref="UnsupportedImageTypeException">Thrown when Gallery Server cannot process the image,
         ///   most likely because it is corrupt or an unsupported image type.
         /// </exception>
-        protected Size GenerateImageUsingDotNet(string newFilePath, int maxLength, int jpegQuality)
+        protected ISize GenerateImageUsingDotNet(string newFilePath, int maxLength, int jpegQuality)
         {
-            if (AppSetting.Instance.AppTrustLevel == ApplicationTrustLevel.Full)
+            try
             {
-                //try
-                //{
-                //    return GenerateImageUsingWpf(newFilePath, maxLength, jpegQuality);
-                //}
-                //catch (UnsupportedImageTypeException)
-                //{
-                //    // If we can't process an image using WPF, try the older GDI+ technique. For example, WMF images fail with WPF
-                //    // but succeed with GDI+.
-                return GenerateImageUsingGdi(newFilePath, maxLength, jpegQuality);
-                //}
+                var newSize = ImageHelper.SaveImageFileAsJpeg(GalleryObject.Original.FileInfo.FullName, newFilePath, maxLength, false, jpegQuality);
+
+                var rotatedSize = ExecuteAutoRotation(newFilePath, jpegQuality);
+
+                return rotatedSize.IsEmpty ? newSize : rotatedSize;
             }
-            else
+            catch (ArgumentException ex)
             {
-                return GenerateImageUsingGdi(newFilePath, maxLength, jpegQuality);
+                throw new UnsupportedImageTypeException(GalleryObject, ex);
+            }
+            catch (ExternalException ex)
+            {
+                throw new UnsupportedImageTypeException(GalleryObject, ex);
+            }
+            catch (OutOfMemoryException ex)
+            {
+                throw new UnsupportedImageTypeException(GalleryObject, ex);
             }
         }
 
         /// <summary>
         ///   Creates an image file using ImageMagick having a max length of <paramref name="maxLength" /> and JPEG quality of
         ///   <paramref name="jpegQuality" /> from the original file of <see cref="GalleryObject" />. The file is saved to the location
-        ///   <paramref name="newFilePath" />. The width and height of the generated image is returned as a <see cref="Size" /> instance.
+        ///   <paramref name="newFilePath" />. The width and height of the generated image is returned as a <see cref="ISize" /> instance.
         /// </summary>
         /// <param name="newFilePath">The full path where the image will be saved.</param>
         /// <param name="maxLength">The maximum length of one side of the image.</param>
         /// <param name="jpegQuality">The JPEG quality.</param>
-        /// <returns>Returns a <see cref="Size" /> instance containing the width and height of the generated image.</returns>
-        protected Size GenerateImageUsingImageMagick(string newFilePath, int maxLength, int jpegQuality)
+        /// <returns>Returns a <see cref="ISize" /> instance containing the width and height of the generated image.</returns>
+        protected ISize GenerateImageUsingImageMagick(string newFilePath, int maxLength, int jpegQuality)
         {
             // Generate a temporary filename to store the thumbnail created by ImageMagick.
             string tmpImagePath = Path.Combine(AppSetting.Instance.TempUploadDirectory, String.Concat(Guid.NewGuid().ToString(), ".jpg"));
@@ -241,8 +242,8 @@ namespace GalleryServer.Business
         /// <param name="filePath">The full path to the file.</param>
         /// <param name="jpegQuality">The JPEG quality.</param>
         /// <returns>Returns a <see cref="Tuple" /> indicating the actual <see cref="MediaAssetRotateFlip" /> and final 
-        /// <see cref="Size" /> and of the generated file.</returns>
-        protected Tuple<MediaAssetRotateFlip, Size> RotateFlip(string filePath, int jpegQuality)
+        /// <see cref="ISize" /> and of the generated file.</returns>
+        protected Tuple<MediaAssetRotateFlip, ISize> RotateFlip(string filePath, int jpegQuality)
         {
             switch (this.GalleryObject.GalleryObjectType)
             {
@@ -259,29 +260,49 @@ namespace GalleryServer.Business
                     break;
             }
 
-            return new Tuple<MediaAssetRotateFlip, Size>(MediaAssetRotateFlip.Rotate0FlipNone, Size.Empty);
+            return new Tuple<MediaAssetRotateFlip, ISize>(MediaAssetRotateFlip.Rotate0FlipNone, Size.Empty);
         }
 
-        private Tuple<MediaAssetRotateFlip, Size> RotateFlipImage(string filePath, int jpegQuality)
+        private Tuple<MediaAssetRotateFlip, ISize> RotateFlipImage(string filePath, int jpegQuality)
         {
-            Tuple<MediaAssetRotateFlip, Size> rotateResult;
-            if (AppSetting.Instance.AppTrustLevel == ApplicationTrustLevel.Full)
+            var actualRotation = GalleryObject.CalculateNeededRotation();
+
+            if (actualRotation <= MediaAssetRotateFlip.Rotate0FlipNone)
             {
-                try
-                {
-                    rotateResult = RotateFlipUsingWpf(filePath, jpegQuality);
-                }
-                catch (NotSupportedException)
-                {
-                    rotateResult = RotateFlipUsingGdi(filePath, jpegQuality);
-                }
-            }
-            else
-            {
-                rotateResult = RotateFlipUsingGdi(filePath, jpegQuality);
+                return new Tuple<MediaAssetRotateFlip, ISize>(actualRotation, Size.Empty);
             }
 
-            return rotateResult;
+            string tmpImagePath;
+            Tuple<MediaAssetRotateFlip, ISize> rotateInfo;
+
+            using (var image = SixLabors.ImageSharp.Image.Load(filePath))
+            {
+                image.Mutate(x => x.RotateFlip(GetRotateType(actualRotation), GetFlipType(actualRotation)));
+
+                // Save image to temporary location, then replace the original.
+                var fileExtension = Path.GetExtension(filePath);
+                tmpImagePath = Path.Combine(AppSetting.Instance.TempUploadDirectory, string.Concat(Guid.NewGuid().ToString(), fileExtension));
+
+                //TODO: Make sure orientation metadata is removed and others are preserved and/or updated (e.g. width/height need updates)
+                if (IsJpeg(fileExtension))
+                {
+                    image.Save(tmpImagePath, new JpegEncoder() { IgnoreMetadata = false, Quality = jpegQuality });
+                }
+                else
+                {
+                    image.Save(tmpImagePath); // Encoder is inferred from file extension
+                }
+
+                rotateInfo = new Tuple<MediaAssetRotateFlip, ISize>(actualRotation, new Size(image.Width, image.Height));
+            }
+
+            // Now that the original file is freed up, delete it and move the temp file into its place.
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+
+            File.Move(tmpImagePath, filePath);
+
+            return rotateInfo;
         }
 
         /// <summary>
@@ -291,8 +312,8 @@ namespace GalleryServer.Business
         /// </summary>
         /// <param name="newFilePath">The full path of the file to rotate.</param>
         /// <param name="jpegQuality">The JPEG quality.</param>
-        /// <returns>Returns a <see cref="Size" /> instance containing the width and height of the generated image.</returns>
-        protected Size ExecuteAutoRotation(string newFilePath, int jpegQuality)
+        /// <returns>Returns a <see cref="ISize" /> instance containing the width and height of the generated image.</returns>
+        protected ISize ExecuteAutoRotation(string newFilePath, int jpegQuality)
         {
             // Check for need to rotate and rotate if necessary.
             if (GalleryObject.RotateFlip != MediaAssetRotateFlip.NotSpecified)
@@ -397,56 +418,55 @@ namespace GalleryServer.Business
         //    }
         //}
 
-        private Tuple<MediaAssetRotateFlip, Size> RotateFlipUsingWpf(string filePath, int jpegQuality)
-        {
-            throw new NotImplementedException();
-            //var actualRotation = GalleryObject.CalculateNeededRotation();
+        //private Tuple<MediaAssetRotateFlip, SixLabors.Primitives.Size> RotateFlipUsingWpf(string filePath, int jpegQuality)
+        //{
+        //    var actualRotation = GalleryObject.CalculateNeededRotation();
 
-            //if (actualRotation <= MediaAssetRotateFlip.Rotate0FlipNone)
-            //{
-            //    return new Tuple<MediaAssetRotateFlip, Size>(actualRotation, Size.Empty);
-            //}
+        //    if (actualRotation <= MediaAssetRotateFlip.Rotate0FlipNone)
+        //    {
+        //        return new Tuple<MediaAssetRotateFlip, Size>(actualRotation, Size.Empty);
+        //    }
 
-            //// Grab a reference to the file's metadata properties so we can add them back after the rotation.
-            //System.Drawing.Imaging.PropertyItem[] propItems = null;
-            //if (Parent.DisplayType == DisplayObjectType.Original)
-            //{
-            //    try
-            //    {
-            //        using (var bmp = new System.Drawing.Bitmap(filePath))
-            //        {
-            //            propItems = bmp.PropertyItems;
-            //        }
-            //    }
-            //    catch (ArgumentException)
-            //    {
-            //        throw new UnsupportedImageTypeException();
-            //    }
-            //}
+        //    // Grab a reference to the file's metadata properties so we can add them back after the rotation.
+        //    System.Drawing.Imaging.PropertyItem[] propItems = null;
+        //    if (Parent.DisplayType == DisplayObjectType.Original)
+        //    {
+        //        try
+        //        {
+        //            using (var bmp = new System.Drawing.Bitmap(filePath))
+        //            {
+        //                propItems = bmp.PropertyItems;
+        //            }
+        //        }
+        //        catch (ArgumentException)
+        //        {
+        //            throw new UnsupportedImageTypeException();
+        //        }
+        //    }
 
-            //Tuple<MediaAssetRotateFlip, Size> rotateResult;
+        //    Tuple<MediaAssetRotateFlip, Size> rotateResult;
 
-            //using (var stream = new MemoryStream(File.ReadAllBytes(filePath)))
-            //{
-            //    var image = GetRotateFlipBitmap(stream, actualRotation);
+        //    using (var stream = new MemoryStream(File.ReadAllBytes(filePath)))
+        //    {
+        //        var image = GetRotateFlipBitmap(stream, actualRotation);
 
-            //    var rotatedFlippedImg = BitmapFrame.Create(image);
+        //        var rotatedFlippedImg = BitmapFrame.Create(image);
 
-            //    var rotatedFlippedBytes = GenerateJpegByteArray(rotatedFlippedImg, jpegQuality);
+        //        var rotatedFlippedBytes = GenerateJpegByteArray(rotatedFlippedImg, jpegQuality);
 
-            //    File.WriteAllBytes(filePath, rotatedFlippedBytes);
+        //        File.WriteAllBytes(filePath, rotatedFlippedBytes);
 
-            //    rotateResult = new Tuple<MediaAssetRotateFlip, Size>(actualRotation, new Size(rotatedFlippedImg.PixelWidth, rotatedFlippedImg.PixelHeight));
-            //}
+        //        rotateResult = new Tuple<MediaAssetRotateFlip, Size>(actualRotation, new Size(rotatedFlippedImg.PixelWidth, rotatedFlippedImg.PixelHeight));
+        //    }
 
 
-            //if (rotateResult.Item1 > MediaAssetRotateFlip.Rotate0FlipNone)
-            //{
-            //    AddMetaValuesBackToRotatedImage(filePath, propItems); // Add meta values back to file
-            //}
+        //    if (rotateResult.Item1 > MediaAssetRotateFlip.Rotate0FlipNone)
+        //    {
+        //        AddMetaValuesBackToRotatedImage(filePath, propItems); // Add meta values back to file
+        //    }
 
-            //return rotateResult;
-        }
+        //    return rotateResult;
+        //}
 
         ///// <summary>
         ///// Generates a <see cref="TransformedBitmap" /> instance based on the <paramref name="stream" /> and <paramref name="requestedRotateFlip" />.
@@ -542,106 +562,176 @@ namespace GalleryServer.Business
         //    }
         //}
 
-        private Tuple<MediaAssetRotateFlip, Size> RotateFlipUsingGdi(string filePath, int jpegQuality)
-        {
-            var actualRotation = GalleryObject.CalculateNeededRotation();
+        //private Tuple<MediaAssetRotateFlip, SixLabors.Primitives.Size> RotateFlipUsingGdi(string filePath, int jpegQuality)
+        //{
+        //    var actualRotation = GalleryObject.CalculateNeededRotation();
 
-            if (actualRotation <= MediaAssetRotateFlip.Rotate0FlipNone)
-            {
-                return new Tuple<MediaAssetRotateFlip, Size>(actualRotation, Size.Empty);
-            }
+        //    if (actualRotation <= MediaAssetRotateFlip.Rotate0FlipNone)
+        //    {
+        //        return new Tuple<MediaAssetRotateFlip, SixLabors.Primitives.Size>(actualRotation, SixLabors.Primitives.Size.Empty);
+        //    }
 
-            string tmpImagePath;
-            Tuple<MediaAssetRotateFlip, Size> rotateInfo;
+        //    string tmpImagePath;
+        //    Tuple<MediaAssetRotateFlip, SixLabors.Primitives.Size> rotateInfo;
 
-            // Get reference to the bitmap from which the optimized image will be generated.
-            using (var originalBitmap = new System.Drawing.Bitmap(filePath))
-            {
-                var imgFormat = originalBitmap.RawFormat; // Need to grab the format before we rotate or else we lose it (it changes to MemoryBmp)
+        //    // Get reference to the bitmap from which the optimized image will be generated.
+        //    using (var originalBitmap = new System.Drawing.Bitmap(filePath))
+        //    {
+        //        var imgFormat = originalBitmap.RawFormat; // Need to grab the format before we rotate or else we lose it (it changes to MemoryBmp)
 
-                try
-                {
-                    originalBitmap.RotateFlip(GetRotateFlipType(actualRotation));
-                }
-                catch (System.Runtime.InteropServices.ExternalException)
-                {
-                    throw new UnsupportedImageTypeException();
-                }
+        //        try
+        //        {
+        //            originalBitmap.RotateFlip(GetRotateFlipType(actualRotation));
+        //        }
+        //        catch (System.Runtime.InteropServices.ExternalException)
+        //        {
+        //            throw new UnsupportedImageTypeException();
+        //        }
 
-                // If present, remove the orientation meta property.
-                if (Array.IndexOf(originalBitmap.PropertyIdList, ((int)RawMetadataItemName.Orientation)) >= 0)
-                {
-                    originalBitmap.RemovePropertyItem((int)RawMetadataItemName.Orientation);
-                }
+        //        // If present, remove the orientation meta property.
+        //        if (Array.IndexOf(originalBitmap.PropertyIdList, ((int)RawMetadataItemName.Orientation)) >= 0)
+        //        {
+        //            originalBitmap.RemovePropertyItem((int)RawMetadataItemName.Orientation);
+        //        }
 
-                // Save image to temporary location. We can't overwrite the original path because the Bitmap has a lock on it.
-                tmpImagePath = Path.Combine(AppSetting.Instance.TempUploadDirectory, String.Concat(Guid.NewGuid().ToString(), ".jpg"));
-                ImageHelper.SaveImageToDisk(originalBitmap, tmpImagePath, imgFormat, jpegQuality);
+        //        // Save image to temporary location. We can't overwrite the original path because the Bitmap has a lock on it.
+        //        tmpImagePath = Path.Combine(AppSetting.Instance.TempUploadDirectory, String.Concat(Guid.NewGuid().ToString(), ".jpg"));
+        //        ImageHelper.SaveImageToDisk(originalBitmap, tmpImagePath, imgFormat, jpegQuality);
 
-                rotateInfo = new Tuple<MediaAssetRotateFlip, Size>(actualRotation, new Size(originalBitmap.Width, originalBitmap.Height));
-            }
+        //        rotateInfo = new Tuple<MediaAssetRotateFlip, SixLabors.Primitives.Size>(actualRotation, new SixLabors.Primitives.Size(originalBitmap.Width, originalBitmap.Height));
+        //    }
 
 
-            // Now that the original file is freed up, delete it and move the temp file into its place.
-            if (File.Exists(filePath))
-                File.Delete(filePath);
+        //    // Now that the original file is freed up, delete it and move the temp file into its place.
+        //    if (File.Exists(filePath))
+        //        File.Delete(filePath);
 
-            File.Move(tmpImagePath, filePath);
+        //    File.Move(tmpImagePath, filePath);
 
-            return rotateInfo;
-        }
+        //    return rotateInfo;
+        //}
 
         /// <summary>
-        ///   Create an image file having a max length of <paramref name="maxLength" /> and JPEG quality of
-        ///   <paramref
-        ///     name="jpegQuality" />
-        ///   from the original file of <see cref="GalleryObject" />. The file is saved to the location
-        ///   <paramref
-        ///     name="newFilePath" />
-        ///   .
-        ///   The width and height of the generated image is returned as a <see cref="Size" /> instance. The GDI+ classes
-        ///   are used to create the image, which are slower than WPF but run in Medium Trust.
+        /// Determines whether the specified file extension is JPG or JPEG (case insensitive).
         /// </summary>
-        /// <param name="newFilePath">The full path where the image will be saved.</param>
-        /// <param name="maxLength">The maximum length of one side of the image.</param>
-        /// <param name="jpegQuality">The JPEG quality.</param>
-        /// <returns>
-        ///   Returns a <see cref="Size" /> instance containing the width and height of the generated image.
-        /// </returns>
-        /// <exception cref="UnsupportedImageTypeException">
-        ///   Thrown when Gallery Server cannot process the image,
-        ///   most likely because it is corrupt or an unsupported image type.
-        /// </exception>
-        private Size GenerateImageUsingGdi(string newFilePath, int maxLength, int jpegQuality)
+        /// <param name="fileExtension">The file extension. Ex: .jpg, .png</param>
+        /// <returns><c>true</c> if the specified file extension is JPG or JPEG; otherwise, <c>false</c>.</returns>
+        private static bool IsJpeg(string fileExtension)
         {
-            try
+            switch (fileExtension.ToLowerInvariant())
             {
-                Size newSize;
-                using (var source = new System.Drawing.Bitmap(GalleryObject.Original.FileInfo.FullName))
-                {
-                    newSize = CalculateWidthAndHeight(new Size(source.Width, source.Height), maxLength, false);
-
-                    // Generate the new image and save to disk.
-                    newSize = ImageHelper.SaveImageFile(source, newFilePath, System.Drawing.Imaging.ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
-                }
-
-                var rotatedSize = ExecuteAutoRotation(newFilePath, jpegQuality);
-
-                return rotatedSize.IsEmpty ? newSize : rotatedSize;
-            }
-            catch (ArgumentException ex)
-            {
-                throw new UnsupportedImageTypeException(GalleryObject, ex);
-            }
-            catch (ExternalException ex)
-            {
-                throw new UnsupportedImageTypeException(GalleryObject, ex);
-            }
-            catch (OutOfMemoryException ex)
-            {
-                throw new UnsupportedImageTypeException(GalleryObject, ex);
+                case ".jpg":
+                case ".jpeg":
+                    return true;
+                default:
+                    return false;
             }
         }
+
+        ///// <summary>
+        /////   Create an image file having a max length of <paramref name="maxLength" /> and JPEG quality of
+        /////   <paramref
+        /////     name="jpegQuality" />
+        /////   from the original file of <see cref="GalleryObject" />. The file is saved to the location
+        /////   <paramref
+        /////     name="newFilePath" />
+        /////   .
+        /////   The width and height of the generated image is returned as a <see cref="Size" /> instance. The GDI+ classes
+        /////   are used to create the image, which are slower than WPF but run in Medium Trust.
+        ///// </summary>
+        ///// <param name="newFilePath">The full path where the image will be saved.</param>
+        ///// <param name="maxLength">The maximum length of one side of the image.</param>
+        ///// <param name="jpegQuality">The JPEG quality.</param>
+        ///// <returns>
+        /////   Returns a <see cref="Size" /> instance containing the width and height of the generated image.
+        ///// </returns>
+        ///// <exception cref="UnsupportedImageTypeException">
+        /////   Thrown when Gallery Server cannot process the image,
+        /////   most likely because it is corrupt or an unsupported image type.
+        ///// </exception>
+        //private SixLabors.Primitives.Size GenerateImageUsingGdi(string newFilePath, int maxLength, int jpegQuality)
+        //{
+        //    try
+        //    {
+
+        //        Size newSize;
+        //        using (var source = new System.Drawing.Bitmap(GalleryObject.Original.FileInfo.FullName))
+        //        {
+        //            newSize = CalculateWidthAndHeight(new Size(source.Width, source.Height), maxLength, false);
+
+        //            // Generate the new image and save to disk.
+        //            newSize = ImageHelper.SaveImageFile(source, newFilePath, System.Drawing.Imaging.ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
+        //        }
+
+        //        var rotatedSize = ExecuteAutoRotation(newFilePath, jpegQuality);
+
+        //        return rotatedSize.IsEmpty ? newSize : rotatedSize;
+        //    }
+        //    catch (ArgumentException ex)
+        //    {
+        //        throw new UnsupportedImageTypeException(GalleryObject, ex);
+        //    }
+        //    catch (ExternalException ex)
+        //    {
+        //        throw new UnsupportedImageTypeException(GalleryObject, ex);
+        //    }
+        //    catch (OutOfMemoryException ex)
+        //    {
+        //        throw new UnsupportedImageTypeException(GalleryObject, ex);
+        //    }
+        //}
+
+        ///// <summary>
+        /////   Create an image file having a max length of <paramref name="maxLength" /> and JPEG quality of
+        /////   <paramref
+        /////     name="jpegQuality" />
+        /////   from the original file of <see cref="GalleryObject" />. The file is saved to the location
+        /////   <paramref
+        /////     name="newFilePath" />
+        /////   .
+        /////   The width and height of the generated image is returned as a <see cref="Size" /> instance. The GDI+ classes
+        /////   are used to create the image, which are slower than WPF but run in Medium Trust.
+        ///// </summary>
+        ///// <param name="newFilePath">The full path where the image will be saved.</param>
+        ///// <param name="maxLength">The maximum length of one side of the image.</param>
+        ///// <param name="jpegQuality">The JPEG quality.</param>
+        ///// <returns>
+        /////   Returns a <see cref="Size" /> instance containing the width and height of the generated image.
+        ///// </returns>
+        ///// <exception cref="UnsupportedImageTypeException">
+        /////   Thrown when Gallery Server cannot process the image,
+        /////   most likely because it is corrupt or an unsupported image type.
+        ///// </exception>
+        //private Size GenerateImageUsingGdi(string newFilePath, int maxLength, int jpegQuality)
+        //{
+        //    try
+        //    {
+        //        Size newSize;
+        //        using (var source = new System.Drawing.Bitmap(GalleryObject.Original.FileInfo.FullName))
+        //        {
+        //            newSize = CalculateWidthAndHeight(new Size(source.Width, source.Height), maxLength, false);
+
+        //            // Generate the new image and save to disk.
+        //            newSize = ImageHelper.SaveImageFile(source, newFilePath, System.Drawing.Imaging.ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
+        //        }
+
+        //        var rotatedSize = ExecuteAutoRotation(newFilePath, jpegQuality);
+
+        //        return rotatedSize.IsEmpty ? newSize : rotatedSize;
+        //    }
+        //    catch (ArgumentException ex)
+        //    {
+        //        throw new UnsupportedImageTypeException(GalleryObject, ex);
+        //    }
+        //    catch (ExternalException ex)
+        //    {
+        //        throw new UnsupportedImageTypeException(GalleryObject, ex);
+        //    }
+        //    catch (OutOfMemoryException ex)
+        //    {
+        //        throw new UnsupportedImageTypeException(GalleryObject, ex);
+        //    }
+        //}
 
         //private static BitmapFrame ReadBitmapFrame(MemoryStream photoStream)
         //{
@@ -737,100 +827,128 @@ namespace GalleryServer.Business
         //    }
         //}
 
-        private static Size GetSizeUsingGdi(IDisplayObject displayObject)
-        {
-            try
-            {
-                using (var source = new System.Drawing.Bitmap(displayObject.FileNamePhysicalPath))
-                {
-                    return new Size(source.Width, source.Height);
-                }
-            }
-            catch (ArgumentException)
-            {
-                return Size.Empty;
-            }
-            catch (ExternalException)
-            {
-                return Size.Empty;
-            }
-            catch (OutOfMemoryException)
-            {
-                return Size.Empty;
-            }
-        }
+        //private static Size GetSizeUsingGdi(IDisplayObject displayObject)
+        //{
+        //    try
+        //    {
+        //        using (var source = new System.Drawing.Bitmap(displayObject.FileNamePhysicalPath))
+        //        {
+        //            return new Size(source.Width, source.Height);
+        //        }
+        //    }
+        //    catch (ArgumentException)
+        //    {
+        //        return Size.Empty;
+        //    }
+        //    catch (ExternalException)
+        //    {
+        //        return Size.Empty;
+        //    }
+        //    catch (OutOfMemoryException)
+        //    {
+        //        return Size.Empty;
+        //    }
+        //}
 
-        private static System.Drawing.RotateFlipType GetRotateFlipType(MediaAssetRotateFlip rotation)
+        private static SixLabors.ImageSharp.Processing.RotateType GetRotateType(MediaAssetRotateFlip rotation)
         {
             switch (rotation)
             {
-                case MediaAssetRotateFlip.Rotate0FlipNone:
-                    return System.Drawing.RotateFlipType.RotateNoneFlipNone;
                 case MediaAssetRotateFlip.Rotate90FlipNone:
-                    return System.Drawing.RotateFlipType.Rotate90FlipNone;
+                    return RotateType.Rotate90;
                 case MediaAssetRotateFlip.Rotate180FlipNone:
-                    return System.Drawing.RotateFlipType.Rotate180FlipNone;
+                    return RotateType.Rotate180;
                 case MediaAssetRotateFlip.Rotate270FlipNone:
-                    return System.Drawing.RotateFlipType.Rotate270FlipNone;
-                case MediaAssetRotateFlip.Rotate0FlipX:
-                    return System.Drawing.RotateFlipType.RotateNoneFlipX;
-                case MediaAssetRotateFlip.Rotate0FlipY:
-                    return System.Drawing.RotateFlipType.RotateNoneFlipY;
+                    return RotateType.Rotate270;
                 default:
-                    return System.Drawing.RotateFlipType.RotateNoneFlipNone;
+                    return RotateType.None;
             }
         }
 
-        /// <summary>
-        /// Add the <paramref name="metaValues" /> and any meta properties from the in-memory object back to the <paramref name="filePath" />.
-        /// </summary>
-        /// <param name="filePath">The full path to the file.</param>
-        /// <param name="metaValues">The property items. If null, no action is taken.</param>
-        private void AddMetaValuesBackToRotatedImage(string filePath, System.Drawing.Imaging.PropertyItem[] metaValues)
+        private static SixLabors.ImageSharp.Processing.FlipType GetFlipType(MediaAssetRotateFlip rotation)
         {
-            if (metaValues == null)
-                return;
-
-            // Step 1: Create a copy of the file and add the PropertyItem metadata to it.
-            string tmpImagePath;
-            using (var targetImage = new System.Drawing.Bitmap(filePath))
+            switch (rotation)
             {
-                foreach (var propertyItem in metaValues)
-                {
-                    // Don't copy width, height or orientation meta items.
-                    var metasToNotCopy = new[]
-                                           {
-                                   RawMetadataItemName.ImageWidth,
-                                   RawMetadataItemName.ImageHeight,
-                                   RawMetadataItemName.ExifPixXDim,
-                                   RawMetadataItemName.ExifPixYDim,
-                                   RawMetadataItemName.Orientation
-                                 };
-
-                    if (Array.IndexOf(metasToNotCopy, (RawMetadataItemName)propertyItem.Id) >= 0)
-                        continue;
-
-                    targetImage.SetPropertyItem(propertyItem);
-                }
-
-                // Save image to temporary location. We can't overwrite the original path because the Bitmap has a lock on it.
-                tmpImagePath = Path.Combine(AppSetting.Instance.TempUploadDirectory, String.Concat(Guid.NewGuid().ToString(), ".jpg"));
-                ImageHelper.SaveImageToDisk(targetImage, tmpImagePath, System.Drawing.Imaging.ImageFormat.Jpeg, GallerySettings.OriginalImageJpegQuality);
-            }
-
-            // Step 2: Now that the original file is freed up, delete it and move the temp file into its place.
-            if (File.Exists(filePath))
-                File.Delete(filePath);
-
-            File.Move(tmpImagePath, filePath);
-
-            // Step 3: Write all possible in-memory meta properties to the file. This will write as many user-edited items as possible.
-            foreach (var metaItem in GalleryObject.MetadataItems)
-            {
-                metaItem.PersistToFile = GalleryObject.MetaDefinitions.Find(metaItem.MetadataItemName).IsPersistable;
-                metaItem.HasChanges = true;
+                case MediaAssetRotateFlip.Rotate0FlipX:
+                    return FlipType.Horizontal;
+                case MediaAssetRotateFlip.Rotate0FlipY:
+                    return FlipType.Vertical;
+                default:
+                    return FlipType.None;
             }
         }
+
+        //private static System.Drawing.RotateFlipType GetRotateFlipType(MediaAssetRotateFlip rotation)
+        //{
+        //    switch (rotation)
+        //    {
+        //        case MediaAssetRotateFlip.Rotate0FlipNone:
+        //            return System.Drawing.RotateFlipType.RotateNoneFlipNone;
+        //        case MediaAssetRotateFlip.Rotate90FlipNone:
+        //            return System.Drawing.RotateFlipType.Rotate90FlipNone;
+        //        case MediaAssetRotateFlip.Rotate180FlipNone:
+        //            return System.Drawing.RotateFlipType.Rotate180FlipNone;
+        //        case MediaAssetRotateFlip.Rotate270FlipNone:
+        //            return System.Drawing.RotateFlipType.Rotate270FlipNone;
+        //        case MediaAssetRotateFlip.Rotate0FlipX:
+        //            return System.Drawing.RotateFlipType.RotateNoneFlipX;
+        //        case MediaAssetRotateFlip.Rotate0FlipY:
+        //            return System.Drawing.RotateFlipType.RotateNoneFlipY;
+        //        default:
+        //            return System.Drawing.RotateFlipType.RotateNoneFlipNone;
+        //    }
+        //}
+
+        ///// <summary>
+        ///// Add the <paramref name="metaValues" /> and any meta properties from the in-memory object back to the <paramref name="filePath" />.
+        ///// </summary>
+        ///// <param name="filePath">The full path to the file.</param>
+        ///// <param name="metaValues">The property items. If null, no action is taken.</param>
+        //private void AddMetaValuesBackToRotatedImage(string filePath, System.Drawing.Imaging.PropertyItem[] metaValues)
+        //{
+        //    if (metaValues == null)
+        //        return;
+
+        //    // Step 1: Create a copy of the file and add the PropertyItem metadata to it.
+        //    string tmpImagePath;
+        //    using (var targetImage = new System.Drawing.Bitmap(filePath))
+        //    {
+        //        foreach (var propertyItem in metaValues)
+        //        {
+        //            // Don't copy width, height or orientation meta items.
+        //            var metasToNotCopy = new[]
+        //                                   {
+        //                           RawMetadataItemName.ImageWidth,
+        //                           RawMetadataItemName.ImageHeight,
+        //                           RawMetadataItemName.ExifPixXDim,
+        //                           RawMetadataItemName.ExifPixYDim,
+        //                           RawMetadataItemName.Orientation
+        //                         };
+
+        //            if (Array.IndexOf(metasToNotCopy, (RawMetadataItemName)propertyItem.Id) >= 0)
+        //                continue;
+
+        //            targetImage.SetPropertyItem(propertyItem);
+        //        }
+
+        //        // Save image to temporary location. We can't overwrite the original path because the Bitmap has a lock on it.
+        //        tmpImagePath = Path.Combine(AppSetting.Instance.TempUploadDirectory, String.Concat(Guid.NewGuid().ToString(), ".jpg"));
+        //        ImageHelper.SaveImageToDisk(targetImage, tmpImagePath, System.Drawing.Imaging.ImageFormat.Jpeg, GallerySettings.OriginalImageJpegQuality);
+        //    }
+
+        //    // Step 2: Now that the original file is freed up, delete it and move the temp file into its place.
+        //    if (File.Exists(filePath))
+        //        File.Delete(filePath);
+
+        //    File.Move(tmpImagePath, filePath);
+
+        //    // Step 3: Write all possible in-memory meta properties to the file. This will write as many user-edited items as possible.
+        //    foreach (var metaItem in GalleryObject.MetadataItems)
+        //    {
+        //        metaItem.PersistToFile = GalleryObject.MetaDefinitions.Find(metaItem.MetadataItemName).IsPersistable;
+        //        metaItem.HasChanges = true;
+        //    }
+        //}
 
         #endregion
     }

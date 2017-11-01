@@ -1,18 +1,15 @@
+using GalleryServer.Business.Interfaces;
+using GalleryServer.Data;
+using GalleryServer.Events.CustomExceptions;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Net.Mail;
 using System.Security;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
-using GalleryServer.Business.Interfaces;
-using GalleryServer.Data;
-using GalleryServer.Events.CustomExceptions;
 
 namespace GalleryServer.Business
 {
@@ -516,92 +513,91 @@ namespace GalleryServer.Business
             return Regex.Replace(fileName, "[" + Regex.Escape(new string(invalidChars)) + "]", String.Empty);
         }
 
-        /// <summary>
-        /// Parse the specified string and return a valid <see cref="System.Drawing.Color" />. The color may be specified as a 
-        /// Hex value (e.g. "#336699", "#369"), an RGB color value (e.g. "(100,100,100)"), or one of the
-        /// <see cref="System.Drawing.KnownColor" /> enumeration values ("Crimson", "Maroon"). An <see cref="ArgumentOutOfRangeException" />
-        /// is thrown if a color cannot be parsed from the parameter.
-        /// </summary>
-        /// <param name="colorValue">A string representing the desired color. The color may be specified as a 
-        /// Hex value (e.g. "#336699", "#369"), an RGB color value (e.g. "(100,100,100)"), or one of the
-        /// <see cref="System.Drawing.KnownColor" /> enumeration values ("Crimson", "Maroon").</param>
-        /// <returns>Returns a <see cref="System.Drawing.Color" /> struct that matches the color specified in the parameter.</returns>
-        /// <exception cref="System.ArgumentNullException">Thrown when <paramref name="colorValue" /> is null.</exception>
-        /// <exception cref="System.ArgumentOutOfRangeException">Thrown when the <paramref name="colorValue" /> cannot be converted into a known color.</exception>
-        public static Color GetColor(string colorValue)
-        {
-            throw new NotImplementedException(); // System.Drawing.ColorTranslator does not exist in .NET Core
-            //if (colorValue == null)
-            //    throw new ArgumentNullException(nameof(colorValue));
+        ///// <summary>
+        ///// Parse the specified string and return a valid <see cref="System.Drawing.Color" />. The color may be specified as a 
+        ///// Hex value (e.g. "#336699", "#369"), an RGB color value (e.g. "(100,100,100)"), or one of the
+        ///// <see cref="System.Drawing.KnownColor" /> enumeration values ("Crimson", "Maroon"). An <see cref="ArgumentOutOfRangeException" />
+        ///// is thrown if a color cannot be parsed from the parameter.
+        ///// </summary>
+        ///// <param name="colorValue">A string representing the desired color. The color may be specified as a 
+        ///// Hex value (e.g. "#336699", "#369"), an RGB color value (e.g. "(100,100,100)"), or one of the
+        ///// <see cref="System.Drawing.KnownColor" /> enumeration values ("Crimson", "Maroon").</param>
+        ///// <returns>Returns a <see cref="System.Drawing.Color" /> struct that matches the color specified in the parameter.</returns>
+        ///// <exception cref="System.ArgumentNullException">Thrown when <paramref name="colorValue" /> is null.</exception>
+        ///// <exception cref="System.ArgumentOutOfRangeException">Thrown when the <paramref name="colorValue" /> cannot be converted into a known color.</exception>
+        //public static Color GetColor(string colorValue)
+        //{
+        //    if (colorValue == null)
+        //        throw new ArgumentNullException(nameof(colorValue));
 
-            //// #336699; (100, 100, 100); WhiteSmoke
-            //const string hexPattern = @"^\#[0-9A-Fa-f]{3}$|^\#[0-9A-Fa-f]{6}$";
-            //const string rgbPattern = @"^\(\d{1,3},\d{1,3},\d{1,3}\)$";
-            //const string namePattern = "^[A-Za-z]+$";
+        //    // #336699; (100, 100, 100); WhiteSmoke
+        //    const string hexPattern = @"^\#[0-9A-Fa-f]{3}$|^\#[0-9A-Fa-f]{6}$";
+        //    const string rgbPattern = @"^\(\d{1,3},\d{1,3},\d{1,3}\)$";
+        //    const string namePattern = "^[A-Za-z]+$";
 
-            //colorValue = colorValue.Replace(" ", String.Empty); // Remove all white space
+        //    colorValue = colorValue.Replace(" ", String.Empty); // Remove all white space
 
-            //Color myColor;
+        //    Color myColor;
 
-            //Regex regExHex = new Regex(hexPattern);
-            //Regex regExRgb = new Regex(rgbPattern);
-            //Regex regExName = new Regex(namePattern);
+        //    Regex regExHex = new Regex(hexPattern);
+        //    Regex regExRgb = new Regex(rgbPattern);
+        //    Regex regExName = new Regex(namePattern);
 
-            //if (regExHex.IsMatch(colorValue))
-            //{
-            //    // Color is specified as Hex. Parse.
-            //    // If specified in 4-digit shorthand (e.g. #369), expand to full 7 digits (e.g. #336699).
-            //    if (colorValue.Length == 4)
-            //    {
-            //        colorValue = colorValue.Insert(1, colorValue.Substring(1, 1));
-            //        colorValue = colorValue.Insert(3, colorValue.Substring(3, 1));
-            //        colorValue = colorValue.Insert(5, colorValue.Substring(5, 1));
-            //    }
+        //    if (regExHex.IsMatch(colorValue))
+        //    {
+        //        // Color is specified as Hex. Parse.
+        //        // If specified in 4-digit shorthand (e.g. #369), expand to full 7 digits (e.g. #336699).
+        //        if (colorValue.Length == 4)
+        //        {
+        //            colorValue = colorValue.Insert(1, colorValue.Substring(1, 1));
+        //            colorValue = colorValue.Insert(3, colorValue.Substring(3, 1));
+        //            colorValue = colorValue.Insert(5, colorValue.Substring(5, 1));
+        //        }
 
-            //    myColor = ColorTranslator.FromHtml(colorValue.ToUpper(CultureInfo.InvariantCulture));
-            //}
+        //        myColor = ColorTranslator.FromHtml(colorValue.ToUpper(CultureInfo.InvariantCulture));
+        //    }
 
-            //else if (regExRgb.IsMatch(colorValue))
-            //{
-            //    // Color is specified as RGB. Parse.
-            //    string colorVal = colorValue;
+        //    else if (regExRgb.IsMatch(colorValue))
+        //    {
+        //        // Color is specified as RGB. Parse.
+        //        string colorVal = colorValue;
 
-            //    // Strip the opening and closing parentheses.
-            //    colorVal = colorVal.TrimStart(new char[] { '(' });
-            //    colorVal = colorVal.TrimEnd(new char[] { ')' });
+        //        // Strip the opening and closing parentheses.
+        //        colorVal = colorVal.TrimStart(new char[] { '(' });
+        //        colorVal = colorVal.TrimEnd(new char[] { ')' });
 
-            //    // First verify each value is a number from 0-255. (The reg ex matched 0-999).
-            //    string[] rgbStringValues = colorVal.Split(new char[] { ',' });
+        //        // First verify each value is a number from 0-255. (The reg ex matched 0-999).
+        //        string[] rgbStringValues = colorVal.Split(new char[] { ',' });
 
-            //    // Convert to integers
-            //    int[] rgbValues = new int[3];
-            //    for (int i = 0; i < rgbStringValues.Length; i++)
-            //    {
-            //        rgbValues[i] = Int32.Parse(rgbStringValues[i], CultureInfo.InvariantCulture);
+        //        // Convert to integers
+        //        int[] rgbValues = new int[3];
+        //        for (int i = 0; i < rgbStringValues.Length; i++)
+        //        {
+        //            rgbValues[i] = Int32.Parse(rgbStringValues[i], CultureInfo.InvariantCulture);
 
-            //        if ((rgbValues[i] < 0) || (rgbValues[i] > 255))
-            //            throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The color {0} does not represent a valid RGB color.", colorValue));
-            //    }
+        //            if ((rgbValues[i] < 0) || (rgbValues[i] > 255))
+        //                throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The color {0} does not represent a valid RGB color.", colorValue));
+        //        }
 
-            //    myColor = Color.FromArgb(rgbValues[0], rgbValues[1], rgbValues[2]);
-            //}
+        //        myColor = Color.FromArgb(rgbValues[0], rgbValues[1], rgbValues[2]);
+        //    }
 
-            //else if (regExName.IsMatch(colorValue))
-            //{
-            //    // Color is specified as a name. Parse.
-            //    myColor = Color.FromName(colorValue);
+        //    else if (regExName.IsMatch(colorValue))
+        //    {
+        //        // Color is specified as a name. Parse.
+        //        myColor = Color.FromName(colorValue);
 
-            //    if ((myColor.A == 0) && (myColor.R == 0) && (myColor.G == 0) && (myColor.B == 0))
-            //        throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The color {0} does not represent a color known to the .NET Framework.", colorValue));
-            //}
+        //        if ((myColor.A == 0) && (myColor.R == 0) && (myColor.G == 0) && (myColor.B == 0))
+        //            throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The color {0} does not represent a color known to the .NET Framework.", colorValue));
+        //    }
 
-            //else
-            //{
-            //    throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The color {0} does not represent a valid color.", colorValue));
-            //}
+        //    else
+        //    {
+        //        throw new ArgumentOutOfRangeException(String.Format(CultureInfo.CurrentCulture, "The color {0} does not represent a valid color.", colorValue));
+        //    }
 
-            //return myColor;
-        }
+        //    return myColor;
+        //}
 
         /// <summary>
         /// Encrypt the specified string using the System.Security.Cryptography.TripleDESCryptoServiceProvider cryptographic

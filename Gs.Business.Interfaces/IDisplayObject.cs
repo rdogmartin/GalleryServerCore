@@ -1,5 +1,4 @@
 using System;
-using System.Drawing;
 
 namespace GalleryServer.Business.Interfaces
 {
@@ -179,10 +178,10 @@ namespace GalleryServer.Business.Interfaces
 
 		/// <summary>
 		/// Gets the width and height of this display object. The value is calculated from the physical file. Returns an empty
-		/// <see cref="Size" /> instance if the value cannot be computed or is not applicable to the object
+		/// <see cref="ISize" /> instance if the value cannot be computed or is not applicable to the object
 		/// (for example, for audio files and external media objects).
 		/// </summary>
-		/// <returns><see cref="Size" />.</returns>
-		Size GetSize();
+		/// <returns><see cref="ISize" />.</returns>
+		ISize GetSize();
 	}
 }

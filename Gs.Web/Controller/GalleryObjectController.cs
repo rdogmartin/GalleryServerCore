@@ -1830,38 +1830,39 @@ namespace GalleryServer.Web.Controller
         /// <returns>An instance of <see cref="FileInfo" />.</returns>
         private FileInfo MergeImages(string editedImageFilePath, IGalleryObject mediaAsset)
         {
-            string tmpImagePath;
+            throw new NotImplementedException();
+            //  string tmpImagePath;
 
-            using (var editedImage = System.Drawing.Image.FromFile(editedImageFilePath))
-            {
-                // Copy most property items from the original
-                foreach (var propertyItem in ImageMetadataReadWriter.GetImagePropertyItems(mediaAsset.Original.FileNamePhysicalPath))
-                {
-                    // Don't copy width, height or orientation meta items.
-                    var metasToNotCopy = new[]
-                    {
-            RawMetadataItemName.ImageWidth,
-            RawMetadataItemName.ImageHeight,
-            RawMetadataItemName.ExifPixXDim,
-            RawMetadataItemName.ExifPixYDim,
-            RawMetadataItemName.Orientation
-          };
+            //  using (var editedImage = System.Drawing.Image.FromFile(editedImageFilePath))
+            //  {
+            //      // Copy most property items from the original
+            //      foreach (var propertyItem in ImageMetadataReadWriter.GetImagePropertyItems(mediaAsset.Original.FileNamePhysicalPath))
+            //      {
+            //          // Don't copy width, height or orientation meta items.
+            //          var metasToNotCopy = new[]
+            //          {
+            //  RawMetadataItemName.ImageWidth,
+            //  RawMetadataItemName.ImageHeight,
+            //  RawMetadataItemName.ExifPixXDim,
+            //  RawMetadataItemName.ExifPixYDim,
+            //  RawMetadataItemName.Orientation
+            //};
 
-                    if (Array.IndexOf(metasToNotCopy, (RawMetadataItemName)propertyItem.Id) >= 0)
-                        continue;
+            //          if (Array.IndexOf(metasToNotCopy, (RawMetadataItemName)propertyItem.Id) >= 0)
+            //              continue;
 
-                    editedImage.SetPropertyItem(propertyItem);
-                }
+            //          editedImage.SetPropertyItem(propertyItem);
+            //      }
 
-                // Save file to the destination album, but don't overwrite the original file (we'll do that later once we're sure everything succeeds).
-                var dirName = Path.GetDirectoryName(mediaAsset.Original.FileNamePhysicalPath) ?? string.Empty;
-                var tmpImageFileName = HelperFunctions.ValidateFileName(dirName, mediaAsset.Original.FileName);
-                tmpImagePath = Path.Combine(dirName, tmpImageFileName);
+            //      // Save file to the destination album, but don't overwrite the original file (we'll do that later once we're sure everything succeeds).
+            //      var dirName = Path.GetDirectoryName(mediaAsset.Original.FileNamePhysicalPath) ?? string.Empty;
+            //      var tmpImageFileName = HelperFunctions.ValidateFileName(dirName, mediaAsset.Original.FileName);
+            //      tmpImagePath = Path.Combine(dirName, tmpImageFileName);
 
-                ImageHelper.SaveImageToDisk(editedImage, tmpImagePath, System.Drawing.Imaging.ImageFormat.Jpeg, Factory.LoadGallerySetting(mediaAsset.GalleryId).OriginalImageJpegQuality);
-            }
+            //      ImageHelper.SaveImageToDisk(editedImage, tmpImagePath, System.Drawing.Imaging.ImageFormat.Jpeg, Factory.LoadGallerySetting(mediaAsset.GalleryId).OriginalImageJpegQuality);
+            //  }
 
-            return new FileInfo(tmpImagePath);
+            //  return new FileInfo(tmpImagePath);
         }
 
         /// <summary>

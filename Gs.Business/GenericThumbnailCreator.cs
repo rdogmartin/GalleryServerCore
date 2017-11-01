@@ -1,252 +1,306 @@
+using GalleryServer.Business.Interfaces;
 using System;
 using System.IO;
-using System.Globalization;
-using System.Drawing;
-using System.Drawing.Imaging;
-using GalleryServer.Business.Interfaces;
-using GalleryServer.Business.Properties;
 
 namespace GalleryServer.Business
 {
-	/// <summary>
-	/// Provides functionality for creating and saving the thumbnail image files associated with <see cref="GenericMediaObject" /> gallery objects.
-	/// </summary>
-	public class GenericThumbnailCreator : DisplayObjectCreator
-	{
-		/// <summary>
-		/// Initializes a new instance of the <see cref="GenericThumbnailCreator"/> class.
-		/// </summary>
-		/// <param name="galleryObject">The gallery object.</param>
-		public GenericThumbnailCreator(IGalleryObject galleryObject)
-		{
-			GalleryObject = galleryObject;
-		}
+    /// <summary>
+    /// Provides functionality for creating and saving the thumbnail image files associated with <see cref="GenericMediaObject" /> gallery objects.
+    /// </summary>
+    public class GenericThumbnailCreator : DisplayObjectCreator
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GenericThumbnailCreator"/> class.
+        /// </summary>
+        /// <param name="galleryObject">The gallery object.</param>
+        public GenericThumbnailCreator(IGalleryObject galleryObject)
+        {
+            GalleryObject = galleryObject;
+        }
 
-		/// <summary>
-		/// Generate the thumbnail image for this display object and save it to the file system. The routine may decide that
-		/// a file does not need to be generated, usually because it already exists. However, it will always be
-		/// created if the relevant flag is set on the parent <see cref="IGalleryObject" />. (Example: If
-		/// <see cref="IGalleryObject.RegenerateThumbnailOnSave" /> = true, the thumbnail file will always be created.) No data is
-		/// persisted to the data store.
-		/// </summary>
-		public override void GenerateAndSaveFile()
-		{
-			// If necessary, generate and save the thumbnail version of the original image.
-			if (!(IsThumbnailImageRequired()))
-			{
-				return; // No thumbnail image required.
-			}
+        /// <summary>
+        /// Generate the thumbnail image for this display object and save it to the file system. The routine may decide that
+        /// a file does not need to be generated, usually because it already exists. However, it will always be
+        /// created if the relevant flag is set on the parent <see cref="IGalleryObject" />. (Example: If
+        /// <see cref="IGalleryObject.RegenerateThumbnailOnSave" /> = true, the thumbnail file will always be created.) No data is
+        /// persisted to the data store.
+        /// </summary>
+        public override void GenerateAndSaveFile()
+        {
+            // If necessary, generate and save the thumbnail version of the original image.
+            if (!(IsThumbnailImageRequired()))
+            {
+                return; // No thumbnail image required.
+            }
 
-			IGallerySettings gallerySetting = Factory.LoadGallerySetting(GalleryObject.GalleryId);
+            IGallerySettings gallerySetting = Factory.LoadGallerySetting(GalleryObject.GalleryId);
 
-			// Determine file name and path of the thumbnail image. If a file name has already been previously
-			// calculated for this media object, re-use it. Otherwise generate a unique name.
-			var newFilename = GalleryObject.Thumbnail.FileName;
-			var newFilePath = GalleryObject.Thumbnail.FileNamePhysicalPath;
+            // Determine file name and path of the thumbnail image. If a file name has already been previously
+            // calculated for this media object, re-use it. Otherwise generate a unique name.
+            var newFilename = GalleryObject.Thumbnail.FileName;
+            var newFilePath = GalleryObject.Thumbnail.FileNamePhysicalPath;
 
-      if (String.IsNullOrEmpty(newFilePath))
-      {
-				var thumbnailPath = HelperFunctions.MapAlbumDirectoryStructureToAlternateDirectory(this.GalleryObject.Original.FileInfo.DirectoryName, gallerySetting.FullThumbnailPath, gallerySetting.FullMediaObjectPath);
-				newFilename = GenerateJpegFilename(thumbnailPath, gallerySetting.ThumbnailFileNamePrefix);
-				newFilePath = Path.Combine(thumbnailPath, newFilename);
-			}
+            if (String.IsNullOrEmpty(newFilePath))
+            {
+                var thumbnailPath = HelperFunctions.MapAlbumDirectoryStructureToAlternateDirectory(this.GalleryObject.Original.FileInfo.DirectoryName, gallerySetting.FullThumbnailPath, gallerySetting.FullMediaObjectPath);
+                newFilename = GenerateJpegFilename(thumbnailPath, gallerySetting.ThumbnailFileNamePrefix);
+                newFilePath = Path.Combine(thumbnailPath, newFilename);
+            }
 
-			if (Array.IndexOf<string>(gallerySetting.ImageMagickFileTypes, Path.GetExtension(GalleryObject.Original.FileName).ToLowerInvariant()) >= 0)
-			{
-				GenerateThumbnailImageUsingImageMagick(newFilePath, gallerySetting);
-			}
-			else
-			{
-				GenerateGenericThumbnailImage(newFilePath, gallerySetting);
-			}
+            if (Array.IndexOf<string>(gallerySetting.ImageMagickFileTypes, Path.GetExtension(GalleryObject.Original.FileName).ToLowerInvariant()) >= 0)
+            {
+                GenerateThumbnailImageUsingImageMagick(newFilePath, gallerySetting);
+            }
+            else
+            {
+                GenerateGenericThumbnailImage(newFilePath, gallerySetting);
+            }
 
-			GalleryObject.Thumbnail.FileName = newFilename;
-			GalleryObject.Thumbnail.FileNamePhysicalPath = newFilePath;
+            GalleryObject.Thumbnail.FileName = newFilename;
+            GalleryObject.Thumbnail.FileNamePhysicalPath = newFilePath;
 
-			int fileSize = (int)(GalleryObject.Thumbnail.FileInfo.Length / 1024);
+            int fileSize = (int)(GalleryObject.Thumbnail.FileInfo.Length / 1024);
 
-			GalleryObject.Thumbnail.FileSizeKB = (fileSize < 1 ? 1 : fileSize); // Very small files should be 1, not 0.
-		}
+            GalleryObject.Thumbnail.FileSizeKB = (fileSize < 1 ? 1 : fileSize); // Very small files should be 1, not 0.
+        }
 
-		private void GenerateThumbnailImageUsingImageMagick(string newFilePath, IGallerySettings gallerySetting)
-		{
-			// Generate a temporary filename to store the thumbnail created by ImageMagick.
-			string tmpImageThumbnailPath = Path.Combine(AppSetting.Instance.TempUploadDirectory, String.Concat(Guid.NewGuid().ToString(), ".jpg"));
+        private void GenerateThumbnailImageUsingImageMagick(string newFilePath, IGallerySettings gallerySetting)
+        {
+            // Generate a temporary filename to store the thumbnail created by ImageMagick.
+            string tmpImageThumbnailPath = Path.Combine(AppSetting.Instance.TempUploadDirectory, String.Concat(Guid.NewGuid().ToString(), ".jpg"));
 
-			// Request that ImageMagick create the thumbnail. If successful, the file will be created. If not, it fails silently.
-			ImageMagick.GenerateImage(GalleryObject.Original.FileNamePhysicalPath, tmpImageThumbnailPath, GalleryObject.GalleryId);
+            // Request that ImageMagick create the thumbnail. If successful, the file will be created. If not, it fails silently.
+            ImageMagick.GenerateImage(GalleryObject.Original.FileNamePhysicalPath, tmpImageThumbnailPath, GalleryObject.GalleryId);
 
-			if (File.Exists(tmpImageThumbnailPath))
-			{
-				try
-				{
-					// ImageMagick successfully created a thumbnail image. Now resize it to the width and height we need.
-					using (var originalBitmap = new Bitmap(tmpImageThumbnailPath))
-					{
-						var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, false);
+            if (File.Exists(tmpImageThumbnailPath))
+            {
+                try
+                {
+                    // ImageMagick successfully created a thumbnail image. Now resize it to the width and height we need.
+                    var size = ImageHelper.SaveImageFileAsJpeg(tmpImageThumbnailPath, newFilePath, gallerySetting.MaxThumbnailLength, false, gallerySetting.ThumbnailImageJpegQuality);
 
-						// Get JPEG quality value (0 - 100). This is ignored if imgFormat = GIF.
-						int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
+                    GalleryObject.Thumbnail.Width = size.Width;
+                    GalleryObject.Thumbnail.Height = size.Height;
 
-						// Generate the new image and save to disk.
-						var size = ImageHelper.SaveImageFile(originalBitmap, newFilePath, ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
+                    //using (var originalBitmap = new Bitmap(tmpImageThumbnailPath))
+                    //{
+                    //	var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, false);
 
-						GalleryObject.Thumbnail.Width = (int)size.Width;
-						GalleryObject.Thumbnail.Height = (int)size.Height;
-					}
-				}
-				catch (Exception ex)
-				{
-					ex.Data.Add("GSP Info", String.Format("This error occurred while trying to process the ImageMagick-generated file {0}. The original file is {1}. A generic thumbnail image will be created instead.", tmpImageThumbnailPath, GalleryObject.Original.FileNamePhysicalPath));
-					Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
+                    //	// Get JPEG quality value (0 - 100). This is ignored if imgFormat = GIF.
+                    //	int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
 
-					// Default to a generic thumbnail image.
-					GenerateGenericThumbnailImage(newFilePath, gallerySetting);
-				}
+                    //	// Generate the new image and save to disk.
+                    //	var size = ImageHelper.SaveImageFile(originalBitmap, newFilePath, ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
 
-				try
-				{
-					// Now delete the thumbnail image created by FFmpeg, but no worries if an error happens. The file is in the temp directory
-					// which is cleaned out each time the app starts anyway.
-					File.Delete(tmpImageThumbnailPath);
-				}
-				catch (IOException ex)
-				{
-					ex.Data.Add("GSP Info", "This error was handled and did not interfere with the user experience.");
-					Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
-				}
-				catch (UnauthorizedAccessException ex)
-				{
-					ex.Data.Add("GSP Info", "This error was handled and did not interfere with the user experience.");
-					Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
-				}
-				catch (NotSupportedException ex)
-				{
-					ex.Data.Add("GSP Info", "This error was handled and did not interfere with the user experience.");
-					Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
-				}
-			}
-			else
-			{
-				// ImageMagick didn't create an image, so default to a generic one.
-				GenerateGenericThumbnailImage(newFilePath, gallerySetting);
-			}
-		}
+                    //	GalleryObject.Thumbnail.Width = (int)size.Width;
+                    //	GalleryObject.Thumbnail.Height = (int)size.Height;
+                    //}
+                }
+                catch (Exception ex)
+                {
+                    ex.Data.Add("GSP Info", String.Format("This error occurred while trying to process the ImageMagick-generated file {0}. The original file is {1}. A generic thumbnail image will be created instead.", tmpImageThumbnailPath, GalleryObject.Original.FileNamePhysicalPath));
+                    Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
 
-		private void GenerateGenericThumbnailImage(string newFilePath, IGallerySettings gallerySetting)
-		{
-			// Build a generic thumbnail.
-			using (Bitmap originalBitmap = GetGenericThumbnailBitmap(GalleryObject.MimeType))
-			{
-				var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
+                    // Default to a generic thumbnail image.
+                    GenerateGenericThumbnailImage(newFilePath, gallerySetting);
+                }
 
-				// Get JPEG quality value (0 - 100).
-				int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
+                try
+                {
+                    // Now delete the thumbnail image created by FFmpeg, but no worries if an error happens. The file is in the temp directory
+                    // which is cleaned out each time the app starts anyway.
+                    File.Delete(tmpImageThumbnailPath);
+                }
+                catch (IOException ex)
+                {
+                    ex.Data.Add("GSP Info", "This error was handled and did not interfere with the user experience.");
+                    Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    ex.Data.Add("GSP Info", "This error was handled and did not interfere with the user experience.");
+                    Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
+                }
+                catch (NotSupportedException ex)
+                {
+                    ex.Data.Add("GSP Info", "This error was handled and did not interfere with the user experience.");
+                    Events.EventController.RecordError(ex, AppSetting.Instance, GalleryObject.GalleryId, Factory.LoadGallerySettings());
+                }
+            }
+            else
+            {
+                // ImageMagick didn't create an image, so default to a generic one.
+                GenerateGenericThumbnailImage(newFilePath, gallerySetting);
+            }
+        }
 
-				// Generate the new image and save to disk.
-				var size = ImageHelper.SaveImageFile(originalBitmap, newFilePath, ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
+        private void GenerateGenericThumbnailImage(string newFilePath, IGallerySettings gallerySetting)
+        {
+            // Build a generic thumbnail.
+            var sourceFilePath = GetGenericThumbnailFilePath(GalleryObject.MimeType);
 
-				GalleryObject.Thumbnail.Width = (int)size.Width;
-				GalleryObject.Thumbnail.Height = (int)size.Height;
-			}
-		}
+            var size = ImageHelper.SaveImageFileAsJpeg(sourceFilePath, newFilePath, gallerySetting.MaxThumbnailLength, true, gallerySetting.ThumbnailImageJpegQuality);
 
-		private static Bitmap GetGenericThumbnailBitmap(IMimeType mimeType)
-		{
-			Bitmap thumbnailBitmap = null;
+            GalleryObject.Thumbnail.Width = size.Width;
+            GalleryObject.Thumbnail.Height = size.Height;
+        }
 
-			switch (mimeType.MajorType.ToUpperInvariant())
-			{
-				case "AUDIO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Audio)); break;
-				case "VIDEO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Video)); break;
-				case "IMAGE": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Image)); break;
-				case "APPLICATION": thumbnailBitmap = GetGenericThumbnailBitmapByFileExtension(mimeType.Extension); break;
-				default: thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Unknown)); break;
-			}
+        private static string GetGenericThumbnailFilePath(IMimeType mimeType)
+        {
+            var basePath = Path.Combine(AppSetting.Instance.WebRootPath, GlobalConstants.GenericThumbnailDirectory);
 
-			return thumbnailBitmap;
-		}
+            switch (mimeType.MajorType.ToUpperInvariant())
+            {
+                case "AUDIO": return Path.Combine(basePath, GlobalConstants.GenericAudioThumbnailFileName);
+                case "VIDEO": return Path.Combine(basePath, GlobalConstants.GenericVideoThumbnailFileName);
+                case "IMAGE": return Path.Combine(basePath, GlobalConstants.GenericImageThumbnailFileName);
+                case "APPLICATION": return GetGenericThumbnailFilePathByFileExtension(basePath, mimeType.Extension);
+                default: return Path.Combine(basePath, GlobalConstants.GenericUnknownThumbnailFileName);
+            }
+        }
 
-		private static Bitmap GetGenericThumbnailBitmapByFileExtension(string fileExtension)
-		{
-			Bitmap thumbnailBitmap = null;
+        private static string GetGenericThumbnailFilePathByFileExtension(string basePath, string fileExtension)
+        {
+            switch (fileExtension)
+            {
+                case ".doc":
+                case ".dot":
+                case ".docm":
+                case ".dotm":
+                case ".dotx":
+                case ".docx": return Path.Combine(basePath, GlobalConstants.GenericDocThumbnailFileName);
+                case ".xls":
+                case ".xlam":
+                case ".xlsb":
+                case ".xlsm":
+                case ".xltm":
+                case ".xltx":
+                case ".xlsx": return Path.Combine(basePath, GlobalConstants.GenericExcelThumbnailFileName);
+                case ".ppt":
+                case ".pps":
+                case ".pptx":
+                case ".potm":
+                case ".ppam":
+                case ".ppsm": return Path.Combine(basePath, GlobalConstants.GenericPowerPointThumbnailFileName);
+                case ".pdf": return Path.Combine(basePath, GlobalConstants.GenericPdfThumbnailFileName);
+                default: return Path.Combine(basePath, GlobalConstants.GenericUnknownThumbnailFileName);
+            }
+        }
 
-			switch (fileExtension)
-			{
-				case ".doc":
-				case ".dot":
-				case ".docm":
-				case ".dotm":
-				case ".dotx":
-				case ".docx": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Doc)); break;
-				case ".xls":
-				case ".xlam":
-				case ".xlsb":
-				case ".xlsm":
-				case ".xltm":
-				case ".xltx":
-				case ".xlsx": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Excel)); break;
-				case ".ppt":
-				case ".pps":
-				case ".pptx":
-				case ".potm":
-				case ".ppam":
-				case ".ppsm": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_PowerPoint)); break;
-				case ".pdf": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_PDF)); break;
-				default: thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Unknown)); break;
-			}
-			return thumbnailBitmap;
-		}
+        //private void GenerateGenericThumbnailImage(string newFilePath, IGallerySettings gallerySetting)
+        //{
+        //    // Build a generic thumbnail.
+        //    using (Bitmap originalBitmap = GetGenericThumbnailBitmap(GalleryObject.MimeType))
+        //    {
+        //        var newSize = CalculateWidthAndHeight(new Size(originalBitmap.Width, originalBitmap.Height), gallerySetting.MaxThumbnailLength, true);
 
-		private bool IsThumbnailImageRequired()
-		{
-			// We must create a thumbnail image in the following circumstances:
-			// 1. The file corresponding to a previously created thumbnail image file does not exist.
-			//    OR
-			// 2. The overwrite flag is true.
+        //        // Get JPEG quality value (0 - 100).
+        //        int jpegQuality = gallerySetting.ThumbnailImageJpegQuality;
 
-			bool thumbnailImageMissing = IsThumbnailImageFileMissing(); // Test 1
+        //        // Generate the new image and save to disk.
+        //        var size = ImageHelper.SaveImageFile(originalBitmap, newFilePath, ImageFormat.Jpeg, newSize.Width, newSize.Height, jpegQuality);
 
-			bool overwriteFlag = GalleryObject.RegenerateThumbnailOnSave; // Test 2
+        //        GalleryObject.Thumbnail.Width = (int)size.Width;
+        //        GalleryObject.Thumbnail.Height = (int)size.Height;
+        //    }
+        //}
 
-			return (thumbnailImageMissing || overwriteFlag);
-		}
+        //private static Bitmap GetGenericThumbnailBitmap(IMimeType mimeType)
+        //{
+        //    Bitmap thumbnailBitmap = null;
 
-		private bool IsThumbnailImageFileMissing()
-		{
-			// Does the thumbnail image file exist? (Maybe it was accidentally deleted or moved by the user,
-			// or maybe it's a new object.)
-			bool thumbnailImageExists = false;
+        //    switch (mimeType.MajorType.ToUpperInvariant())
+        //    {
+        //        case "AUDIO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Audio)); break;
+        //        case "VIDEO": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Video)); break;
+        //        case "IMAGE": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Image)); break;
+        //        case "APPLICATION": thumbnailBitmap = GetGenericThumbnailBitmapByFileExtension(mimeType.Extension); break;
+        //        default: thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Unknown)); break;
+        //    }
 
-			if (File.Exists(GalleryObject.Thumbnail.FileNamePhysicalPath))
-			{
-				// Thumbnail image file exists.
-				thumbnailImageExists = true;
-			}
+        //    return thumbnailBitmap;
+        //}
 
-			bool thumbnailImageIsMissing = !thumbnailImageExists;
+        //private static Bitmap GetGenericThumbnailBitmapByFileExtension(string fileExtension)
+        //{
+        //    Bitmap thumbnailBitmap = null;
 
-			return thumbnailImageIsMissing;
-		}
+        //    switch (fileExtension)
+        //    {
+        //        case ".doc":
+        //        case ".dot":
+        //        case ".docm":
+        //        case ".dotm":
+        //        case ".dotx":
+        //        case ".docx": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Doc)); break;
+        //        case ".xls":
+        //        case ".xlam":
+        //        case ".xlsb":
+        //        case ".xlsm":
+        //        case ".xltm":
+        //        case ".xltx":
+        //        case ".xlsx": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Excel)); break;
+        //        case ".ppt":
+        //        case ".pps":
+        //        case ".pptx":
+        //        case ".potm":
+        //        case ".ppam":
+        //        case ".ppsm": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_PowerPoint)); break;
+        //        case ".pdf": thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_PDF)); break;
+        //        default: thumbnailBitmap = new Bitmap(new MemoryStream(Resources.GenericThumbnailImage_Unknown)); break;
+        //    }
+        //    return thumbnailBitmap;
+        //}
 
-		/// <summary>
-		/// Determine name of new file and ensure it is unique in the directory. (Example: If original = puppy.jpg,
-		/// thumbnail = zThumb_puppy.jpg)
-		/// </summary>
-		/// <param name="thumbnailPath">The path to the directory where the thumbnail file is to be created.</param>
-		/// <param name="imgFormat">The image format of the thumbnail.</param>
-		/// <param name="filenamePrefix">A string to prepend to the filename. Example: "zThumb_"</param>
-		/// <returns>
-		/// Returns the name of the new thumbnail file name and ensure it is unique in the directory.
-		/// </returns>
-		private string GenerateNewFilename(string thumbnailPath, ImageFormat imgFormat, string filenamePrefix)
-		{
-			string nameWithoutExtension = Path.GetFileNameWithoutExtension(GalleryObject.Original.FileInfo.Name);
-			string thumbnailFilename = String.Format(CultureInfo.CurrentCulture, "{0}{1}.{2}", filenamePrefix, nameWithoutExtension, imgFormat.ToString().ToLower(CultureInfo.CurrentCulture));
+        private bool IsThumbnailImageRequired()
+        {
+            // We must create a thumbnail image in the following circumstances:
+            // 1. The file corresponding to a previously created thumbnail image file does not exist.
+            //    OR
+            // 2. The overwrite flag is true.
 
-			thumbnailFilename = HelperFunctions.ValidateFileName(thumbnailPath, thumbnailFilename);
+            bool thumbnailImageMissing = IsThumbnailImageFileMissing(); // Test 1
 
-			return thumbnailFilename;
-		}
-	}
+            bool overwriteFlag = GalleryObject.RegenerateThumbnailOnSave; // Test 2
+
+            return (thumbnailImageMissing || overwriteFlag);
+        }
+
+        private bool IsThumbnailImageFileMissing()
+        {
+            // Does the thumbnail image file exist? (Maybe it was accidentally deleted or moved by the user,
+            // or maybe it's a new object.)
+            bool thumbnailImageExists = false;
+
+            if (File.Exists(GalleryObject.Thumbnail.FileNamePhysicalPath))
+            {
+                // Thumbnail image file exists.
+                thumbnailImageExists = true;
+            }
+
+            bool thumbnailImageIsMissing = !thumbnailImageExists;
+
+            return thumbnailImageIsMissing;
+        }
+
+        ///// <summary>
+        ///// Determine name of new file and ensure it is unique in the directory. (Example: If original = puppy.jpg,
+        ///// thumbnail = zThumb_puppy.jpg)
+        ///// </summary>
+        ///// <param name="thumbnailPath">The path to the directory where the thumbnail file is to be created.</param>
+        ///// <param name="imgFormat">The image format of the thumbnail.</param>
+        ///// <param name="filenamePrefix">A string to prepend to the filename. Example: "zThumb_"</param>
+        ///// <returns>
+        ///// Returns the name of the new thumbnail file name and ensure it is unique in the directory.
+        ///// </returns>
+        //private string GenerateNewFilename(string thumbnailPath, ImageFormat imgFormat, string filenamePrefix)
+        //{
+        //    string nameWithoutExtension = Path.GetFileNameWithoutExtension(GalleryObject.Original.FileInfo.Name);
+        //    string thumbnailFilename = String.Format(CultureInfo.CurrentCulture, "{0}{1}.{2}", filenamePrefix, nameWithoutExtension, imgFormat.ToString().ToLower(CultureInfo.CurrentCulture));
+
+        //    thumbnailFilename = HelperFunctions.ValidateFileName(thumbnailPath, thumbnailFilename);
+
+        //    return thumbnailFilename;
+        //}
+    }
 }
