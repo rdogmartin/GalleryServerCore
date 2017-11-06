@@ -10,6 +10,7 @@ using System.Threading;
 using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.Properties;
 using GalleryServer.Events;
+using SixLabors.ImageSharp.MetaData.Profiles.Exif;
 
 namespace GalleryServer.Business.Metadata
 {
@@ -86,7 +87,7 @@ namespace GalleryServer.Business.Metadata
         /// <value>An instance of <see cref="GpsLocation" />.</value>
         private GpsLocation GpsLocation
         {
-            get { return _gpsLocation ?? (_gpsLocation = GpsLocation.Parse(WpfMetadataReader)); }
+            get { return _gpsLocation ?? (_gpsLocation = new GpsLocation(RawMetadata)); }
         }
 
         /// <summary>
@@ -370,7 +371,7 @@ namespace GalleryServer.Business.Metadata
             if (wpfTitle != null)
                 return wpfTitle;
 
-            var title = GetStringMetadataItem(RawMetadataItemName.ImageTitle);
+            var title = GetStringMetadataItem(RawMetadataItemName.XPTitle);
 
             return !String.IsNullOrWhiteSpace(title) ? new MetaValue(title, title) : new MetaValue(GalleryObject.Original.FileName);
         }
@@ -417,7 +418,7 @@ namespace GalleryServer.Business.Metadata
             if (wpfCameraModel != null)
                 return wpfCameraModel;
 
-            var cameraModel = GetStringMetadataItem(RawMetadataItemName.EquipModel);
+            var cameraModel = GetStringMetadataItem(RawMetadataItemName.Model);
 
             return !String.IsNullOrWhiteSpace(cameraModel) ? new MetaValue(cameraModel, cameraModel) : null;
         }
@@ -444,7 +445,7 @@ namespace GalleryServer.Business.Metadata
             if (wpfCameraManufacturer != null)
                 return wpfCameraManufacturer;
 
-            var cameraMfg = GetStringMetadataItem(RawMetadataItemName.EquipMake);
+            var cameraMfg = GetStringMetadataItem(RawMetadataItemName.Make);
 
             return !String.IsNullOrWhiteSpace(cameraMfg) ? new MetaValue(cameraMfg, cameraMfg) : null;
         }
@@ -501,7 +502,7 @@ namespace GalleryServer.Business.Metadata
             if (wpfComment != null)
                 return wpfComment;
 
-            var comment = GetStringMetadataItem(RawMetadataItemName.ExifUserComment);
+            var comment = GetStringMetadataItem(RawMetadataItemName.UserComment);
 
             return !String.IsNullOrWhiteSpace(comment) ? new MetaValue(comment, comment) : null;
         }
@@ -576,7 +577,7 @@ namespace GalleryServer.Business.Metadata
         private IMetaValue GetColorRepresentation()
         {
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifColorSpace, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.ColorSpace, out rawMdi))
             {
                 string value = rawMdi.Value.ToString().Trim();
 
@@ -614,7 +615,7 @@ namespace GalleryServer.Business.Metadata
             double? expComp = null;
             MetadataItem rawMdi;
 
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifExposureBias, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.ExposureBiasValue, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Fraction)
                 {
@@ -642,7 +643,7 @@ namespace GalleryServer.Business.Metadata
         private IMetaValue GetExposureProgram()
         {
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifExposureProg, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.ExposureProgram, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Int64)
                 {
@@ -710,7 +711,7 @@ namespace GalleryServer.Business.Metadata
             string exposureTime;
             MetadataItem rawMdi;
             const Single numSeconds = 1; // If the exposure time is less than this # of seconds, format as fraction (1/350 sec.); otherwise convert to Single (2.35 sec.)
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifExposureTime, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.ExposureTime, out rawMdi))
             {
                 if ((rawMdi.ExtractedValueType == ExtractedValueType.Fraction) && ((Fraction)rawMdi.Value).ToSingle() > numSeconds)
                 {
@@ -741,7 +742,7 @@ namespace GalleryServer.Business.Metadata
         private IMetaValue GetFlashMode()
         {
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifFlash, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.Flash, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Int64)
                 {
@@ -769,7 +770,7 @@ namespace GalleryServer.Business.Metadata
             double? fstop = null;
             MetadataItem rawMdi;
 
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifFNumber, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.FNumber, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Fraction)
                 {
@@ -796,7 +797,7 @@ namespace GalleryServer.Business.Metadata
             double? focalLength = null;
             MetadataItem rawMdi;
 
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifFocalLength, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.FocalLength, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Fraction)
                 {
@@ -827,15 +828,9 @@ namespace GalleryServer.Business.Metadata
 
         private IMetaValue GetHorizontalResolution()
         {
-            MetadataItem rawMdi;
-            string resolutionUnit = String.Empty;
+            var resolutionUnit = string.Empty;
 
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ResolutionXUnit, out rawMdi))
-            {
-                resolutionUnit = rawMdi.Value.ToString();
-            }
-
-            if ((String.IsNullOrWhiteSpace(resolutionUnit)) && (RawMetadata.TryGetValue(RawMetadataItemName.ResolutionUnit, out rawMdi)))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.ResolutionUnit, out var rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Int64)
                 {
@@ -867,7 +862,7 @@ namespace GalleryServer.Business.Metadata
 
         private IMetaValue GetIsoSpeed()
         {
-            var iso = GetStringMetadataItem(RawMetadataItemName.ExifISOSpeed);
+            var iso = GetStringMetadataItem(RawMetadataItemName.ISOSpeedRatings);
 
             if (!String.IsNullOrEmpty(iso))
             {
@@ -895,7 +890,7 @@ namespace GalleryServer.Business.Metadata
             }
 
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifAperture, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.ApertureValue, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Fraction)
                 {
@@ -926,7 +921,7 @@ namespace GalleryServer.Business.Metadata
             LightSource lightSource = LightSource.Unknown;
             var foundExifValue = false;
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifLightSource, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.LightSource, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Int64)
                 {
@@ -961,7 +956,7 @@ namespace GalleryServer.Business.Metadata
         private IMetaValue GetMeteringMode()
         {
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifMeteringMode, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.MeteringMode, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Int64)
                 {
@@ -987,7 +982,7 @@ namespace GalleryServer.Business.Metadata
         private IMetaValue GetSubjectDistance()
         {
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifSubjectDist, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.SubjectDistance, out rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Fraction)
                 {
@@ -1029,15 +1024,9 @@ namespace GalleryServer.Business.Metadata
 
         private IMetaValue GetVerticalResolution()
         {
-            MetadataItem rawMdi;
-            string resolutionUnit = String.Empty;
+            var resolutionUnit = string.Empty;
 
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ResolutionYUnit, out rawMdi))
-            {
-                resolutionUnit = rawMdi.Value.ToString();
-            }
-
-            if ((String.IsNullOrWhiteSpace(resolutionUnit)) && (RawMetadata.TryGetValue(RawMetadataItemName.ResolutionUnit, out rawMdi)))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.ResolutionUnit, out var rawMdi))
             {
                 if (rawMdi.ExtractedValueType == ExtractedValueType.Int64)
                 {
@@ -1250,6 +1239,11 @@ namespace GalleryServer.Business.Metadata
             }
         }
 
+        private static RawMetadataItemName GetRawMetadataItemName(ExifTag exifTag)
+        {
+            return (RawMetadataItemName)exifTag;
+        }
+
         /// <summary>
         /// Fill the class-level _rawMetadata dictionary with MetadataItem objects created from the
         /// <see cref="SixLabors.ImageSharp.MetaData.ImageMetaData.Properties" /> property of the image. Skip any items 
@@ -1259,13 +1253,24 @@ namespace GalleryServer.Business.Metadata
         {
             var rawMetadata = new Dictionary<RawMetadataItemName, MetadataItem>();
 
+            foreach (var itemIterator in Metadata.ExifProfile.Values)
+            {
+                var metadataName = GetRawMetadataItemName(itemIterator.Tag);
+                if (!rawMetadata.ContainsKey(metadataName))
+                {
+                    var metadataItem = new MetadataItem(itemIterator);
+                    if (metadataItem.Value != null)
+                        rawMetadata.Add(metadataName, metadataItem);
+                }
+            }
+
             foreach (var itemIterator in Metadata.Properties)
             {
                 var metadataName = GetRawMetadataItemName(itemIterator.Name);
                 if (!rawMetadata.ContainsKey(metadataName))
                 {
                     var metadataItem = new MetadataItem(itemIterator);
-                    if (metadataItem.Value != null)
+                    if (metadataItem.Value != null && !rawMetadata.ContainsKey(metadataName))
                         rawMetadata.Add(metadataName, metadataItem);
                 }
             }
@@ -1509,7 +1514,7 @@ namespace GalleryServer.Business.Metadata
         private IMetaValue GetDatePictureTakenGdi()
         {
             MetadataItem rawMdi;
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifDTOrig, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.DateTimeOriginal, out rawMdi))
             {
                 var convertedDateTimeValue = ConvertExifDateTimeToDateTime(rawMdi.Value.ToString());
                 if (convertedDateTimeValue > DateTime.MinValue)
@@ -1544,7 +1549,7 @@ namespace GalleryServer.Business.Metadata
             // First look in ExifPixXDim since most images are likely to be compressed ones. If we don't find that one,
             // look for ImageWidth. If we don't find that one either (which should be unlikely to ever happen), then just give 
             // up and return null.
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifPixXDim, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.PixelXDimension, out rawMdi))
             {
                 foundWidth = Int32.TryParse(rawMdi.Value.ToString(), out width);
             }
@@ -1585,12 +1590,12 @@ namespace GalleryServer.Business.Metadata
             // First look in ExifPixXDim since most images are likely to be compressed ones. If we don't find that one,
             // look for ImageWidth. If we don't find that one either (which should be unlikely to ever happen), then just give 
             // up and return null.
-            if (RawMetadata.TryGetValue(RawMetadataItemName.ExifPixYDim, out rawMdi))
+            if (RawMetadata.TryGetValue(RawMetadataItemName.PixelYDimension, out rawMdi))
             {
                 foundHeight = Int32.TryParse(rawMdi.Value.ToString(), out height);
             }
 
-            if ((!foundHeight) && (RawMetadata.TryGetValue(RawMetadataItemName.ImageHeight, out rawMdi)))
+            if ((!foundHeight) && (RawMetadata.TryGetValue(RawMetadataItemName.ImageLength, out rawMdi)))
             {
                 foundHeight = Int32.TryParse(rawMdi.Value.ToString(), out height);
             }

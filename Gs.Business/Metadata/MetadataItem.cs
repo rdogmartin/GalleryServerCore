@@ -1,4 +1,9 @@
+using System;
+using System.Globalization;
+using System.Linq;
+using GalleryServer.Events.CustomExceptions;
 using SixLabors.ImageSharp.MetaData;
+using SixLabors.ImageSharp.MetaData.Profiles.Exif;
 
 namespace GalleryServer.Business.Metadata
 {
@@ -6,17 +11,18 @@ namespace GalleryServer.Business.Metadata
     /// Contains functionality for interacting with a <see cref="ImageProperty" /> object.
     /// </summary>
     public class MetadataItem
-	{
-		#region Private Fields
+    {
+        #region Private Fields
 
-	    private ExtractedValueType _extractedValueType;
+        private ExtractedValueType _extractedValueType;
+        //private object _propertyItemValue;
 
-		//private const int NUM_BITS_PER_BYTE = 8;
-		//private const int NUM_BYTES_PER_32_BIT_INT = 4;
-		//private const int NUM_BYTES_PER_16_BIT_INT = 2;
+        //private const int NUM_BITS_PER_BYTE = 8;
+        //private const int NUM_BYTES_PER_32_BIT_INT = 4;
+        //private const int NUM_BYTES_PER_16_BIT_INT = 2;
 
-		//private static System.Text.UTF8Encoding _utf8Encoding = new System.Text.UTF8Encoding();
-		//private static System.Text.UnicodeEncoding _unicodeEncoding = new System.Text.UnicodeEncoding();
+        //private static System.Text.UTF8Encoding _utf8Encoding = new System.Text.UTF8Encoding();
+        //private static System.Text.UnicodeEncoding _unicodeEncoding = new System.Text.UnicodeEncoding();
 
         #endregion
 
@@ -27,22 +33,31 @@ namespace GalleryServer.Business.Metadata
         /// </summary>
         private MetadataItem() { }
 
-		/// <summary>
-		/// Instantiate a new instance of the <see cref="MetadataItem" /> class with the specified <paramref name="propItem"/>.
-		/// </summary>
-		/// <param name="propItem">A <see cref="System.Drawing.Imaging.PropertyItem" /> object for which to retrieve information.</param>
+        /// <summary>
+        /// Instantiate a new instance of the <see cref="MetadataItem" /> class with the specified <paramref name="propItem"/>.
+        /// </summary>
+        /// <param name="propItem">A <see cref="System.Drawing.Imaging.PropertyItem" /> object for which to retrieve information.</param>
         public MetadataItem(ImageProperty propItem)
         {
             this.ImageProperty = propItem;
 
-			ExtractPropertyItemValue();
+            ExtractPropertyItemValue();
+        }
+
+        public MetadataItem(ExifValue exifValue)
+        {
+            this.ExifValue = exifValue;
+
+            ExtractExifValue();
         }
 
         #endregion
 
         #region Public Properties
 
-	    private ImageProperty ImageProperty { get; }
+        private ImageProperty ImageProperty { get; }
+
+        private ExifValue ExifValue { get; }
 
         //      /// <summary>
         //      /// Gets the <see cref="RawMetadataItemName"/> of the current instance. This value corresponds to the Id property
@@ -75,28 +90,28 @@ namespace GalleryServer.Business.Metadata
         /// </summary>
         /// <value>The enum value specifying the data type of the value stored in the <see cref="Value" /> property.</value>
         public ExtractedValueType ExtractedValueType
-		{
-			get => this._extractedValueType;
+        {
+            get => this._extractedValueType;
             set => this._extractedValueType = value;
         }
 
-		///// <summary>
-		///// Gets the <see cref="System.Drawing.Imaging.PropertyItem" /> for this metadata item.
-		///// </summary>
-		//public PropertyItem PropertyItem
-		//{
-		//	get
-		//	{
-		//		return this._propItem;
-		//	}
-		//}
+        ///// <summary>
+        ///// Gets the <see cref="System.Drawing.Imaging.PropertyItem" /> for this metadata item.
+        ///// </summary>
+        //public PropertyItem PropertyItem
+        //{
+        //	get
+        //	{
+        //		return this._propItem;
+        //	}
+        //}
 
-		/// <summary>
-		/// Gets the value of the current <see cref="ImageProperty"/>. The type of the value is stored in the <see cref="ExtractedValueType" /> property.
-		/// </summary>
-		public object Value { get; private set; }
+        /// <summary>
+        /// Gets the value of the current <see cref="ImageProperty"/>. The type of the value is stored in the <see cref="ExtractedValueType" /> property.
+        /// </summary>
+        public object Value { get; private set; }
 
-	    #endregion
+        #endregion
 
         #region Private Methods
 
@@ -108,6 +123,99 @@ namespace GalleryServer.Business.Metadata
         {
             this._extractedValueType = ExtractedValueType.String;
             this.Value = this.ImageProperty.Value;
+        }
+
+        private void ExtractExifValue()
+        {
+            // Extract from ExifValue. Model after code below...
+            object propertyItemValue = string.Empty;
+            ExtractedValueType formattedValueType = ExtractedValueType.NotDefined;
+
+            switch (this.ExifValue.DataType)
+            {
+                //case PropertyTagType.Byte: { propertyItemValue = ExtractPropertyValueByte(ref formattedValueType); break; }
+                case ExifDataType.Byte: { (propertyItemValue, formattedValueType) = ExtractPropertyValueByte(); break; }
+                case ExifDataType.Ascii: { (propertyItemValue, formattedValueType) = ExtractPropertyValueString(); break; }
+                case ExifDataType.Long: { (propertyItemValue, formattedValueType) = ExtractPropertyValueLong(); break; }
+                case ExifDataType.Rational:
+                    if (ExifValue.IsArray)
+                    {
+                        (propertyItemValue, formattedValueType) = ExtractPropertyValueSignedFractionArray();
+                    }
+                    else
+                    {
+                        (propertyItemValue, formattedValueType) = ExtractPropertyValueSignedFraction();
+                    }
+                    break;
+                    //case PropertyTagType.UnsignedShort: { propertyItemValue = ExtractPropertyValueUnsignedShort(ref formattedValueType); break; }
+                    //case PropertyTagType.UnsignedInt: { propertyItemValue = ExtractPropertyValueUnsignedInt(ref formattedValueType); break; }
+                    //case PropertyTagType.Int: { propertyItemValue = ExtractPropertyValueInt(ref formattedValueType); break; }
+                    //case PropertyTagType.UnsignedFraction: { propertyItemValue = ExtractPropertyValueUnsignedFraction(ref formattedValueType); break; }
+                    //case PropertyTagType.Fraction: { propertyItemValue = ExtractPropertyValueSignedFraction(ref formattedValueType); break; }
+                    //case PropertyTagType.Undefined:
+                    //default: { propertyItemValue = ExtractPropertyValueUndefined(ref formattedValueType); break; }
+            }
+
+            this._extractedValueType = formattedValueType;
+            this.Value = propertyItemValue;
+
+            if (this._extractedValueType == ExtractedValueType.NotDefined)
+            {
+                this._extractedValueType = ExtractedValueType.String;
+                this.Value = string.Empty;
+                //throw new BusinessException("The function GalleryServer.Business.Metadata.MetadataItem.ExtractPropertyItemValue() must assign a value other than NotDefined to the field _extractedValueType.");
+            }
+        }
+
+        private (string, ExtractedValueType) ExtractPropertyValueByte()
+        {
+            if (this.ExifValue.Value == null)
+                return (string.Empty, ExtractedValueType.String);
+
+            if (this.ExifValue.IsArray)
+            {
+                switch (ExifValue.Tag)
+                {
+                    case ExifTag.GPSVersionID:
+                        return (string.Join(".", (byte[])ExifValue.Value), ExtractedValueType.String);
+                    default:
+                        return ("hmm", ExtractedValueType.String);
+                }
+            }
+            else
+            {
+                return (ExifValue.Value.ToString(), ExtractedValueType.String);
+            }
+        }
+
+        private (string, ExtractedValueType) ExtractPropertyValueString()
+        {
+            return (ExifValue.Value?.ToString() ?? string.Empty, ExtractedValueType.String);
+        }
+
+        private (long, ExtractedValueType) ExtractPropertyValueLong()
+        {
+            return (Convert.ToInt64(ExifValue.Value), ExtractedValueType.Int64);
+        }
+
+        private (Fraction, ExtractedValueType) ExtractPropertyValueSignedFraction()
+        {
+            var rat = (Rational)ExifValue.Value;
+
+            return (new Fraction(rat.Numerator, rat.Denominator), ExtractedValueType.Fraction);
+        }
+
+        private (Fraction[], ExtractedValueType) ExtractPropertyValueSignedFractionArray()
+        {
+            var rat = (Rational[])ExifValue.Value;
+            var frac = new Fraction[rat.Length];
+
+            for (var i = 0; i < frac.Length; i++)
+            {
+                frac[i] = new Fraction(rat[i].Numerator, rat[i].Denominator);
+            }
+
+            return (frac, ExtractedValueType.FractionArray);
         }
 
         ///// <summary>
@@ -127,276 +235,276 @@ namespace GalleryServer.Business.Metadata
         ///// </remarks>
         //private void ExtractPropertyItemValue()
         //{
-        //	object propertyItemValue = String.Empty;
-        //	ExtractedValueType formattedValueType = ExtractedValueType.NotDefined;
+        //    object propertyItemValue = string.Empty;
+        //    ExtractedValueType formattedValueType = ExtractedValueType.NotDefined;
 
-        //	switch (this.PropertyTagType)
+        //    switch (this.PropertyTagType)
+        //    {
+        //        case PropertyTagType.Byte: { propertyItemValue = ExtractPropertyValueByte(ref formattedValueType); break; }
+        //        case PropertyTagType.ASCII: { propertyItemValue = ExtractPropertyValueString(ref formattedValueType); break; }
+        //        case PropertyTagType.UnsignedShort: { propertyItemValue = ExtractPropertyValueUnsignedShort(ref formattedValueType); break; }
+        //        case PropertyTagType.UnsignedInt: { propertyItemValue = ExtractPropertyValueUnsignedInt(ref formattedValueType); break; }
+        //        case PropertyTagType.Int: { propertyItemValue = ExtractPropertyValueInt(ref formattedValueType); break; }
+        //        case PropertyTagType.UnsignedFraction: { propertyItemValue = ExtractPropertyValueUnsignedFraction(ref formattedValueType); break; }
+        //        case PropertyTagType.Fraction: { propertyItemValue = ExtractPropertyValueSignedFraction(ref formattedValueType); break; }
+        //        case PropertyTagType.Undefined:
+        //        default: { propertyItemValue = ExtractPropertyValueUndefined(ref formattedValueType); break; }
+        //    }
+
+        //    this._extractedValueType = formattedValueType;
+        //    this._propertyItemValue = propertyItemValue;
+
+        //    if (this._extractedValueType == ExtractedValueType.NotDefined)
+        //    {
+        //        throw new BusinessException("The function GalleryServer.Business.Metadata.MetadataItem.ExtractPropertyItemValue() must assign a value other than NotDefined to the field _extractedValueType.");
+        //    }
+        //}
+
+        //      private byte[] ExtractPropertyValueUndefined(ref ExtractedValueType formattedValueType)
+        //{
+        //	formattedValueType = ExtractedValueType.ByteArray;
+
+        //	if (this._propItem.Value == null)
+        //		return new byte[] { 0 };
+
+        //	return this._propItem.Value;
+        //}
+
+        //private object ExtractPropertyValueSignedFraction(ref ExtractedValueType formattedValueType)
+        //{
+        //	Fraction[] resultSFraction = new Fraction[this._propItem.Len / NUM_BITS_PER_BYTE];
+        //	int sNominator;
+        //	int sDenominator;
+        //	for (int i = 0; i < resultSFraction.Length; i++)
         //	{
-        //		case PropertyTagType.Byte: { propertyItemValue = ExtractPropertyValueByte(ref formattedValueType); break; }
-        //		case PropertyTagType.ASCII: { propertyItemValue = ExtractPropertyValueString(ref formattedValueType); break; }
-        //		case PropertyTagType.UnsignedShort: { propertyItemValue = ExtractPropertyValueUnsignedShort(ref formattedValueType); break; }
-        //		case PropertyTagType.UnsignedInt: { propertyItemValue = ExtractPropertyValueUnsignedInt(ref formattedValueType); break; }
-        //		case PropertyTagType.Int: { propertyItemValue = ExtractPropertyValueInt(ref formattedValueType); break; }
-        //		case PropertyTagType.UnsignedFraction: { propertyItemValue = ExtractPropertyValueUnsignedFraction(ref formattedValueType); break; }
-        //		case PropertyTagType.Fraction: { propertyItemValue = ExtractPropertyValueSignedFraction(ref formattedValueType); break; }
-        //		case PropertyTagType.Undefined:
-        //		default: { propertyItemValue = ExtractPropertyValueUndefined(ref formattedValueType); break; }
+        //		try
+        //		{
+        //			sNominator = BitConverter.ToInt32(this._propItem.Value, i * NUM_BITS_PER_BYTE);
+        //			sDenominator = BitConverter.ToInt32(this._propItem.Value, (i * NUM_BITS_PER_BYTE) + NUM_BYTES_PER_32_BIT_INT);
+        //		}
+        //		catch (ArgumentNullException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Fraction;
+        //			return new Fraction(0, 1);
+        //		}
+        //		catch (ArgumentOutOfRangeException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Fraction;
+        //			return new Fraction(0, 1);
+        //		}
+
+        //		resultSFraction[i] = new Fraction(sNominator, sDenominator);
         //	}
 
-        //	this._extractedValueType = formattedValueType;
-        //	this._propertyItemValue = propertyItemValue;
-
-        //	if (this._extractedValueType == ExtractedValueType.NotDefined)
+        //	if (resultSFraction.Length == 1)
         //	{
-        //		throw new BusinessException("The function GalleryServer.Business.Metadata.MetadataItem.ExtractPropertyItemValue() must assign a value other than NotDefined to the field _extractedValueType.");
+        //		formattedValueType = ExtractedValueType.Fraction;
+        //		return resultSFraction[0];
+        //	}
+        //	else
+        //	{
+        //		formattedValueType = ExtractedValueType.FractionArray;
+
+        //		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
+        //		// Perhaps find some way to raise the visibility of this by noting it once per application run.
+        //		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type GalleryServer.Business.Fraction[] rather than the usual GalleryServer.Business.Fraction. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
+        //		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
+        //		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
+        //		return null;
         //	}
         //}
 
-  //      private byte[] ExtractPropertyValueUndefined(ref ExtractedValueType formattedValueType)
-		//{
-		//	formattedValueType = ExtractedValueType.ByteArray;
+        //private object ExtractPropertyValueUnsignedFraction(ref ExtractedValueType formattedValueType)
+        //{
+        //	Fraction[] resultFraction = new Fraction[this._propItem.Len / NUM_BITS_PER_BYTE];
+        //	uint uNominator;
+        //	uint uDenominator;
+        //	for (int i = 0; i < resultFraction.Length; i++)
+        //	{
+        //		uNominator = 1;
+        //		try
+        //		{
+        //			uNominator = BitConverter.ToUInt32(this._propItem.Value, i * NUM_BITS_PER_BYTE);
+        //			uDenominator = BitConverter.ToUInt32(this._propItem.Value, (i * NUM_BITS_PER_BYTE) + NUM_BYTES_PER_32_BIT_INT);
+        //		}
+        //		catch (ArgumentNullException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Fraction;
+        //			return new Fraction(0, 1);
+        //		}
+        //		catch (ArgumentOutOfRangeException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Fraction;
+        //			return new Fraction(0, 1);
+        //		}
 
-		//	if (this._propItem.Value == null)
-		//		return new byte[] { 0 };
+        //		resultFraction[i] = new Fraction(uNominator, uDenominator);
+        //	}
 
-		//	return this._propItem.Value;
-		//}
+        //	if (resultFraction.Length == 1)
+        //	{
+        //		formattedValueType = ExtractedValueType.Fraction;
+        //		return resultFraction[0];
+        //	}
+        //	else
+        //	{
+        //		formattedValueType = ExtractedValueType.FractionArray;
 
-		//private object ExtractPropertyValueSignedFraction(ref ExtractedValueType formattedValueType)
-		//{
-		//	Fraction[] resultSFraction = new Fraction[this._propItem.Len / NUM_BITS_PER_BYTE];
-		//	int sNominator;
-		//	int sDenominator;
-		//	for (int i = 0; i < resultSFraction.Length; i++)
-		//	{
-		//		try
-		//		{
-		//			sNominator = BitConverter.ToInt32(this._propItem.Value, i * NUM_BITS_PER_BYTE);
-		//			sDenominator = BitConverter.ToInt32(this._propItem.Value, (i * NUM_BITS_PER_BYTE) + NUM_BYTES_PER_32_BIT_INT);
-		//		}
-		//		catch (ArgumentNullException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Fraction;
-		//			return new Fraction(0, 1);
-		//		}
-		//		catch (ArgumentOutOfRangeException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Fraction;
-		//			return new Fraction(0, 1);
-		//		}
+        //		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
+        //		// Perhaps find some way to raise the visibility of this by noting it once per application run.
+        //		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type GalleryServer.Business.Fraction[] rather than the usual GalleryServer.Business.Fraction. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
+        //		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
+        //		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
+        //		return null;
+        //	}
+        //}
 
-		//		resultSFraction[i] = new Fraction(sNominator, sDenominator);
-		//	}
+        //private object ExtractPropertyValueInt(ref ExtractedValueType formattedValueType)
+        //{
+        //	System.Int64[] resultInt64 = new System.Int64[this._propItem.Len / NUM_BYTES_PER_32_BIT_INT];
+        //	for (int i = 0; i < resultInt64.Length; i++)
+        //	{
+        //		try
+        //		{
+        //			resultInt64[i] = Convert.ToInt64(BitConverter.ToInt32(this._propItem.Value, i * NUM_BYTES_PER_32_BIT_INT));
+        //		}
+        //		catch (ArgumentNullException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Int64;
+        //			return Convert.ToInt64(0);
+        //		}
+        //		catch (ArgumentOutOfRangeException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Int64;
+        //			return Convert.ToInt64(0);
+        //		}
+        //	}
 
-		//	if (resultSFraction.Length == 1)
-		//	{
-		//		formattedValueType = ExtractedValueType.Fraction;
-		//		return resultSFraction[0];
-		//	}
-		//	else
-		//	{
-		//		formattedValueType = ExtractedValueType.FractionArray;
+        //	if (resultInt64.Length == 1)
+        //	{
+        //		formattedValueType = ExtractedValueType.Int64;
+        //		return resultInt64[0];
+        //	}
+        //	else
+        //	{
+        //		formattedValueType = ExtractedValueType.Int64Array;
 
-		//		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
-		//		// Perhaps find some way to raise the visibility of this by noting it once per application run.
-		//		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type GalleryServer.Business.Fraction[] rather than the usual GalleryServer.Business.Fraction. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
-		//		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
-		//		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
-		//		return null;
-		//	}
-		//}
+        //		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
+        //		// Perhaps find some way to raise the visibility of this by noting it once per application run.
+        //		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type System.Int64[] rather than the usual System.Int64. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
+        //		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
+        //		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
+        //		return null;
+        //	}
+        //}
 
-		//private object ExtractPropertyValueUnsignedFraction(ref ExtractedValueType formattedValueType)
-		//{
-		//	Fraction[] resultFraction = new Fraction[this._propItem.Len / NUM_BITS_PER_BYTE];
-		//	uint uNominator;
-		//	uint uDenominator;
-		//	for (int i = 0; i < resultFraction.Length; i++)
-		//	{
-		//		uNominator = 1;
-		//		try
-		//		{
-		//			uNominator = BitConverter.ToUInt32(this._propItem.Value, i * NUM_BITS_PER_BYTE);
-		//			uDenominator = BitConverter.ToUInt32(this._propItem.Value, (i * NUM_BITS_PER_BYTE) + NUM_BYTES_PER_32_BIT_INT);
-		//		}
-		//		catch (ArgumentNullException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Fraction;
-		//			return new Fraction(0, 1);
-		//		}
-		//		catch (ArgumentOutOfRangeException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Fraction;
-		//			return new Fraction(0, 1);
-		//		}
+        //private object ExtractPropertyValueUnsignedInt(ref ExtractedValueType formattedValueType)
+        //{
+        //	System.Int64[] resultInt64 = new System.Int64[this._propItem.Len / NUM_BYTES_PER_32_BIT_INT];
+        //	for (int i = 0; i < resultInt64.Length; i++)
+        //	{
+        //		try
+        //		{
+        //			resultInt64[i] = Convert.ToInt64(BitConverter.ToUInt32(this._propItem.Value, i * NUM_BYTES_PER_32_BIT_INT));
+        //		}
+        //		catch (ArgumentNullException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Int64;
+        //			return Convert.ToInt64(0);
+        //		}
+        //		catch (ArgumentOutOfRangeException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Int64;
+        //			return Convert.ToInt64(0);
+        //		}
+        //	}
 
-		//		resultFraction[i] = new Fraction(uNominator, uDenominator);
-		//	}
+        //	if (resultInt64.Length == 1)
+        //	{
+        //		formattedValueType = ExtractedValueType.Int64;
+        //		return resultInt64[0];
+        //	}
+        //	else
+        //	{
+        //		formattedValueType = ExtractedValueType.Int64Array;
 
-		//	if (resultFraction.Length == 1)
-		//	{
-		//		formattedValueType = ExtractedValueType.Fraction;
-		//		return resultFraction[0];
-		//	}
-		//	else
-		//	{
-		//		formattedValueType = ExtractedValueType.FractionArray;
+        //		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
+        //		// Perhaps find some way to raise the visibility of this by noting it once per application run.
+        //		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type System.UInt32[] rather than the usual System.UInt32. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
+        //		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
+        //		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
+        //		return null;
+        //	}
+        //}
 
-		//		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
-		//		// Perhaps find some way to raise the visibility of this by noting it once per application run.
-		//		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type GalleryServer.Business.Fraction[] rather than the usual GalleryServer.Business.Fraction. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
-		//		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
-		//		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
-		//		return null;
-		//	}
-		//}
+        //private object ExtractPropertyValueUnsignedShort(ref ExtractedValueType formattedValueType)
+        //{
+        //	System.Int64[] resultInt64 = new System.Int64[this._propItem.Len / NUM_BYTES_PER_16_BIT_INT];
+        //	for (int i = 0; i < resultInt64.Length; i++)
+        //	{
+        //		try
+        //		{
+        //			resultInt64[i] = Convert.ToInt64(BitConverter.ToUInt16(this._propItem.Value, i * NUM_BYTES_PER_16_BIT_INT));
+        //		}
+        //		catch (ArgumentNullException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Int64;
+        //			return Convert.ToInt64(0);
+        //		}
+        //		catch (ArgumentOutOfRangeException)
+        //		{
+        //			formattedValueType = ExtractedValueType.Int64;
+        //			return Convert.ToInt64(0);
+        //		}
+        //	}
 
-		//private object ExtractPropertyValueInt(ref ExtractedValueType formattedValueType)
-		//{
-		//	System.Int64[] resultInt64 = new System.Int64[this._propItem.Len / NUM_BYTES_PER_32_BIT_INT];
-		//	for (int i = 0; i < resultInt64.Length; i++)
-		//	{
-		//		try
-		//		{
-		//			resultInt64[i] = Convert.ToInt64(BitConverter.ToInt32(this._propItem.Value, i * NUM_BYTES_PER_32_BIT_INT));
-		//		}
-		//		catch (ArgumentNullException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Int64;
-		//			return Convert.ToInt64(0);
-		//		}
-		//		catch (ArgumentOutOfRangeException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Int64;
-		//			return Convert.ToInt64(0);
-		//		}
-		//	}
+        //	if (resultInt64.Length == 1)
+        //	{
+        //		formattedValueType = ExtractedValueType.Int64;
+        //		return resultInt64[0];
+        //	}
+        //	else
+        //	{
+        //		formattedValueType = ExtractedValueType.Int64Array;
 
-		//	if (resultInt64.Length == 1)
-		//	{
-		//		formattedValueType = ExtractedValueType.Int64;
-		//		return resultInt64[0];
-		//	}
-		//	else
-		//	{
-		//		formattedValueType = ExtractedValueType.Int64Array;
+        //		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
+        //		// Perhaps find some way to raise the visibility of this by noting it once per application run.
+        //		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type System.UInt16[] rather than the usual System.UInt16. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
+        //		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
+        //		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
+        //		return null;
+        //	}
+        //}
 
-		//		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
-		//		// Perhaps find some way to raise the visibility of this by noting it once per application run.
-		//		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type System.Int64[] rather than the usual System.Int64. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
-		//		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
-		//		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
-		//		return null;
-		//	}
-		//}
+        //private string ExtractPropertyValueString(ref ExtractedValueType formattedValueType)
+        //{
+        //	formattedValueType = ExtractedValueType.String;
 
-		//private object ExtractPropertyValueUnsignedInt(ref ExtractedValueType formattedValueType)
-		//{
-		//	System.Int64[] resultInt64 = new System.Int64[this._propItem.Len / NUM_BYTES_PER_32_BIT_INT];
-		//	for (int i = 0; i < resultInt64.Length; i++)
-		//	{
-		//		try
-		//		{
-		//			resultInt64[i] = Convert.ToInt64(BitConverter.ToUInt32(this._propItem.Value, i * NUM_BYTES_PER_32_BIT_INT));
-		//		}
-		//		catch (ArgumentNullException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Int64;
-		//			return Convert.ToInt64(0);
-		//		}
-		//		catch (ArgumentOutOfRangeException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Int64;
-		//			return Convert.ToInt64(0);
-		//		}
-		//	}
+        //	if (this._propItem.Value == null)
+        //		return String.Empty;
 
-		//	if (resultInt64.Length == 1)
-		//	{
-		//		formattedValueType = ExtractedValueType.Int64;
-		//		return resultInt64[0];
-		//	}
-		//	else
-		//	{
-		//		formattedValueType = ExtractedValueType.Int64Array;
+        //	// Do not use ASCII decoding because it can't handle UTF8-encoded data, which is fairly common.
+        //	// See http://stackoverflow.com/questions/19284205/safe-to-use-utf8-decoding-for-exif-property-marked-as-ascii
+        //	return _utf8Encoding.GetString(this._propItem.Value);
+        //}
 
-		//		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
-		//		// Perhaps find some way to raise the visibility of this by noting it once per application run.
-		//		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type System.UInt32[] rather than the usual System.UInt32. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
-		//		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
-		//		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
-		//		return null;
-		//	}
-		//}
+        //private string ExtractPropertyValueByte(ref ExtractedValueType formattedValueType)
+        //{
+        //	formattedValueType = ExtractedValueType.String;
 
-		//private object ExtractPropertyValueUnsignedShort(ref ExtractedValueType formattedValueType)
-		//{
-		//	System.Int64[] resultInt64 = new System.Int64[this._propItem.Len / NUM_BYTES_PER_16_BIT_INT];
-		//	for (int i = 0; i < resultInt64.Length; i++)
-		//	{
-		//		try
-		//		{
-		//			resultInt64[i] = Convert.ToInt64(BitConverter.ToUInt16(this._propItem.Value, i * NUM_BYTES_PER_16_BIT_INT));
-		//		}
-		//		catch (ArgumentNullException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Int64;
-		//			return Convert.ToInt64(0);
-		//		}
-		//		catch (ArgumentOutOfRangeException)
-		//		{
-		//			formattedValueType = ExtractedValueType.Int64;
-		//			return Convert.ToInt64(0);
-		//		}
-		//	}
+        //	if (this._propItem.Value == null)
+        //		return String.Empty;
 
-		//	if (resultInt64.Length == 1)
-		//	{
-		//		formattedValueType = ExtractedValueType.Int64;
-		//		return resultInt64[0];
-		//	}
-		//	else
-		//	{
-		//		formattedValueType = ExtractedValueType.Int64Array;
+        //	if (this._propItem.Value.Length == 1)
+        //	{
+        //		return this._propItem.Value[0].ToString(CultureInfo.InvariantCulture);
+        //	}
+        //	else
+        //	{
+        //		return _unicodeEncoding.GetString(this._propItem.Value);
+        //	}
+        //}
 
-		//		// Comment out, since it causes a huge performance hit when synchronizing files that contain this type of metadata item.
-		//		// Perhaps find some way to raise the visibility of this by noting it once per application run.
-		//		//string msg = String.Format(CultureInfo.CurrentCulture, "Discovered an Exif metadata item named {0} that is of type System.UInt16[] rather than the usual System.UInt16. Gallery Server cannot process this metadata and will discard it. One may want to modify Gallery Server to handle this data type.", this.RawMetadataItemName);
-		//		//ErrorHandler.CustomExceptions.BusinessException ex = new ErrorHandler.CustomExceptions.BusinessException(msg);
-		//		//ErrorHandler.Error.Record(ex, int.MinValue, Factory.LoadGallerySettings(), AppSetting.Instance);
-		//		return null;
-		//	}
-		//}
-
-		//private string ExtractPropertyValueString(ref ExtractedValueType formattedValueType)
-		//{
-		//	formattedValueType = ExtractedValueType.String;
-
-		//	if (this._propItem.Value == null)
-		//		return String.Empty;
-
-		//	// Do not use ASCII decoding because it can't handle UTF8-encoded data, which is fairly common.
-		//	// See http://stackoverflow.com/questions/19284205/safe-to-use-utf8-decoding-for-exif-property-marked-as-ascii
-		//	return _utf8Encoding.GetString(this._propItem.Value);
-		//}
-
-		//private string ExtractPropertyValueByte(ref ExtractedValueType formattedValueType)
-		//{
-		//	formattedValueType = ExtractedValueType.String;
-
-		//	if (this._propItem.Value == null)
-		//		return String.Empty;
-
-		//	if (this._propItem.Value.Length == 1)
-		//	{
-		//		return this._propItem.Value[0].ToString(CultureInfo.InvariantCulture);
-		//	}
-		//	else
-		//	{
-		//		return _unicodeEncoding.GetString(this._propItem.Value);
-		//	}
-		//}
-
-		#endregion
-	}
+        #endregion
+    }
 }

@@ -52,9 +52,9 @@ namespace GalleryServer.Web.Api
             // GET /api/mediaitems/get/4
             try
             {
-                var settings = new AddMediaObjectSettings {AlbumId = 2, CurrentUserName = "Admin", DiscardOriginalFile = false, FileName = "Koala.jpg", FileNameOnServer = "Koala.jpg" };
+                //var settings = new AddMediaObjectSettings { AlbumId = 2, CurrentUserName = "Admin", DiscardOriginalFile = false, FileName = "Desert.jpg", FileNameOnServer = "Desert.jpg" };
 
-                var results = await _galleryObjectController.AddMediaObject(settings);
+                //var results = await _galleryObjectController.AddMediaObject(settings);
 
                 IGalleryObject mediaObject = Factory.LoadMediaObjectInstance(id);
                 SecurityManager.ThrowIfUserNotAuthorized(SecurityActions.ViewAlbumOrMediaObject, await _userController.GetGalleryServerRolesForUser(), mediaObject.Parent.Id, mediaObject.GalleryId, _userController.IsAuthenticated, mediaObject.Parent.IsPrivate, ((IAlbum)mediaObject.Parent).IsVirtualAlbum);
