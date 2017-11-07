@@ -158,6 +158,16 @@ namespace GalleryServer.Web.Api
             _streamController.SetMedia(id, dt);
 
             return File(await _streamController.GetStream(), _streamController.ContentType);
+
+            //FYI: Here is how ASP.NET Core calculates etag (https://andrewlock.net/adding-cache-control-headers-to-static-files-in-asp-net-core/)
+            //_length = _fileInfo.Length;
+
+            //DateTimeOffset last = _fileInfo.LastModified;
+            //// Truncate to the second.
+            //_lastModified = new DateTimeOffset(last.Year, last.Month, last.Day, last.Hour, last.Minute, last.Second, last.Offset).ToUniversalTime();
+
+            //long etagHash = _lastModified.ToFileTime() ^ _length;
+            //_etag = new EntityTagHeaderValue('\"' + Convert.ToString(etagHash, 16) + '\"');
         }
 
         /// <summary>
