@@ -2,7 +2,6 @@ using GalleryServer.Business.Interfaces;
 using GalleryServer.Business.Metadata;
 using GalleryServer.Events;
 using System;
-using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 
@@ -208,24 +207,24 @@ namespace GalleryServer.Business
             return thumbnailImageIsMissing;
         }
 
-        /// <summary>
-        /// Determine name of new file and ensure it is unique in the directory. (Example: If original = puppy.jpg,
-        /// thumbnail = zThumb_puppy.jpg)
-        /// </summary>
-        /// <param name="thumbnailPath">The path to the directory where the thumbnail file is to be created.</param>
-        /// <param name="imgFormat">The image format of the thumbnail.</param>
-        /// <param name="filenamePrefix">A string to prepend to the filename. Example: "zThumb_"</param>
-        /// <returns>
-        /// Returns the name of the new thumbnail file name and ensure it is unique in the directory.
-        /// </returns>
-        private string GenerateNewFilename(string thumbnailPath, ImageFormat imgFormat, string filenamePrefix)
-        {
-            string nameWithoutExtension = Path.GetFileNameWithoutExtension(GalleryObject.Original.FileInfo.Name);
-            string thumbnailFilename = String.Format(CultureInfo.CurrentCulture, "{0}{1}.{2}", filenamePrefix, nameWithoutExtension, imgFormat.ToString().ToLower(CultureInfo.CurrentCulture));
+        ///// <summary>
+        ///// Determine name of new file and ensure it is unique in the directory. (Example: If original = puppy.jpg,
+        ///// thumbnail = zThumb_puppy.jpg)
+        ///// </summary>
+        ///// <param name="thumbnailPath">The path to the directory where the thumbnail file is to be created.</param>
+        ///// <param name="imgFormat">The image format of the thumbnail.</param>
+        ///// <param name="filenamePrefix">A string to prepend to the filename. Example: "zThumb_"</param>
+        ///// <returns>
+        ///// Returns the name of the new thumbnail file name and ensure it is unique in the directory.
+        ///// </returns>
+        //private string GenerateNewFilename(string thumbnailPath, ImageFormat imgFormat, string filenamePrefix)
+        //{
+        //    string nameWithoutExtension = Path.GetFileNameWithoutExtension(GalleryObject.Original.FileInfo.Name);
+        //    string thumbnailFilename = String.Format(CultureInfo.CurrentCulture, "{0}{1}.{2}", filenamePrefix, nameWithoutExtension, imgFormat.ToString().ToLower(CultureInfo.CurrentCulture));
 
-            thumbnailFilename = HelperFunctions.ValidateFileName(thumbnailPath, thumbnailFilename);
+        //    thumbnailFilename = HelperFunctions.ValidateFileName(thumbnailPath, thumbnailFilename);
 
-            return thumbnailFilename;
-        }
+        //    return thumbnailFilename;
+        //}
     }
 }
