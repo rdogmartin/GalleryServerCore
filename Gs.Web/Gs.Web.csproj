@@ -6,10 +6,40 @@
     <RootNamespace>GalleryServer.Web</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="angular\index.html" />
+    <Compile Remove="wwwroot\gs\mediaobjects\**" />
+    <Content Remove="wwwroot\gs\mediaobjects\**" />
+    <EmbeddedResource Remove="wwwroot\gs\mediaobjects\**" />
+    <None Remove="wwwroot\gs\mediaobjects\**" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="angular\3rdpartylicenses.txt" />
+    <None Remove="angular\favicon.ico" />
+    <None Remove="angular\index.html" />
+    <None Remove="angular\inline.8b7c9827d9d5f9ddf0ff.bundle.js" />
+    <None Remove="angular\main.799a33e8f36a041443ce.bundle.js" />
+    <None Remove="angular\polyfills.ad37cd45a71cb38eee76.bundle.js" />
+    <None Remove="angular\styles.d41d8cd98f00b204e980.bundle.css" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="angular\3rdpartylicenses.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="angular\favicon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="angular\index.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="angular\inline.8b7c9827d9d5f9ddf0ff.bundle.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="angular\main.799a33e8f36a041443ce.bundle.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="angular\polyfills.ad37cd45a71cb38eee76.bundle.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="angular\styles.d41d8cd98f00b204e980.bundle.css">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -27,5 +57,8 @@
     <ProjectReference Include="..\Gs.Business.Interfaces\Gs.Business.Interfaces.csproj" />
     <ProjectReference Include="..\Gs.Business\Gs.Business.csproj" />
     <ProjectReference Include="..\Gs.Events\Gs.Events.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="wwwroot\gs\" />
   </ItemGroup>
 </Project>

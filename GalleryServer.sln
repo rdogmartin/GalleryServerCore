@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26730.16
+VisualStudioVersion = 15.0.27004.2006
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gs.Web", "Gs.Web\Gs.Web.csproj", "{4F44BDBA-3EF0-4492-9CCD-174C1BE899D4}"
 EndProject
@@ -11,7 +11,28 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gs.Business.Interfaces", "G
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gs.Events", "Gs.Events\Gs.Events.csproj", "{24DA60D3-1AEE-488D-B485-C43416A6B3DC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gs.Business", "Gs.Business\Gs.Business.csproj", "{6563D134-64D3-47C7-9C2A-41F34AEC5FD5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gs.Business", "Gs.Business\Gs.Business.csproj", "{6563D134-64D3-47C7-9C2A-41F34AEC5FD5}"
+EndProject
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "Gs.WebClient", "Gs.WebClient\", "{DE9B690D-42D9-487F-90F5-DFF453273D3F}"
+	ProjectSection(WebsiteProperties) = preProject
+		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.0"
+		Debug.AspNetCompiler.VirtualPath = "/localhost_30863"
+		Debug.AspNetCompiler.PhysicalPath = "Gs.WebClient\"
+		Debug.AspNetCompiler.TargetPath = "PrecompiledWeb\localhost_30863\"
+		Debug.AspNetCompiler.Updateable = "true"
+		Debug.AspNetCompiler.ForceOverwrite = "true"
+		Debug.AspNetCompiler.FixedNames = "false"
+		Debug.AspNetCompiler.Debug = "True"
+		Release.AspNetCompiler.VirtualPath = "/localhost_30863"
+		Release.AspNetCompiler.PhysicalPath = "Gs.WebClient\"
+		Release.AspNetCompiler.TargetPath = "PrecompiledWeb\localhost_30863\"
+		Release.AspNetCompiler.Updateable = "true"
+		Release.AspNetCompiler.ForceOverwrite = "true"
+		Release.AspNetCompiler.FixedNames = "false"
+		Release.AspNetCompiler.Debug = "False"
+		VWDPort = "30863"
+		SlnRelativePath = "Gs.WebClient\"
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +60,10 @@ Global
 		{6563D134-64D3-47C7-9C2A-41F34AEC5FD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6563D134-64D3-47C7-9C2A-41F34AEC5FD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6563D134-64D3-47C7-9C2A-41F34AEC5FD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE9B690D-42D9-487F-90F5-DFF453273D3F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE9B690D-42D9-487F-90F5-DFF453273D3F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE9B690D-42D9-487F-90F5-DFF453273D3F}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE9B690D-42D9-487F-90F5-DFF453273D3F}.Release|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
