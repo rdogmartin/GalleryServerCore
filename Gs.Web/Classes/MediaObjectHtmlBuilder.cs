@@ -391,15 +391,17 @@ namespace GalleryServer.Web
         /// <returns>Gets the absolute URL to the gallery object.</returns>
         public string GetMediaObjectUrl()
         {
-            var queryString = String.Format(CultureInfo.InvariantCulture, "moid={0}&dt={1}&g={2}", MediaObjectId, (int)DisplayType, GalleryObject.GalleryId);
+            return $"{HostUrl}{GalleryRoot}/api/mediaitems/file/{MediaObjectId}?dt={(int) DisplayType}";
 
-            // If necessary, encrypt, then URL encode the query string.
-            if (AppSetting.Instance.EncryptMediaObjectUrlOnClient)
-            {
-                queryString = UrlEncode(HelperFunctions.Encrypt(queryString));
-            }
+            //var queryString = String.Format(CultureInfo.InvariantCulture, "moid={0}&dt={1}&g={2}", MediaObjectId, (int)DisplayType, GalleryObject.GalleryId);
 
-            return String.Concat(HostUrl, GalleryRoot, "/handler/getmedia.ashx?", queryString);
+            //// If necessary, encrypt, then URL encode the query string.
+            //if (AppSetting.Instance.EncryptMediaObjectUrlOnClient)
+            //{
+            //    queryString = UrlEncode(HelperFunctions.Encrypt(queryString));
+            //}
+
+            //return String.Concat(HostUrl, GalleryRoot, "/handler/getmedia.ashx?", queryString);
         }
 
         /// <summary>

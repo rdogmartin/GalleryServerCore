@@ -1,0 +1,32 @@
+<div *ngIf="false">
+  <p>Current URL is: <code>{{location?.path() | json}}</code></p>
+  <p>{{ albumService | json }}</p>
+  <p>{{ galleryData | json }}</p>
+  <p>ID: {{ galleryData?.album.id }}</p>
+  <p>Title: {{ galleryData?.album.title }}</p>
+</div>
+
+<div class="gsp_abm_sum">
+  <div class="gsp_abm_sum_col2">
+      <p class="gsp_abm_sum_col2_row1">({{galleryData?.album.numGalleryItems}} items)</p>
+  </div>
+  <p class="gsp_abm_sum_col1_row1">
+      <span class="gsp_abm_sum_col1_row1_hdr">Album:</span>
+      <span class="gsp_abm_sum_col1_row1_dtl">{{galleryData?.album.title}}</span>
+  </p>
+  <div class="gsp_abm_sum_col1_row2">
+      <span class="gsp_abm_sum_col1_row2_hdr"></span>
+      <span class="gsp_abm_sum_col1_row2_dtl">{{galleryData?.album.caption}}</span>
+  </div>
+</div>
+
+<ul class="gsp_floatcontainer gsp_abm_thmbs">
+  <li *ngFor="let gItem of galleryData?.album.galleryItems" class="thmb" [class.album]="gItem.isAlbum" [ngStyle]="{'width.px': gItem.views[gItem.viewIndex].width + 40}" [attr.data-id]="gItem.id" [attr.data-it]="gItem.itemType">
+      <a class="gsp_thmbLink" href="{{ getGalleryItemUrl(gItem) }}">
+          <img class="gsp_thmb_img" [ngStyle]="{'width.px': gItem.views[gItem.viewIndex].width,'height.px': gItem.views[gItem.viewIndex].height}" src="{{gItem.views[gItem.viewIndex].url}}" alt="">
+      </a>
+      <p class="gsp_go_t">{{gItem.title}}</p>
+  </li>
+
+</ul>
+<!--<img class="gsp_thmb_img" [style.width]="galleryItem.Views[galleryItem.ViewIndex].Width + 'px'" [style.height]="galleryItem.Views[galleryItem.ViewIndex].Height + 'px'" src="{{galleryItem.Views[galleryItem.ViewIndex].Url}}" alt="">-->

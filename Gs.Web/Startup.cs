@@ -128,6 +128,8 @@ namespace Gs.Web
                 app.UseExceptionHandler("/Error");
             }
 
+            app.UseCors(builder => builder.AllowAnyOrigin()); // https://docs.microsoft.com/en-us/aspnet/core/security/cors
+
             app.UseStaticFiles(); // For the wwwroot folder
 
             // Map the 'angular' directory to the /a path in the URL and serve static content out of it. We could have instead called UseStaticFiles & UseDefaultFiles.
@@ -160,8 +162,6 @@ namespace Gs.Web
                 var appController = scope.ServiceProvider.GetRequiredService<AppController>();
                 Task.Run(() => appController.InitializeGspApplication()).Wait();
             }
-
-            //app.UseCors(builder => builder.AllowAnyOrigin()); // https://docs.microsoft.com/en-us/aspnet/core/security/cors
         }
     }
 }
